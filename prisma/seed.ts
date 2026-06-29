@@ -84,7 +84,9 @@ async function main() {
   }
 
   // 3) Evento de exemplo — keyed por subdomain unico.
+  // Horario fixo (20:30 local) para a demo nao herdar o relogio atual.
   const eventDate = new Date(Date.now() + 60 * DAY_MS);
+  eventDate.setHours(20, 30, 0, 0);
   const expiresAt = new Date(eventDate.getTime() + 30 * DAY_MS);
   const quinzeTemplateId = templatesByNicho.get(EventType.QUINZE_ANOS)!;
 
@@ -106,8 +108,11 @@ async function main() {
       { hora: "00h30", titulo: "Pista" },
     ],
     fotoUrl: "/exemplo/aniversariante.jpg",
+    fotoDesktopUrl: "/exemplo/retrato.jpg",
     pixNome: "Maria Clara Martins Albernaz",
     pixChave: "maria.clara@email.com",
+    // Preset de cor do site (porta a HOME "festa"; "rose" = paleta original).
+    tema: "rose",
   };
 
   const event = await prisma.event.upsert({
@@ -193,6 +198,25 @@ async function main() {
       mode: GiftMode.PIX,
     },
   });
+
+  // 6) Album de exemplo (carrossel/galeria da home "festa") — keyed por id
+  //    deterministico, ordenado. Fotos copiadas em public/exemplo/.
+  const fotosDemo = [
+    "/exemplo/sel-05305.jpg",
+    "/exemplo/sel-05758.jpg",
+    "/exemplo/sel-05112.jpg",
+    "/exemplo/sel-05446.jpg",
+    "/exemplo/sel-05556.jpg",
+    "/exemplo/sel-05377.jpg",
+  ];
+  for (let i = 0; i < fotosDemo.length; i++) {
+    const id = `photo-demo-${i + 1}`;
+    await prisma.photo.upsert({
+      where: { id },
+      update: { eventId: event.id, url: fotosDemo[i], order: i },
+      create: { id, eventId: event.id, url: fotosDemo[i], order: i },
+    });
+  }
 
   // Resumo.
   const [professionals, templates, events, guests, gifts] = await Promise.all([

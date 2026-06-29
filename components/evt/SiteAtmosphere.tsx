@@ -1,0 +1,42 @@
+import { Particles } from "@/components/evt/Particles";
+
+/**
+ * SiteAtmosphere — atmosfera global do site: a foto da capa BEM clarinha (blur
+ * leve) + particulas, fixas atras de tudo (z-[-1]). As paginas usam superficies
+ * translucidas para a foto/particulas aparecerem suavemente (clima do convite).
+ *
+ * `fotoUrl` = foto de fundo (a mesma da capa). `particleColors` re-tinge as
+ * faiscas por tema (default = trio do festa).
+ */
+export function SiteAtmosphere({
+  fotoUrl,
+  particleColors,
+}: {
+  fotoUrl?: string;
+  particleColors?: string[];
+}) {
+  return (
+    <>
+      <div
+        className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden bg-white"
+        aria-hidden
+      >
+        {/* Foto de fundo com desfoque LEVE (reconhecivel mas suave). Escala 150%
+            p/ o blur nao mostrar borda (o pai tem overflow-hidden). */}
+        {fotoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={fotoUrl}
+            alt=""
+            className="absolute left-1/2 top-1/2 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2 object-cover object-[50%_16%]"
+            style={{ filter: "blur(60px) grayscale(0.12) sepia(0.06)", opacity: 0.25 }}
+          />
+        )}
+        {/* tinta do tema muito sutil + veu branco forte p/ manter os textos legiveis */}
+        <div className="absolute inset-0 bg-evt-rosa/[0.05] mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/78 to-white/88" />
+      </div>
+      <Particles className="z-[-1]" colors={particleColors} />
+    </>
+  );
+}

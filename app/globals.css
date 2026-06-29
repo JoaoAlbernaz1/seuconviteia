@@ -1834,3 +1834,248 @@ body {
     transform: none;
   }
 }
+
+/* ============================================================
+ * Site publico do evento — escopo `.evt` (PORT do festa-15-maria-clara)
+ * Replica FIEL da HOME "festa". Tematizavel por PRESET de cor: os tokens
+ * Tailwind namespaced `evt-` apontam para variaveis de runtime `--ev-*`
+ * (setadas no wrapper `.evt` via `lib/temas.ts#varsDoTema`), e as fontes
+ * `evt-*` para as variaveis do next/font (Milton/Vogue/Cormorant/Jost).
+ * Trocar os `--ev-*` re-tinge TODO o site. NAO toca em @theme/:root/.mkt/.cv.
+ * ============================================================ */
+@theme inline {
+  /* Cores — namespaced evt-, apontam p/ as vars de runtime do preset. */
+  --color-evt-ink: var(--ev-ink);
+  --color-evt-ink-soft: var(--ev-ink-soft);
+  --color-evt-rosa: var(--ev-rosa);
+  --color-evt-rosa-ink: var(--ev-rosa-ink);
+  --color-evt-rose: var(--ev-rose);
+  --color-evt-blush: var(--ev-blush);
+  --color-evt-blush-soft: var(--ev-blush-soft);
+  --color-evt-blush-section: var(--ev-blush-section);
+  --color-evt-framboesa: var(--ev-framboesa);
+  --color-evt-framboesa-deep: var(--ev-framboesa-deep);
+  --color-evt-framboesa-bright: var(--ev-framboesa-bright);
+  --color-evt-ivory: var(--ev-ivory);
+
+  /* Fontes — apontam p/ as variaveis do next/font (setadas no wrapper .evt). */
+  --font-evt-script: var(--font-milton);
+  --font-evt-display: var(--font-vogue);
+  --font-evt-body: var(--font-cormorant);
+  --font-evt-util: var(--font-jost);
+}
+
+/* Raio dos cards (token --radius-card do festa, restaurado no escopo .evt). */
+.evt {
+  --radius-card: 14px;
+}
+
+/* ── Helpers de fonte (mapeiam as vars do next/font, c/ fallback) ──────────── */
+.evt .font-evt-script {
+  font-family: var(--font-milton), "Pinyon Script", cursive !important;
+}
+.evt .font-evt-display {
+  font-family: var(--font-vogue), "Cormorant Garamond", serif !important;
+}
+.evt .font-evt-body {
+  font-family: var(--font-cormorant), "Cormorant Garamond", serif !important;
+}
+.evt .font-evt-util {
+  font-family: var(--font-jost), ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* ── CTA "Confirmar presenca" — botao hero com efeitos (pedido do Joao) ────── */
+.evt .cta-confirmar {
+  background-image: linear-gradient(
+    120deg,
+    var(--ev-framboesa-bright) 0%,
+    var(--ev-framboesa) 48%,
+    var(--ev-framboesa-deep) 100%
+  );
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: evtCtaGlow 3s ease-in-out infinite;
+}
+.evt .cta-confirmar:hover {
+  transform: translateY(-4px) scale(1.03);
+}
+.evt .cta-confirmar:active {
+  transform: translateY(0) scale(1);
+}
+.evt .cta-shine::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
+  transform: skewX(-18deg);
+  transition: left 0.8s ease;
+}
+.evt .cta-confirmar:hover .cta-shine::before {
+  left: 135%;
+}
+@keyframes evtCtaGlow {
+  0%,
+  100% {
+    box-shadow: 0 16px 42px -18px color-mix(in srgb, var(--ev-framboesa) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 22px 58px -14px color-mix(in srgb, var(--ev-framboesa) 90%, transparent);
+  }
+}
+
+/* ── Eyebrow / kicker editorial — caixa-alta, tracking largo ───────────────── */
+.evt .eyebrow {
+  font-family: var(--font-jost);
+  font-size: 0.66rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+}
+
+/* ── Hairline — filete fino reutilizavel ───────────────────────────────────── */
+.evt .hairline {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+}
+.evt .hairline-rosa {
+  height: 1px;
+  border: 0;
+  background: var(--ev-rosa);
+  opacity: 0.7;
+}
+
+/* ── Drop-cap — capitular na declaracao do convite ─────────────────────────── */
+.evt .drop-cap::first-letter {
+  font-family: var(--font-vogue);
+  float: left;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 0.72;
+  font-size: 4.2em;
+  padding-right: 0.09em;
+  margin-top: 0.06em;
+  color: var(--ev-rosa);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOTION — discricao e premium. Tudo instantaneo sob reduced-motion.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Reveal ao rolar — estado inicial discreto; <Reveal> seta data-shown ao entrar. */
+.evt [data-reveal] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.evt [data-reveal][data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Entrada orquestrada (1x no load). */
+@keyframes evtFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.evt .fade-up {
+  opacity: 0;
+  animation: evtFadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--fade-delay, 0ms);
+}
+
+/* Scroll-cue do hero — pulsa delicadamente para baixo. */
+@keyframes evtScrollCue {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateY(5px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .evt .scroll-cue {
+    animation: evtScrollCue 2.4s ease-in-out infinite;
+  }
+}
+
+/* ── Parallax suave (neutro sem JS) ────────────────────────────────────────── */
+.evt .parallax {
+  will-change: transform;
+  transform: translate3d(0, var(--parallax-y, 0px), 0);
+}
+.evt .parallax-soft {
+  will-change: transform;
+  transform: translate3d(0, var(--parallax-y-soft, 0px), 0);
+}
+
+/* ── Underline animada para links de texto ─────────────────────────────────── */
+.evt .link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.evt .link-underline:hover,
+.evt .link-underline:focus-visible {
+  background-size: 100% 1px;
+}
+
+/* Respeito total a quem pede menos movimento (allow-list curada igual ao festa). */
+@media (prefers-reduced-motion: reduce) {
+  .evt *,
+  .evt *::before,
+  .evt *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* PERMITIDOS — fade do reveal + glow/hover/sheen do CTA (movimento suave). */
+  .evt [data-reveal] {
+    transform: none !important;
+    transition: opacity 0.7s ease !important;
+    transition-delay: var(--reveal-delay, 0ms) !important;
+  }
+  .evt .cta-confirmar {
+    animation: evtCtaGlow 3s ease-in-out infinite !important;
+  }
+  .evt .cta-confirmar:hover {
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .evt .cta-shine::before {
+    transition: left 0.8s ease !important;
+  }
+  /* SUPRIMIDOS — movimento de verdade (parallax, Ken Burns, loops, scroll-cue). */
+  .evt .fade-up {
+    opacity: 1;
+    animation: none;
+  }
+  .evt .scroll-cue {
+    animation: none;
+  }
+  .evt .parallax,
+  .evt .parallax-soft {
+    transform: none !important;
+  }
+}
