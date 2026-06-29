@@ -100,3 +100,16 @@ export function resolveSubdomain(
 
   return label;
 }
+
+/**
+ * Monta a URL publica de um evento a partir do seu subdominio e do `rootDomain`.
+ * Em dev (root contendo `localhost`) usa `http://`; em producao usa `https://`.
+ *
+ * @example
+ *   eventPublicUrl("ana", "localhost:3000")   // "http://ana.localhost:3000"
+ *   eventPublicUrl("ana", "seuconviteia.com") // "https://ana.seuconviteia.com"
+ */
+export function eventPublicUrl(subdomain: string, rootDomain: string): string {
+  const protocol = rootDomain.includes("localhost") ? "http" : "https";
+  return `${protocol}://${subdomain}.${rootDomain}`;
+}

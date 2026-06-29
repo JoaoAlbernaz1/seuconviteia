@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveSubdomain, slugify } from "./tenant";
+import { eventPublicUrl, resolveSubdomain, slugify } from "./tenant";
 
 const ROOT = "seuconviteia.com";
 
@@ -66,5 +66,19 @@ describe("slugify", () => {
   it("retorna string vazia quando nao ha caractere valido", () => {
     expect(slugify("!!!")).toBe("");
     expect(slugify("")).toBe("");
+  });
+});
+
+describe("eventPublicUrl", () => {
+  it("usa http em dev (localhost)", () => {
+    expect(eventPublicUrl("ana", "localhost:3000")).toBe(
+      "http://ana.localhost:3000",
+    );
+  });
+
+  it("usa https em producao", () => {
+    expect(eventPublicUrl("ana", "seuconviteia.com")).toBe(
+      "https://ana.seuconviteia.com",
+    );
   });
 });

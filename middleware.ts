@@ -7,7 +7,8 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
  * Roteamento de tenant por subdominio.
  *
  *  - dominio raiz / `www` / host externo -> `next()` (site de marketing).
- *  - `app.<root>`                         -> rewrite p/ `/painel` (painel do profissional).
+ *  - `app.<root>` (raiz)                  -> rewrite p/ `/painel`; demais paths do
+ *                                            painel (`/entrar`, `/cadastrar`, ...) seguem.
  *  - reservados de infra (`api`/`admin`/`send`) -> `next()`.
  *  - `<slug>.<root>` (evento)             -> rewrite p/ `/_sites/<slug>` (site publico).
  *
@@ -35,8 +36,14 @@ export function middleware(req: NextRequest) {
   }
 
   // Painel do profissional (`app.<root>`).
+  // So a raiz (`app.<root>/`) vai para `/painel`; os demais paths do painel
+  // (`/entrar`, `/cadastrar`, `/painel/novo`, ...) seguem como estao, ja que o
+  // grupo de rota `(dashboard)` os serve nesses mesmos caminhos.
   if (label === "app") {
-    return rewriteTo(req, "/painel");
+    if (req.nextUrl.pathname === "/") {
+      return rewriteTo(req, "/painel");
+    }
+    return NextResponse.next();
   }
 
   // Outros labels reservados (`api`, `admin`, `send`) -> segue normal.
