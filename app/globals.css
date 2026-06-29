@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/*
+ * SeuConvite IA — design tokens (paleta turquesa + roxo).
+ * Os tokens abaixo geram utilitarios do Tailwind v4: bg-ink, text-violeta,
+ * bg-nevoa, text-texto-suave, font-display, font-sans, etc.
+ * Usamos `@theme inline` para que as variaveis de fonte do next/font
+ * (definidas no <html>) sejam resolvidas corretamente nas utilities.
+ */
+@theme inline {
+  /* Cores da marca */
+  --color-ink: #0f172a; /* texto / estrutura */
+  --color-turquesa: #2de2e6; /* simbolo / acento vivo */
+  --color-teal: #0ea5a6; /* acento de apoio */
+  --color-violeta: #6d28d9; /* CTA / acento principal */
+  --color-nevoa: #f1f5f9; /* fundo */
+  --color-lilas: #ede9fe; /* superficies */
+  --color-texto-suave: #64748b; /* texto secundario */
+
+  /* Fontes (mapeadas para as variaveis do next/font no <html>) */
+  --font-display: var(--font-fraunces); /* Fraunces - titulos */
+  --font-sans: var(--font-sora); /* Sora - marca / UI / corpo */
+}
+
+:root {
+  /* Gradiente "faisca" para o simbolo e acentos (fundos, icones). */
+  --grad-faisca: linear-gradient(135deg, #2de2e6 0%, #0ea5a6 50%, #6d28d9 100%);
+  /* Gradiente para TEXTO sobre fundo claro (ex.: o "ia" do logo).
+     Turquesa puro tem baixo contraste em texto, por isso comeca no teal. */
+  --grad-texto: linear-gradient(90deg, #0ea5a6, #6d28d9);
+}
+
+@layer utilities {
+  /* Aplica o gradiente de texto (usar no "ia" do wordmark, destaques). */
+  .text-gradient {
+    background: var(--grad-texto);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+body {
+  background: var(--color-nevoa, #f1f5f9);
+  color: var(--color-ink, #0f172a);
+  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
