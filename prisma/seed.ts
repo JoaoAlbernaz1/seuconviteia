@@ -113,7 +113,7 @@ async function main() {
   const event = await prisma.event.upsert({
     where: { subdomain: "maria-clara" },
     update: {
-      title: "15 anos da Maria Clara",
+      title: "Maria Clara",
       professionalId: professional.id,
       templateId: quinzeTemplateId,
       type: EventType.QUINZE_ANOS,
@@ -128,7 +128,7 @@ async function main() {
       templateId: quinzeTemplateId,
       type: EventType.QUINZE_ANOS,
       subdomain: "maria-clara",
-      title: "15 anos da Maria Clara",
+      title: "Maria Clara",
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,

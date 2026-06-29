@@ -45,6 +45,7 @@ export default async function EventSitePage({
       gating={gating}
       whiteLabel={event.whiteLabel}
       marca={marca}
+      eventId={event.id}
     />
   );
 }

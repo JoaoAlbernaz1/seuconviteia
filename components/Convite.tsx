@@ -1,11 +1,16 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ConviteConteudo } from "@/lib/convite";
 import type { SecoesPlano } from "@/lib/plans";
+import { Atmosphere } from "@/components/event/Atmosphere";
+import { CoverCinematic } from "@/components/event/CoverCinematic";
+import { Countdown } from "@/components/event/Countdown";
+import { RsvpForm } from "@/components/event/RsvpForm";
 
-// Suite de convite editorial (tema claro, marfim) — Server Component, sem JS.
-// Todo o tema deriva de --accent (conteudo.accent); cada secao some sozinha
-// quando seus dados estao vazios. Revelacoes sao CSS-only e respeitam
-// prefers-reduced-motion (ver o bloco `.cv` em app/globals.css).
+// Site publico do evento — replica a estetica cinematografica do
+// festa-15-maria-clara (capa escura + Ken Burns + particulas), porem TEMATIZAVEL
+// pela cor de cada evento (`--accent`) e multi-nicho. A capa e dark; o corpo e
+// editorial claro flutuando sobre a atmosfera. Cada secao some se vazia.
+// Movimento CSS-only, respeita prefers-reduced-motion (ver `.cv` em globals.css).
 
 type Marca = { brandName?: string; name: string };
 
@@ -14,16 +19,24 @@ type ConviteProps = {
   gating: SecoesPlano;
   whiteLabel: boolean;
   marca: Marca;
+  /** Id do evento — alvo do RSVP (server action). */
+  eventId: string;
 };
 
-// pequeno helper p/ stagger das revelacoes (delay inline).
 const delay = (s: number): CSSProperties => ({ animationDelay: `${s}s` });
 
-export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
+export function Convite({
+  conteudo,
+  gating,
+  whiteLabel,
+  marca,
+  eventId,
+}: ConviteProps) {
   const {
     titulo,
     nichoLabel,
     dataLabel,
+    dataISO,
     accent,
     mensagem,
     local,
@@ -37,8 +50,6 @@ export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
     pixChave,
     presentes,
   } = conteudo;
-
-  const temFoto = Boolean(fotoUrl);
 
   // Fatos do evento (cada um some se vazio).
   const fatos: { lbl: string; val: ReactNode }[] = [];
@@ -60,48 +71,20 @@ export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
   const temEvento = fatos.length > 0 || programacao.length > 0;
   const temPresentes = Boolean(pixChave || pixNome || presentes.length > 0);
   const temAlbum = gating.album && fotos.length > 0;
-
-  // Atribuicao: white-label (PREMIUM) credita o profissional; senao, a plataforma.
   const creditaProfissional = whiteLabel && gating.semMarcaPlataforma;
 
   return (
     <div className="cv" style={{ ["--accent" as string]: accent } as CSSProperties}>
-      {/* moldura impressa do convite (keyline) */}
-      <div className="cv-frameline" aria-hidden />
+      <Atmosphere accent={accent} />
 
-      {/* ——— CAPA / HERO ——— */}
-      <header className="cv-shell">
-        <div className={`cv-hero${temFoto ? "" : " cv-hero--solo"}`}>
-          <div className="cv-hero-text">
-            <p className="cv-label cv-reveal" style={delay(0.05)}>
-              {nichoLabel}
-            </p>
-            <h1 className="cv-name cv-reveal" style={delay(0.12)}>
-              {titulo}
-            </h1>
-            <span className="cv-tick cv-reveal" style={delay(0.24)} aria-hidden />
-            {dataLabel && (
-              <p className="cv-date cv-reveal" style={delay(0.3)}>
-                {dataLabel}
-              </p>
-            )}
-            {local && (
-              <p className="cv-when cv-reveal" style={delay(0.36)}>
-                {local}
-              </p>
-            )}
-          </div>
-
-          {temFoto && (
-            <figure className="cv-hero-photo cv-reveal" style={delay(0.18)}>
-              <div className="cv-frame">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={fotoUrl} alt={titulo} />
-              </div>
-            </figure>
-          )}
-        </div>
-      </header>
+      {/* ——— CAPA CINEMATOGRÁFICA ——— */}
+      <CoverCinematic
+        titulo={titulo}
+        nichoLabel={nichoLabel}
+        dataLabel={dataLabel}
+        accent={accent}
+        fotoUrl={fotoUrl}
+      />
 
       {/* ——— MENSAGEM / CONVITE ——— */}
       {mensagem && (
@@ -113,12 +96,12 @@ export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
         </section>
       )}
 
-      {/* ——— EVENTO ——— */}
+      {/* ——— EVENTO + CONTAGEM ——— */}
       {temEvento && (
         <section className="cv-shell cv-section">
-          <div className="cv-reveal">
-            <p className="cv-label">A celebração</p>
-            <h2 className="cv-h2">Onde &amp; quando</h2>
+          <div className="cv-reveal cv-center">
+            <p className="cv-label cv-label--center">A celebração</p>
+            <h2 className="cv-h2">Quando &amp; onde</h2>
           </div>
 
           <div className="cv-event-grid">
@@ -147,8 +130,29 @@ export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
               </div>
             )}
           </div>
+
+          <div className="cv-countdown cv-reveal" style={delay(0.22)}>
+            <p className="cv-label cv-label--center">A contagem já começou</p>
+            <Countdown alvoISO={dataISO} />
+          </div>
         </section>
       )}
+
+      {/* ——— CONFIRMAR PRESENÇA (RSVP) ——— */}
+      <section className="cv-shell cv-section" id="confirmar">
+        <div className="cv-rsvp cv-reveal">
+          <div className="cv-center">
+            <Ornament center />
+            <p className="cv-label cv-label--center">Confirmação</p>
+            <h2 className="cv-h2">Você vem?</h2>
+            <p className="cv-rsvp-lead">
+              Sua presença é o que vai tornar essa noite inesquecível. Conte pra
+              gente até logo.
+            </p>
+          </div>
+          <RsvpForm eventId={eventId} />
+        </div>
+      </section>
 
       {/* ——— PRESENTES ——— */}
       {temPresentes && (
@@ -200,9 +204,9 @@ export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
       {/* ——— ÁLBUM ——— (só com plano que libera + fotos) */}
       {temAlbum && (
         <section className="cv-shell cv-section">
-          <div className="cv-reveal">
+          <div className="cv-reveal cv-center">
             <p className="cv-label cv-label--center">Álbum</p>
-            <h2 className="cv-h2 cv-album-h">Momentos</h2>
+            <h2 className="cv-h2">Momentos</h2>
           </div>
           <div className="cv-album-grid cv-reveal" style={delay(0.1)}>
             {fotos.map((src, i) => (
@@ -217,7 +221,7 @@ export function Convite({ conteudo, gating, whiteLabel, marca }: ConviteProps) {
 
       {/* ——— RODAPÉ ——— */}
       <footer className="cv-shell cv-footer">
-        <div className="cv-reveal">
+        <div className="cv-reveal cv-center">
           <Ornament center />
           <p className="cv-footer-name">{titulo}</p>
           <p className="cv-footer-close">Esperamos por você.</p>

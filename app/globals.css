@@ -821,27 +821,35 @@ body {
 
 /* ============================================================
  * Site publico do evento — escopo `.cv`
- * Suite de convite editorial, tema claro (papel marfim + tinta
- * profunda). TODO o tema deriva de `--accent` (cor do evento,
- * setada inline na raiz `.cv`). Serifa display = Cormorant
- * Garamond (`--font-serif`); corpo/labels = Sora (`--font-sora`).
- * NAO toca em @theme/:root/.mkt nem nos estilos do painel.
+ * Estetica cinematografica editorial (replica do festa-15-maria-clara),
+ * TEMATIZAVEL pela cor de cada evento (`--accent`, setada inline na raiz
+ * `.cv`): capa escura full-bleed com Ken Burns + lockup que sobe, corpo claro
+ * marfim flutuando sobre uma atmosfera de particulas. Multi-nicho.
+ * Display = Fraunces (`--font-display`); corpo = Cormorant (`--font-serif`);
+ * UI/labels = Sora (`--font-sora`). NAO toca em @theme/:root/.mkt nem no painel.
  * Movimento: CSS-only, respeita prefers-reduced-motion.
  * ============================================================ */
 .cv {
   --ink: #2b2421; /* tinta profunda */
-  --ivory: #fbf8f3; /* papel marfim */
-  --paper: #fffdf9; /* papel mais claro (molduras/campos) */
-  --muted: #8a7c6f; /* cinza quente p/ texto secundario */
-  --line: rgba(43, 36, 33, 0.13); /* fio de cabelo neutro */
-  --accent: #6d28d9; /* fallback; sobrescrito inline pelo conteudo */
-  --accent-line: color-mix(in srgb, var(--accent) 34%, transparent);
-  --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--ivory));
+  --muted: #7d6f63; /* cinza quente p/ texto secundario */
+  --ivory: #fbf7f1; /* papel marfim (atmosfera) */
+  --paper: #fffdf9; /* superficie de campos/cards */
+  --line: rgba(43, 36, 33, 0.12); /* fio de cabelo neutro */
 
-  --cv-serif: var(--font-serif), Georgia, "Times New Roman", serif;
+  --accent: #6d28d9; /* fallback; sobrescrito inline pelo conteudo */
+  /* texto na cor do evento, escurecido p/ legibilidade em QUALQUER accent */
+  --accent-ink: color-mix(in srgb, var(--accent) 62%, #2b2421);
+  /* accent claro p/ texto/ornamentos sobre a capa ESCURA */
+  --accent-bright: color-mix(in srgb, var(--accent) 56%, #ffffff);
+  --accent-line: color-mix(in srgb, var(--accent) 30%, transparent);
+  --accent-soft: color-mix(in srgb, var(--accent) 9%, var(--ivory));
+
+  --cv-display: var(--font-display), "Fraunces", Georgia, serif;
+  --cv-serif: var(--font-serif), "Cormorant Garamond", Georgia, serif;
   --cv-body: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
 
   position: relative;
+  isolation: isolate;
   min-height: 100svh;
   background: var(--ivory);
   color: var(--ink);
@@ -853,48 +861,33 @@ body {
   overflow-x: clip;
 }
 
-/* atmosfera: brilho quente da cor do evento, bem sutil */
-.cv::before {
-  content: "";
+/* atmosfera fixa atras de tudo: marfim + wash radial da cor do evento */
+.cv-atmos {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   background:
     radial-gradient(
-      120% 78% at 50% -12%,
-      color-mix(in srgb, var(--accent) 7%, transparent),
-      transparent 58%
+      120% 80% at 50% -8%,
+      color-mix(in srgb, var(--accent) 11%, transparent),
+      transparent 56%
     ),
     radial-gradient(
-      85% 60% at 100% 102%,
-      color-mix(in srgb, var(--accent) 6%, transparent),
+      90% 70% at 100% 104%,
+      color-mix(in srgb, var(--accent) 8%, transparent),
       transparent 55%
-    );
+    ),
+    var(--ivory);
 }
-/* grao de papel — textura premium */
-.cv::after {
+/* grao de papel sutil sobre a atmosfera */
+.cv-atmos::after {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.4;
+  opacity: 0.32;
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-}
-.cv > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* moldura impressa do convite (keyline) emoldurando a viewport */
-.cv-frameline {
-  position: fixed;
-  inset: clamp(9px, 1.9vw, 24px);
-  z-index: 40;
-  pointer-events: none;
-  border: 1px solid var(--accent-line);
 }
 
 /* container + ritmo das secoes */
@@ -905,6 +898,9 @@ body {
 }
 .cv-section {
   padding-block: clamp(56px, 9vw, 116px);
+}
+.cv-center {
+  text-align: center;
 }
 .cv-footer {
   padding-block: clamp(56px, 8vw, 100px);
@@ -921,7 +917,7 @@ body {
   font-size: 0.72rem;
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .cv-label::before {
   content: "";
@@ -939,28 +935,23 @@ body {
   background: var(--accent-line);
 }
 
-/* titulos de secao em serifa */
+/* titulos de secao — Fraunces display */
 .cv-h2 {
-  font-family: var(--cv-serif);
+  font-family: var(--cv-display);
   font-weight: 400;
-  font-size: clamp(1.9rem, 5vw, 3rem);
-  line-height: 1.05;
-  letter-spacing: -0.005em;
-  margin: 0.34em 0 0;
-}
-.cv-album-h {
-  text-align: center;
+  font-size: clamp(2rem, 5.4vw, 3.1rem);
+  line-height: 1.04;
+  letter-spacing: -0.014em;
+  margin: 0.3em 0 0;
 }
 
 /* ornamento (fio + losango) */
 .cv-orn {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: clamp(20px, 3vw, 30px);
-}
-.cv-orn--center {
   justify-content: center;
+  gap: 16px;
+  margin-bottom: clamp(18px, 2.6vw, 26px);
 }
 .cv-orn::before,
 .cv-orn::after {
@@ -974,9 +965,6 @@ body {
 .cv-orn::after {
   background: linear-gradient(90deg, var(--accent-line), transparent);
 }
-.cv-orn:not(.cv-orn--center)::before {
-  display: none;
-}
 .cv-orn i {
   display: block;
   width: 7px;
@@ -986,96 +974,245 @@ body {
   transform: rotate(45deg);
 }
 
-/* ===================== CAPA / HERO ===================== */
-.cv-hero {
-  display: grid;
-  grid-template-columns: 1.04fr 0.96fr;
-  gap: clamp(28px, 5vw, 76px);
-  align-items: center;
-  min-height: min(92svh, 880px);
-  padding-block: clamp(48px, 7vw, 96px);
+/* ===================== CAPA CINEMATOGRÁFICA ===================== */
+.cv-cover {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #160c12; /* base plum-black */
+  color: var(--ivory);
 }
-.cv-hero--solo {
-  grid-template-columns: 1fr;
-  min-height: min(86svh, 760px);
+/* sem foto: gradiente escuro construido a partir do accent */
+.cv-cover--solo {
+  background:
+    radial-gradient(
+      120% 85% at 50% -10%,
+      color-mix(in srgb, var(--accent) 38%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      90% 75% at 50% 118%,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(165deg, color-mix(in srgb, var(--accent) 22%, #0c0a0e), #09080b);
 }
 
-.cv-name {
-  font-family: var(--cv-serif);
-  font-weight: 300;
-  font-size: clamp(3rem, 9.5vw, 7rem);
-  line-height: 0.92;
-  letter-spacing: -0.012em;
-  color: var(--accent);
-  margin: 0.16em 0 0;
-  text-wrap: balance;
+.cv-cover-photo {
+  position: absolute;
+  inset: -4%; /* overscan: o Ken Burns nunca mostra borda */
+  z-index: 0;
+  background-image: var(--cover-photo);
+  background-size: cover;
+  background-position: 50% 24%;
+  transform-origin: 55% 38%;
+  opacity: 0;
+  animation:
+    cv-cover-fade 1.6s cubic-bezier(0.16, 1, 0.3, 1) both,
+    cv-cover-ken 34s ease-in-out 1.6s infinite alternate;
 }
-.cv-tick {
-  display: block;
-  width: 54px;
-  height: 2px;
-  background: var(--accent);
-  margin: clamp(16px, 2.4vw, 22px) 0;
+@media (min-width: 768px) {
+  .cv-cover-photo {
+    background-position: 62% 22%;
+  }
 }
-.cv-hero--solo .cv-name,
-.cv-hero--solo .cv-hero-text {
+
+/* scrims de legibilidade + vinheta sutil na cor do evento */
+.cv-cover-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to top,
+      rgba(8, 6, 9, 0.94) 2%,
+      rgba(8, 6, 9, 0.42) 40%,
+      transparent 74%
+    ),
+    linear-gradient(to bottom, rgba(8, 6, 9, 0.5), transparent 18%),
+    radial-gradient(
+      95% 60% at 50% 118%,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      transparent 60%
+    );
+}
+@media (min-width: 768px) {
+  .cv-cover-veil {
+    background:
+      linear-gradient(
+        to right,
+        rgba(9, 7, 11, 0.92) 0%,
+        rgba(9, 7, 11, 0.62) 34%,
+        rgba(9, 7, 11, 0.12) 60%,
+        transparent 80%
+      ),
+      linear-gradient(to bottom, rgba(9, 7, 11, 0.5), transparent 16%),
+      radial-gradient(
+        72% 64% at 4% 62%,
+        color-mix(in srgb, var(--accent) 22%, transparent),
+        transparent 64%
+      );
+  }
+}
+
+.cv-cover-lockup {
+  position: relative;
+  z-index: 2;
+  margin-top: auto; /* mobile: lockup embaixo */
+  width: 100%;
+  padding: 0 clamp(24px, 7vw, 40px) clamp(56px, 11vw, 84px);
   text-align: center;
 }
-.cv-hero--solo .cv-label {
-  justify-content: center;
-}
-.cv-hero--solo .cv-label::after {
-  content: "";
-  width: clamp(22px, 4vw, 40px);
-  height: 1px;
-  background: var(--accent-line);
-}
-.cv-hero--solo .cv-tick {
-  margin-inline: auto;
+@media (min-width: 768px) {
+  .cv-cover-lockup {
+    margin: auto 0; /* desktop: centrado vertical, a esquerda */
+    max-width: 60ch;
+    padding: 0 clamp(48px, 7vw, 104px);
+    text-align: left;
+  }
 }
 
-.cv-date {
+.cv-cover-eyebrow {
+  font-family: var(--cv-body);
+  font-weight: 600;
+  font-size: clamp(0.72rem, 2.4vw, 0.84rem);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  text-shadow: 0 1px 16px rgba(0, 0, 0, 0.55);
+}
+.cv-cover-name {
+  font-family: var(--cv-display);
+  font-weight: 400;
+  font-size: clamp(2.9rem, 12vw, 4.6rem);
+  line-height: 1;
+  letter-spacing: -0.014em;
+  margin: clamp(12px, 2.4vw, 20px) 0 0;
+  color: var(--ivory);
+  text-wrap: balance;
+  text-shadow: 0 2px 34px rgba(0, 0, 0, 0.6);
+}
+@media (min-width: 768px) {
+  .cv-cover-name {
+    font-size: clamp(4rem, 7vw, 7rem);
+  }
+}
+
+.cv-cover-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: clamp(20px, 3vw, 28px) 0;
+}
+@media (min-width: 768px) {
+  .cv-cover-rule {
+    justify-content: flex-start;
+  }
+}
+.cv-cover-rule span {
+  height: 1px;
+  width: clamp(38px, 8vw, 70px);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent-bright) 75%, transparent)
+  );
+}
+.cv-cover-rule span:last-child {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-bright) 75%, transparent),
+    transparent
+  );
+}
+.cv-cover-rule i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--accent-bright);
+  transform: rotate(45deg);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-bright) 70%, transparent);
+}
+
+.cv-cover-date {
   font-family: var(--cv-serif);
   font-weight: 500;
-  font-size: clamp(1.2rem, 2.6vw, 1.6rem);
-  color: var(--ink);
-}
-.cv-when {
-  margin-top: 0.35em;
-  font-size: 0.92rem;
-  letter-spacing: 0.05em;
-  color: var(--muted);
+  font-style: italic;
+  font-size: clamp(1.1rem, 3.4vw, 1.5rem);
+  color: rgba(251, 247, 241, 0.92);
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.6);
 }
 
-/* retrato emoldurado (arco) */
-.cv-hero-photo {
-  position: relative;
-  margin: 0;
-}
-.cv-frame {
-  position: relative;
-  padding: clamp(9px, 1.4vw, 15px);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 48% 48% 6px 6px / 32% 32% 4px 4px;
-  box-shadow:
-    0 42px 70px -38px
-      color-mix(in srgb, var(--accent) 55%, rgba(43, 36, 33, 0.55)),
-    0 2px 0 rgba(255, 255, 255, 0.6) inset;
-}
-.cv-frame::after {
-  content: "";
+/* seta de scroll (desktop) */
+.cv-cover-cue {
   position: absolute;
-  inset: clamp(9px, 1.4vw, 15px);
-  border: 1px solid var(--accent-line);
-  border-radius: 46% 46% 4px 4px / 30% 30% 3px 3px;
-  pointer-events: none;
+  left: 50%;
+  bottom: 26px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right: 1px solid rgba(251, 247, 241, 0.5);
+  border-bottom: 1px solid rgba(251, 247, 241, 0.5);
+  animation: cv-cue 2.6s ease-in-out infinite;
 }
-.cv-frame img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 46% 46% 4px 4px / 30% 30% 3px 3px;
+@media (max-width: 767px) {
+  .cv-cover-cue {
+    display: none;
+  }
+}
+
+/* lockup sobe (rise) escalonado via animation-delay inline */
+.cv-rise {
+  opacity: 0;
+  animation: cv-cover-rise 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cv-cover-fade {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes cv-cover-ken {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.04) translate3d(-0.8%, -0.7%, 0);
+  }
+}
+@keyframes cv-cover-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+@keyframes cv-cue {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(45deg) translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateX(-50%) rotate(45deg) translateY(5px);
+    opacity: 1;
+  }
 }
 
 /* ===================== MENSAGEM ===================== */
@@ -1086,7 +1223,7 @@ body {
 }
 .cv-message p {
   font-family: var(--cv-serif);
-  font-weight: 300;
+  font-weight: 400;
   font-style: italic;
   font-size: clamp(1.45rem, 3.2vw, 2.35rem);
   line-height: 1.5;
@@ -1135,13 +1272,13 @@ body {
   font-weight: 600;
   letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .cv-fact .val {
   margin: 0;
   font-family: var(--cv-serif);
   font-weight: 500;
-  font-size: clamp(1.15rem, 2.1vw, 1.42rem);
+  font-size: clamp(1.18rem, 2.1vw, 1.46rem);
   line-height: 1.3;
   color: var(--ink);
 }
@@ -1155,7 +1292,7 @@ body {
     border-color 0.25s ease;
 }
 .cv-fact .val a:hover {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: var(--accent);
 }
 @media (max-width: 480px) {
@@ -1212,12 +1349,291 @@ body {
 .cv-tl-time {
   font-family: var(--cv-serif);
   font-weight: 600;
-  font-size: 1.08rem;
-  color: var(--accent);
+  font-size: 1.1rem;
+  color: var(--accent-ink);
   white-space: nowrap;
 }
 .cv-tl-title {
   color: var(--ink);
+}
+
+/* ===================== CONTAGEM REGRESSIVA ===================== */
+.cv-countdown {
+  margin-top: clamp(44px, 7vw, 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(18px, 3vw, 26px);
+  text-align: center;
+}
+.cv-cd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 4vw, 30px);
+}
+.cv-cd-spacer {
+  height: 92px;
+}
+.cv-cd-bloco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cv-cd-num {
+  font-family: var(--cv-display);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 9vw, 3.4rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.cv-cd-lbl {
+  margin-top: 9px;
+  font-family: var(--cv-body);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+.cv-cd-sep {
+  width: 1px;
+  height: clamp(34px, 7vw, 46px);
+  background: var(--line);
+}
+.cv-cd-hoje {
+  font-family: var(--cv-display);
+  font-style: italic;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  color: var(--accent-ink);
+}
+
+/* ===================== RSVP ===================== */
+.cv-rsvp {
+  max-width: 560px;
+  margin-inline: auto;
+}
+.cv-rsvp-lead {
+  font-family: var(--cv-serif);
+  font-style: italic;
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  line-height: 1.5;
+  color: var(--muted);
+  margin: clamp(14px, 2vw, 18px) auto 0;
+  max-width: 42ch;
+}
+.cv-rsvp-form {
+  margin-top: clamp(30px, 5vw, 44px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: clamp(24px, 4vw, 38px);
+  background: rgba(255, 253, 249, 0.72);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 32px 60px -46px rgba(43, 36, 33, 0.6);
+}
+
+/* controle segmentado vou / nao vou */
+.cv-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.cv-seg-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--cv-body);
+  font-size: 0.94rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--paper);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+.cv-seg-opt input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.cv-seg-opt.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* campos */
+.cv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.cv-field-lbl {
+  font-family: var(--cv-body);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+.cv-field-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.cv-input {
+  font-family: var(--cv-body);
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.cv-input::placeholder {
+  color: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+.cv-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.cv-input--num {
+  max-width: 130px;
+}
+.cv-textarea {
+  resize: vertical;
+  min-height: 86px;
+  line-height: 1.5;
+}
+
+.cv-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.cv-consent input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+/* CTA com brilho na cor do evento */
+.cv-cta {
+  align-self: center;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 244px;
+  padding: 15px 32px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--cv-body);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--accent) 76%, #ffffff),
+    var(--accent),
+    color-mix(in srgb, var(--accent) 72%, #000000)
+  );
+  box-shadow: 0 18px 40px -16px color-mix(in srgb, var(--accent) 75%, transparent);
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.cv-cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow: 0 26px 52px -16px color-mix(in srgb, var(--accent) 82%, transparent);
+}
+.cv-cta:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
+}
+
+.cv-rsvp-err {
+  text-align: center;
+  font-size: 0.88rem;
+  color: #b3261e;
+}
+
+/* estado de sucesso */
+.cv-rsvp-done {
+  max-width: 520px;
+  margin: clamp(30px, 5vw, 44px) auto 0;
+  text-align: center;
+  padding: clamp(30px, 5vw, 48px);
+  background: rgba(255, 253, 249, 0.72);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  box-shadow: 0 32px 60px -46px rgba(43, 36, 33, 0.6);
+}
+.cv-rsvp-done-mark {
+  position: relative;
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+}
+.cv-rsvp-done-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 13px;
+  height: 23px;
+  border: solid var(--accent);
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.cv-rsvp-done-title {
+  font-family: var(--cv-display);
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  color: var(--accent-ink);
+}
+.cv-rsvp-done-text {
+  font-family: var(--cv-serif);
+  font-style: italic;
+  font-size: clamp(1.15rem, 2.4vw, 1.4rem);
+  line-height: 1.5;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.cv-rsvp-done-text strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-style: normal;
 }
 
 /* ===================== PRESENTES ===================== */
@@ -1242,8 +1658,9 @@ body {
   margin-top: clamp(24px, 3.4vw, 34px);
   padding: clamp(20px, 3vw, 28px) clamp(24px, 4vw, 38px);
   border: 1px solid var(--accent-line);
-  background: var(--accent-soft);
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 7%, rgba(255, 253, 249, 0.8));
+  backdrop-filter: blur(6px);
+  border-radius: 5px;
   text-align: center;
 }
 .cv-pix-tag {
@@ -1252,11 +1669,11 @@ body {
   font-weight: 600;
   letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .cv-pix-nome {
   font-family: var(--cv-serif);
-  font-size: 1.18rem;
+  font-size: 1.2rem;
   color: var(--ink);
   margin-bottom: 0.7em;
 }
@@ -1273,7 +1690,6 @@ body {
   user-select: all;
 }
 
-/* lista de presentes (preview) */
 .cv-gift-list {
   list-style: none;
   margin: clamp(24px, 3.4vw, 34px) auto 0;
@@ -1294,7 +1710,7 @@ body {
 }
 .cv-gift-item-name {
   font-family: var(--cv-serif);
-  font-size: 1.18rem;
+  font-size: 1.2rem;
   color: var(--ink);
 }
 .cv-gift-item-desc {
@@ -1307,7 +1723,7 @@ body {
   font-weight: 600;
   font-size: 0.92rem;
   letter-spacing: 0.02em;
-  color: var(--accent);
+  color: var(--accent-ink);
   white-space: nowrap;
 }
 
@@ -1349,12 +1765,12 @@ body {
 
 /* ===================== RODAPE ===================== */
 .cv-footer-name {
-  font-family: var(--cv-serif);
-  font-weight: 300;
+  font-family: var(--cv-display);
+  font-weight: 400;
   font-style: italic;
   font-size: clamp(2rem, 6vw, 3.4rem);
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .cv-footer-close {
   font-family: var(--cv-serif);
@@ -1373,23 +1789,7 @@ body {
   color: var(--muted);
 }
 .cv-attr-brand {
-  color: var(--accent);
-}
-
-/* ===================== RESPONSIVO ===================== */
-@media (max-width: 880px) {
-  .cv-hero {
-    grid-template-columns: 1fr;
-    gap: clamp(30px, 8vw, 46px);
-    min-height: 0;
-    padding-top: clamp(48px, 13vw, 76px);
-  }
-  .cv-hero-photo {
-    order: -1;
-    width: 100%;
-    max-width: 380px;
-    margin-inline: auto;
-  }
+  color: var(--accent-ink);
 }
 
 /* ===================== REVELACOES (CSS-only) ===================== */
@@ -1407,15 +1807,30 @@ body {
   }
 }
 
-/* Movimento reduzido: TODO o conteudo fica visivel (opacity 1, sem transform).
-   So cai a entrada animada — visual intacto. */
+/* ===== Movimento reduzido: tudo visivel, sem deslocamento ===== */
 @media (prefers-reduced-motion: reduce) {
-  .cv .cv-reveal {
+  .cv .cv-reveal,
+  .cv .cv-rise {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    filter: none !important;
   }
-  .cv-fact .val a {
+  .cv-cover-photo {
+    opacity: 1 !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  .cv-cover-cue {
+    animation: none !important;
+  }
+  .cv-fact .val a,
+  .cv-input,
+  .cv-seg-opt {
     transition: none;
+  }
+  /* o brilho/lift do CTA fica calmo (mantem cor, sem deslocar) */
+  .cv-cta:hover {
+    transform: none;
   }
 }

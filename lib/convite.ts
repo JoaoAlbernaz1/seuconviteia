@@ -33,6 +33,8 @@ export type ConviteConteudo = {
   nichoLabel: string;
   /** Data formatada em pt-BR, fuso America/Sao_Paulo. */
   dataLabel: string;
+  /** Data do evento em ISO 8601 — alvo da contagem regressiva (client). */
+  dataISO: string;
   /** Cor de acento do evento (deriva todo o tema do `.cv`). */
   accent: string;
   mensagem?: string;
@@ -150,6 +152,7 @@ export function lerConteudo(event: EventoParaConteudo): ConviteConteudo {
     titulo: texto(event.title) ?? "Nosso convite",
     nichoLabel,
     dataLabel: formatadorData.format(event.eventDate),
+    dataISO: event.eventDate.toISOString(),
     accent: texto(custom.accent) ?? ACCENT_PADRAO,
     mensagem: texto(custom.mensagem),
     local: texto(custom.local),
