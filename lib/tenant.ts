@@ -29,22 +29,22 @@ export function slugify(input: string): string {
 }
 
 /**
- * Extrai o label de subdominio de um host, relativo ao `rootDomain`.
+ * Extrai o label CRU (de um unico nivel) de um host, relativo ao `rootDomain`,
+ * SEM aplicar a regra de reservados. Util no middleware para distinguir labels
+ * reservados entre si (ex.: `app` -> painel vs. `api`/`admin`/`send` -> infra),
+ * coisa que `resolveSubdomain` esconde ao retornar `null`.
  *
- * Retorna `null` quando o host:
- *  - e o proprio dominio raiz (ou www),
- *  - e um label reservado (RESERVED),
- *  - nao pertence ao rootDomain,
- *  - e vazio/indefinido.
+ * Retorna `null` quando o host e o proprio dominio raiz, nao pertence ao
+ * rootDomain, tem mais de um nivel de subdominio, ou e vazio/indefinido.
  *
  * @example
- *   resolveSubdomain("ana.seuconviteia.com", "seuconviteia.com")   // "ana"
- *   resolveSubdomain("seuconviteia.com", "seuconviteia.com")       // null
- *   resolveSubdomain("www.seuconviteia.com", "seuconviteia.com")   // null
- *   resolveSubdomain("app.seuconviteia.com", "seuconviteia.com")   // null (reservado)
- *   resolveSubdomain("ana.localhost:3000", "localhost:3000")       // "ana"
+ *   extractLabel("ana.seuconviteia.com", "seuconviteia.com")   // "ana"
+ *   extractLabel("app.seuconviteia.com", "seuconviteia.com")   // "app"
+ *   extractLabel("www.seuconviteia.com", "seuconviteia.com")   // "www"
+ *   extractLabel("seuconviteia.com", "seuconviteia.com")       // null
+ *   extractLabel("a.b.seuconviteia.com", "seuconviteia.com")   // null
  */
-export function resolveSubdomain(
+export function extractLabel(
   host: string | null | undefined,
   rootDomain: string,
 ): string | null {
@@ -66,6 +66,33 @@ export function resolveSubdomain(
 
   // So aceitamos um unico nivel de subdominio (sem pontos internos).
   if (!label || label.includes(".")) return null;
+
+  return label;
+}
+
+/**
+ * Extrai o label de subdominio de um host, relativo ao `rootDomain`, aplicando
+ * a regra de reservados (so retorna labels que representam um EVENTO).
+ *
+ * Retorna `null` quando o host:
+ *  - e o proprio dominio raiz (ou www),
+ *  - e um label reservado (RESERVED),
+ *  - nao pertence ao rootDomain,
+ *  - e vazio/indefinido.
+ *
+ * @example
+ *   resolveSubdomain("ana.seuconviteia.com", "seuconviteia.com")   // "ana"
+ *   resolveSubdomain("seuconviteia.com", "seuconviteia.com")       // null
+ *   resolveSubdomain("www.seuconviteia.com", "seuconviteia.com")   // null
+ *   resolveSubdomain("app.seuconviteia.com", "seuconviteia.com")   // null (reservado)
+ *   resolveSubdomain("ana.localhost:3000", "localhost:3000")       // "ana"
+ */
+export function resolveSubdomain(
+  host: string | null | undefined,
+  rootDomain: string,
+): string | null {
+  const label = extractLabel(host, rootDomain);
+  if (!label) return null;
 
   // www e os labels reservados nao sao eventos.
   if (label === "www") return null;

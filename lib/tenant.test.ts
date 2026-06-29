@@ -1,0 +1,70 @@
+import { describe, it, expect } from "vitest";
+import { resolveSubdomain, slugify } from "./tenant";
+
+const ROOT = "seuconviteia.com";
+
+describe("resolveSubdomain", () => {
+  it("extrai o subdominio de um evento", () => {
+    expect(resolveSubdomain("ana.seuconviteia.com", ROOT)).toBe("ana");
+  });
+
+  it("retorna null para o dominio raiz", () => {
+    expect(resolveSubdomain("seuconviteia.com", ROOT)).toBeNull();
+  });
+
+  it("retorna null para www", () => {
+    expect(resolveSubdomain("www.seuconviteia.com", ROOT)).toBeNull();
+  });
+
+  it("retorna null para o reservado app", () => {
+    expect(resolveSubdomain("app.seuconviteia.com", ROOT)).toBeNull();
+  });
+
+  it("retorna null para os demais reservados", () => {
+    for (const r of ["api", "admin", "send"]) {
+      expect(resolveSubdomain(`${r}.seuconviteia.com`, ROOT)).toBeNull();
+    }
+  });
+
+  it("retorna null para um dominio externo", () => {
+    expect(resolveSubdomain("ana.outrodominio.com", ROOT)).toBeNull();
+  });
+
+  it("rejeita subdominio com mais de um nivel", () => {
+    expect(resolveSubdomain("a.b.seuconviteia.com", ROOT)).toBeNull();
+  });
+
+  it("retorna null para host vazio/indefinido", () => {
+    expect(resolveSubdomain(null, ROOT)).toBeNull();
+    expect(resolveSubdomain(undefined, ROOT)).toBeNull();
+    expect(resolveSubdomain("", ROOT)).toBeNull();
+  });
+
+  it("ignora a porta no host e no root", () => {
+    expect(resolveSubdomain("ana.localhost:3000", "localhost:3000")).toBe("ana");
+    expect(resolveSubdomain("localhost:3000", "localhost:3000")).toBeNull();
+    expect(resolveSubdomain("app.localhost:3000", "localhost:3000")).toBeNull();
+  });
+});
+
+describe("slugify", () => {
+  it("remove acentos", () => {
+    expect(slugify("Maria Clara")).toBe("maria-clara");
+    expect(slugify("Aniversario da Vovo Joao")).toBe("aniversario-da-vovo-joao");
+    expect(slugify("Coracao")).toBe("coracao");
+  });
+
+  it("troca espacos e simbolos por hifen", () => {
+    expect(slugify("15 anos!!!")).toBe("15-anos");
+    expect(slugify("Joao & Ana")).toBe("joao-ana");
+  });
+
+  it("colapsa hifens repetidos e apara as pontas", () => {
+    expect(slugify("  --Festa---Top--  ")).toBe("festa-top");
+  });
+
+  it("retorna string vazia quando nao ha caractere valido", () => {
+    expect(slugify("!!!")).toBe("");
+    expect(slugify("")).toBe("");
+  });
+});
