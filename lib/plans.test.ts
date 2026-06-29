@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planAllows, PLANS, type Plan } from "./plans";
+import { planAllows, secoesDoPlano, PLANS, type Plan } from "./plans";
 
 describe("planAllows", () => {
   it("hoje (stub) libera qualquer feature para qualquer plano", () => {
@@ -22,5 +22,31 @@ describe("PLANS", () => {
       expect(typeof plano.label).toBe("string");
       expect(Array.isArray(plano.features)).toBe(true);
     }
+  });
+});
+
+describe("secoesDoPlano", () => {
+  it("BASICO -> sem album, sem musica, com marca da plataforma", () => {
+    expect(secoesDoPlano("BASICO")).toEqual({
+      album: false,
+      musica: false,
+      semMarcaPlataforma: false,
+    });
+  });
+
+  it("CLASSICO -> album + musica, ainda com marca da plataforma", () => {
+    expect(secoesDoPlano("CLASSICO")).toEqual({
+      album: true,
+      musica: true,
+      semMarcaPlataforma: false,
+    });
+  });
+
+  it("PREMIUM -> album + musica + white-label", () => {
+    expect(secoesDoPlano("PREMIUM")).toEqual({
+      album: true,
+      musica: true,
+      semMarcaPlataforma: true,
+    });
   });
 });

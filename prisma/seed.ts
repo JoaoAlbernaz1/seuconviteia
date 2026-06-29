@@ -88,6 +88,28 @@ async function main() {
   const expiresAt = new Date(eventDate.getTime() + 30 * DAY_MS);
   const quinzeTemplateId = templatesByNicho.get(EventType.QUINZE_ANOS)!;
 
+  // Customization rica para a demo ficar "cheia" (alimenta `lerConteudo`).
+  const mariaClaraCustomization = {
+    accent: "#8C4A63",
+    mensagem:
+      "É com imensa alegria que convidamos você para celebrar os 15 anos da Maria Clara. Será uma noite inesquecível, e a sua presença vai tornar tudo ainda mais especial.",
+    local: "Espaço Esplendor",
+    endereco: "Park Way, Brasília – DF",
+    mapsUrl:
+      "https://www.google.com/maps/search/?api=1&query=Espa%C3%A7o%20Esplendor%20Park%20Way%20Bras%C3%ADlia",
+    traje: "Esporte fino",
+    programacao: [
+      { hora: "20h30", titulo: "Recepção" },
+      { hora: "21h30", titulo: "Entrada da debutante" },
+      { hora: "22h00", titulo: "Jantar" },
+      { hora: "23h30", titulo: "Valsa" },
+      { hora: "00h30", titulo: "Pista" },
+    ],
+    fotoUrl: "/exemplo/aniversariante.jpg",
+    pixNome: "Maria Clara Martins Albernaz",
+    pixChave: "maria.clara@email.com",
+  };
+
   const event = await prisma.event.upsert({
     where: { subdomain: "maria-clara" },
     update: {
@@ -99,11 +121,7 @@ async function main() {
       expiresAt,
       status: EventStatus.PUBLISHED,
       plan: Plan.CLASSICO,
-      customization: {
-        accent: "#DB2777",
-        coverTitle: "Maria Clara",
-        coverSubtitle: "Meus 15 anos",
-      },
+      customization: mariaClaraCustomization,
     },
     create: {
       professionalId: professional.id,
@@ -115,11 +133,7 @@ async function main() {
       expiresAt,
       status: EventStatus.PUBLISHED,
       plan: Plan.CLASSICO,
-      customization: {
-        accent: "#DB2777",
-        coverTitle: "Maria Clara",
-        coverSubtitle: "Meus 15 anos",
-      },
+      customization: mariaClaraCustomization,
     },
   });
 

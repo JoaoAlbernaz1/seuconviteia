@@ -41,3 +41,31 @@ export function planAllows(plan: Plan, feature: string): boolean {
   void feature;
   return true;
 }
+
+/** Secoes/recursos do site publico liberados por plano. */
+export interface SecoesPlano {
+  /** Album de fotos (galeria). */
+  album: boolean;
+  /** Trilha sonora / player de musica. */
+  musica: boolean;
+  /** Remove a marca da plataforma (white-label). */
+  semMarcaPlataforma: boolean;
+}
+
+/**
+ * Gating das secoes do site publico por plano:
+ *  - BASICO   -> sem album, sem musica, com marca da plataforma.
+ *  - CLASSICO -> album + musica, ainda com marca da plataforma.
+ *  - PREMIUM  -> album + musica + white-label (sem marca da plataforma).
+ */
+export function secoesDoPlano(plan: Plan): SecoesPlano {
+  switch (plan) {
+    case "PREMIUM":
+      return { album: true, musica: true, semMarcaPlataforma: true };
+    case "CLASSICO":
+      return { album: true, musica: true, semMarcaPlataforma: false };
+    case "BASICO":
+    default:
+      return { album: false, musica: false, semMarcaPlataforma: false };
+  }
+}
