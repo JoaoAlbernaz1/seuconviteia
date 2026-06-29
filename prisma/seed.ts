@@ -99,6 +99,8 @@ async function main() {
     endereco: "Park Way, Brasília – DF",
     mapsUrl:
       "https://www.google.com/maps/search/?api=1&query=Espa%C3%A7o%20Esplendor%20Park%20Way%20Bras%C3%ADlia",
+    mapsEmbedUrl:
+      "https://www.google.com/maps?q=Espa%C3%A7o%20Esplendor%20Park%20Way%20Bras%C3%ADlia&output=embed",
     traje: "Esporte fino",
     programacao: [
       { hora: "20h30", titulo: "Recepção" },
@@ -179,25 +181,59 @@ async function main() {
     },
   });
 
-  // 5) Item de presente (Pix) — keyed por id deterministico.
-  await prisma.giftItem.upsert({
-    where: { id: "gift-demo-pix" },
-    update: {
-      eventId: event.id,
-      title: "Cota da festa",
-      description: "Contribua com a celebracao via Pix.",
-      priceCents: 15000,
-      mode: GiftMode.PIX,
-    },
-    create: {
+  // 5) Itens de presente (Pix) — keyed por id deterministico. A lista da pagina
+  //    /presentes vem daqui (gifts do evento); mais itens deixam a pagina "cheia".
+  const giftSeeds: {
+    id: string;
+    title: string;
+    description: string;
+    priceCents: number;
+  }[] = [
+    {
       id: "gift-demo-pix",
-      eventId: event.id,
       title: "Cota da festa",
       description: "Contribua com a celebracao via Pix.",
       priceCents: 15000,
-      mode: GiftMode.PIX,
     },
-  });
+    {
+      id: "gift-demo-vale-look",
+      title: "Vale look",
+      description: "Uma graninha pro look perfeito da noite.",
+      priceCents: 12000,
+    },
+    {
+      id: "gift-demo-perfume",
+      title: "Perfume favorito",
+      description: "Aquele que ela ama de paixao.",
+      priceCents: 25000,
+    },
+    {
+      id: "gift-demo-dia-princesa",
+      title: "Dia de princesa",
+      description: "Spa, cabelo e maquiagem antes da festa.",
+      priceCents: 30000,
+    },
+  ];
+  for (const g of giftSeeds) {
+    await prisma.giftItem.upsert({
+      where: { id: g.id },
+      update: {
+        eventId: event.id,
+        title: g.title,
+        description: g.description,
+        priceCents: g.priceCents,
+        mode: GiftMode.PIX,
+      },
+      create: {
+        id: g.id,
+        eventId: event.id,
+        title: g.title,
+        description: g.description,
+        priceCents: g.priceCents,
+        mode: GiftMode.PIX,
+      },
+    });
+  }
 
   // 6) Album de exemplo (carrossel/galeria da home "festa") — keyed por id
   //    deterministico, ordenado. Fotos copiadas em public/exemplo/.

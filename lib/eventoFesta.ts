@@ -17,6 +17,7 @@ import {
   lerConteudo,
   type EventoParaConteudo,
   type NichoEvento,
+  type PresenteItem,
   type ProgramacaoItem,
 } from "@/lib/convite";
 import { TEMA_PADRAO } from "@/lib/temas";
@@ -37,11 +38,18 @@ export type EventoFesta = {
   mensagemBoasVindas?: string;
   local?: string;
   endereco?: string;
+  /** Link "Abrir no Google Maps" (texto). */
   mapsLinkUrl?: string;
+  /** URL de embed do Google Maps (`?output=embed`) — alimenta o <iframe> da /evento. */
+  mapsEmbedUrl?: string;
   traje?: string;
   programacao: ProgramacaoItem[];
   pixNome?: string;
   pixChave?: string;
+  /** QR do Pix (opcional) — so aparece se preenchido. */
+  pixQrUrl?: string;
+  /** Itens da lista de presentes (gifts do evento; Pix direto, sem checkout). */
+  presentes: PresenteItem[];
   /** Foto da capa (hero) — mobile/retrato. */
   fotoUrl?: string;
   /** Foto da capa para DESKTOP (paisagem); cai para `fotoUrl` se ausente. */
@@ -65,6 +73,8 @@ const extrasSchema = z
   .object({
     tema: z.string(),
     fotoDesktopUrl: z.string(),
+    mapsEmbedUrl: z.string(),
+    pixQrUrl: z.string(),
   })
   .partial();
 
@@ -124,10 +134,13 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     local: c.local,
     endereco: c.endereco,
     mapsLinkUrl: c.mapsUrl,
+    mapsEmbedUrl: texto(extras.mapsEmbedUrl),
     traje: c.traje,
     programacao: c.programacao,
     pixNome: c.pixNome,
     pixChave: c.pixChave,
+    pixQrUrl: texto(extras.pixQrUrl),
+    presentes: c.presentes,
     fotoUrl: c.fotoUrl,
     fotoDesktopUrl: texto(extras.fotoDesktopUrl) ?? c.fotoUrl,
     fotos: c.fotos,
