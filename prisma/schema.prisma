@@ -1,0 +1,175 @@
+// SeuConvite IA — schema Prisma (PlanetScale / MySQL).
+//
+// PlanetScale NAO usa foreign keys no banco: `relationMode = "prisma"` faz o
+// Prisma emular a integridade referencial na camada de aplicacao.
+// Consequencias seguidas aqui:
+//   - Toda coluna escalar de relacao (FK) tem um `@@index` explicito, senao as
+//     queries por relacao ficam lentas (nao ha indice implicito de FK).
+//   - `onDelete: Cascade` e mantido como EMULACAO no nivel do Prisma; o banco NAO
+//     aplica cascade. Cascades reais sao responsabilidade da aplicacao.
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma" // PlanetScale: sem FKs no banco
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum Plan {
+  BASICO
+  CLASSICO
+  PREMIUM
+}
+
+enum EventType {
+  CASAMENTO
+  QUINZE_ANOS
+  SESSENTA_ANOS
+  BODAS
+  ANIVERSARIO
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  EXPIRED
+}
+
+enum GuestStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+enum GiftMode {
+  PIX
+  ITEM
+}
+
+// ----------------------------------------------------------------------------
+// Models
+// ----------------------------------------------------------------------------
+
+/// Tenant da plataforma: o profissional/estudio que cria os sites de evento.
+model Professional {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  plan         Plan     @default(BASICO)
+  brandName    String?
+  brandLogoUrl String?
+  brandColors  Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  events Event[]
+}
+
+/// Evento (site de convite) pertencente a um Professional.
+model Event {
+  id             String      @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  type           EventType
+  subdomain      String      @unique
+  title          String
+  templateId     String?
+  template       Template?   @relation(fields: [templateId], references: [id])
+  eventDate      DateTime
+  expiresAt      DateTime
+  status         EventStatus @default(DRAFT)
+  plan           Plan        @default(BASICO)
+  customization  Json?
+  whiteLabel     Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  guests       Guest[]
+  gifts        GiftItem[]
+  photos       Photo[]
+  transactions Transaction[]
+
+  @@index([professionalId])
+  @@index([templateId])
+  @@index([expiresAt])
+  @@index([status])
+}
+
+/// Convidado de um evento (RSVP).
+model Guest {
+  id         String      @id @default(cuid())
+  eventId    String
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name       String
+  status     GuestStatus @default(PENDING)
+  companions Int         @default(0)
+  message    String?     @db.Text
+  createdAt  DateTime    @default(now())
+
+  @@index([eventId])
+}
+
+/// Item da lista de presentes (Pix ou item).
+model GiftItem {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title       String
+  description String?  @db.Text
+  imageUrl    String?
+  priceCents  Int
+  mode        GiftMode @default(PIX)
+  pixPayload  String?  @db.Text
+  purchased   Boolean  @default(false)
+  buyerName   String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventId])
+}
+
+/// Foto do album do evento.
+model Photo {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+}
+
+/// Template de site por nicho.
+model Template {
+  id        String    @id @default(cuid())
+  name      String
+  nicho     EventType
+  config    Json
+  createdAt DateTime  @default(now())
+
+  events Event[]
+
+  @@index([nicho])
+}
+
+/// Transacao financeira ligada a um evento (presente via Pix, taxa do evento, etc.).
+model Transaction {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  amountCents Int
+  kind        String // ex.: "GIFT_PIX", "EVENT_FEE"
+  status      String   @default("PENDING")
+  providerId  String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventId])
+}
