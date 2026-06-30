@@ -192,6 +192,27 @@ export function acentoDoTema(tema?: string | null): string {
   return escolhido.vars["--ev-rosa"];
 }
 
+/**
+ * Le a chave do tema de um `customization` (JSON do evento). Cai para o padrao
+ * se ausente/desconhecida. Reusado pelo painel (banners) e pelo editor.
+ */
+export function lerTemaKey(customization: unknown): string {
+  if (customization && typeof customization === "object" && "tema" in customization) {
+    const t = (customization as { tema?: unknown }).tema;
+    if (typeof t === "string" && TEMAS[t]) return t;
+  }
+  return TEMA_PADRAO;
+}
+
+/**
+ * Gradiente de "banner" (capa em miniatura) derivado da paleta do evento — usado
+ * nos cards do painel e no preview. Vai do tom profundo ao claro do acento.
+ */
+export function gradienteDoTema(tema?: string | null): string {
+  const t = (tema && TEMAS[tema]) || TEMAS[TEMA_PADRAO];
+  return `linear-gradient(135deg, ${t.vars["--ev-framboesa-deep"]} 0%, ${t.vars["--ev-rosa"]} 58%, ${t.vars["--ev-framboesa-bright"]} 100%)`;
+}
+
 /** Uma paleta no seletor visual do form (`{ key, label, dots }`). */
 export type PaletaSeletor = { key: string; label: string; dots: string[] };
 

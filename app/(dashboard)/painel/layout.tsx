@@ -19,12 +19,17 @@ export default async function PainelLayout({
 
   const prof = await prisma.professional.findUnique({
     where: { id: session.user.id },
-    select: { name: true, avatarUrl: true },
+    select: { name: true, avatarUrl: true, brandName: true, plan: true },
   });
   const nome = prof?.name ?? session.user.name ?? "";
 
   return (
-    <PainelShell nome={nome} avatarUrl={prof?.avatarUrl ?? undefined}>
+    <PainelShell
+      nome={nome}
+      avatarUrl={prof?.avatarUrl ?? undefined}
+      brandName={prof?.brandName ?? undefined}
+      plan={prof?.plan ?? "BASICO"}
+    >
       {children}
     </PainelShell>
   );
