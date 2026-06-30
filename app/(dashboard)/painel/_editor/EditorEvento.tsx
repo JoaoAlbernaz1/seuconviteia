@@ -718,7 +718,7 @@ export default function EditorEvento({
                 key={s.key}
                 type="button"
                 onClick={() => setSecao(s.key)}
-                className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition lg:w-full ${
+                className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium transition lg:w-full ${
                   secao === s.key
                     ? "bg-ink text-white"
                     : "text-texto-suave hover:bg-black/5 hover:text-ink"
@@ -741,7 +741,7 @@ export default function EditorEvento({
                   key={s.key}
                   type="button"
                   onClick={() => setSecao(s.key)}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition lg:w-full ${
+                  className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium transition lg:w-full ${
                     secao === s.key
                       ? "bg-ink text-white"
                       : "text-texto-suave hover:bg-black/5 hover:text-ink"

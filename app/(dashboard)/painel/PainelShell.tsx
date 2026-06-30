@@ -67,13 +67,13 @@ function NavItem({
       href={href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+      className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition ${
         active
           ? "bg-gradient-to-r from-violeta to-teal text-white shadow-sm"
           : "text-slate-400 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <span className="grid w-5 place-items-center">
+      <span className="grid w-5 shrink-0 place-items-center">
         <i className={`bi ${icon} text-base`} aria-hidden />
       </span>
       {label}
@@ -83,7 +83,7 @@ function NavItem({
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="px-3 pb-1.5 pt-3 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
+    <span className="px-2.5 pb-1.5 pt-4 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
       {children}
     </span>
   );
@@ -109,11 +109,11 @@ function SidebarContent({
     /^\/painel\/[^/]+\/editar$/.test(pathname);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col px-3">
       <Link
         href="/"
         onClick={onNavigate}
-        className="flex items-center gap-2.5 px-4 py-5"
+        className="flex items-center gap-2.5 px-2.5 py-5"
       >
         <span
           className="grid size-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white"
@@ -125,7 +125,7 @@ function SidebarContent({
         <Wordmark />
       </Link>
 
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
         <GroupLabel>Painel</GroupLabel>
         {NAV_PAINEL.map((item) => (
           <NavItem
@@ -149,7 +149,7 @@ function SidebarContent({
       </nav>
 
       {/* Card de plano (gradiente) */}
-      <div className="m-3 rounded-2xl bg-gradient-to-br from-violeta via-teal to-turquesa p-4">
+      <div className="my-4 rounded-2xl bg-gradient-to-br from-violeta via-teal to-turquesa p-4">
         <p className="font-sans text-sm font-semibold text-white">
           Plano {rotuloPlano(plan)}
         </p>
@@ -201,7 +201,8 @@ export function PainelShell({
     setAberto(false);
   }
 
-  const papel = brandName?.trim() || "Profissional de eventos";
+  const marca = brandName?.trim();
+  const papel = marca && marca !== nome.trim() ? marca : "Profissional de eventos";
 
   return (
     <div className="min-h-full">
