@@ -52,7 +52,7 @@ const STEPS: { n: string; t: string; d: ReactNode }[] = [
     t: "Aprovou? Publique com um pagamento único",
     d: (
       <>
-        a marca d'água sai e o site fica no ar em{" "}
+        a marca d&apos;água sai e o site fica no ar em{" "}
         <code className="mkt-code">cliente.seuconviteia.com</code>.
       </>
     ),
@@ -162,7 +162,7 @@ export default function MarketingHome() {
 
               <p className="mkt-lede mkt-rise" style={delay(0.16)}>
                 Monte o site, mostre funcionando pro seu cliente{" "}
-                <strong>de graça, com marca d'água</strong>, e publique com um{" "}
+                <strong>de graça, com marca d&apos;água</strong>, e publique com um{" "}
                 <strong>pagamento único</strong>. Casamento, 15 anos, bodas e
                 mais — cada festa no seu endereço próprio. Sem mensalidade, sem
                 programar.
