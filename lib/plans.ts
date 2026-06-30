@@ -1,48 +1,141 @@
-// Planos da plataforma. O gating real (limites + features liberadas por plano)
-// e detalhado em fase posterior; aqui ficam os tipos e o esqueleto.
+// Planos da plataforma + FEATURE GATING (fonte unica de verdade).
+//
+// Modelo confirmado: o convite "base" e sempre visivel; os recursos de "valor"
+// sao TRAVADOS e liberam por plano do evento (upsell). TODO o gating do site e do
+// painel deriva daqui — paginas/componentes so chamam `recursosDoPlano` /
+// `planoPermite`, nunca duplicam a regra.
+//
+// Matriz (base = capa, convite, evento, presentes, rodape — sempre on):
+//   BASICO   -> base apenas.
+//   CLASSICO -> base + rsvp + recados + galeria.
+//   PREMIUM  -> tudo do CLASSICO + whiteLabel + dominioProprio.
 
 export type Plan = "BASICO" | "CLASSICO" | "PREMIUM";
 
-export interface PlanDefinition {
-  label: string;
-  /** Identificadores de features liberadas pelo plano (placeholder). */
-  features: string[];
-}
+/** Recursos "de valor" travados por plano (a base nao entra aqui — e sempre on). */
+export type Recurso =
+  | "rsvp"
+  | "recados"
+  | "galeria"
+  | "whiteLabel"
+  | "dominioProprio";
 
-export const PLANS: Record<Plan, PlanDefinition> = {
-  BASICO: {
-    label: "Basico",
-    features: ["site_evento", "rsvp"],
-  },
-  CLASSICO: {
-    label: "Classico",
-    features: ["site_evento", "rsvp", "lista_presentes", "dominio_personalizado"],
-  },
-  PREMIUM: {
-    label: "Premium",
-    features: [
-      "site_evento",
-      "rsvp",
-      "lista_presentes",
-      "dominio_personalizado",
-      "galeria_fotos",
-      "mensagens_convidados",
-      "remover_marca",
-    ],
-  },
+/** Lista ordenada de todos os recursos (para iterar na UI). */
+export const RECURSOS: readonly Recurso[] = [
+  "rsvp",
+  "recados",
+  "galeria",
+  "whiteLabel",
+  "dominioProprio",
+] as const;
+
+/** Rotulos legiveis (pt-BR) de cada recurso, para a UI do form/painel. */
+export const RECURSO_LABEL: Record<Recurso, string> = {
+  rsvp: "Confirmar presença (RSVP)",
+  recados: "Mural de recados",
+  galeria: "Galeria de fotos",
+  whiteLabel: "White-label (sua marca)",
+  dominioProprio: "Domínio próprio",
 };
 
+/** Quais recursos cada plano libera (resultado de `recursosDoPlano`). */
+export type RecursosPlano = Record<Recurso, boolean>;
+
 /**
- * Indica se um plano libera uma feature.
- * TODO: implementar gating real por fase (hoje retorna sempre true).
+ * Recursos liberados por um plano. Fonte unica do gating: o site (nav, rodape,
+ * home, paginas internas) e o painel leem SO daqui.
  */
-export function planAllows(plan: Plan, feature: string): boolean {
-  void plan;
-  void feature;
-  return true;
+export function recursosDoPlano(plan: Plan): RecursosPlano {
+  switch (plan) {
+    case "PREMIUM":
+      return {
+        rsvp: true,
+        recados: true,
+        galeria: true,
+        whiteLabel: true,
+        dominioProprio: true,
+      };
+    case "CLASSICO":
+      return {
+        rsvp: true,
+        recados: true,
+        galeria: true,
+        whiteLabel: false,
+        dominioProprio: false,
+      };
+    case "BASICO":
+    default:
+      return {
+        rsvp: false,
+        recados: false,
+        galeria: false,
+        whiteLabel: false,
+        dominioProprio: false,
+      };
+  }
 }
 
-/** Secoes/recursos do site publico liberados por plano. */
+/** `true` se o plano libera o recurso. */
+export function planoPermite(plan: Plan, recurso: Recurso): boolean {
+  return recursosDoPlano(plan)[recurso];
+}
+
+// ----------------------------------------------------------------------------
+// Metadados para UI (seletor de plano no form + badge/upsell no painel)
+// ----------------------------------------------------------------------------
+
+export interface PlanoInfo {
+  key: Plan;
+  label: string;
+  descricaoCurta: string;
+  /** Recursos que ESTE plano libera (cumulativo), derivado da matriz. */
+  recursos: Recurso[];
+}
+
+/** Recursos liberados (cumulativos) de um plano, na ordem de `RECURSOS`. */
+function recursosLiberados(plan: Plan): Recurso[] {
+  const r = recursosDoPlano(plan);
+  return RECURSOS.filter((recurso) => r[recurso]);
+}
+
+/** Ordem de exibicao dos planos (do menor para o maior). */
+export const PLAN_ORDER: readonly Plan[] = ["BASICO", "CLASSICO", "PREMIUM"] as const;
+
+/** Metadados dos tres planos para o seletor do form e o painel. */
+export const PLANOS_INFO: PlanoInfo[] = [
+  {
+    key: "BASICO",
+    label: "Básico",
+    descricaoCurta: "O convite essencial: capa, convite, evento e presentes.",
+    recursos: recursosLiberados("BASICO"),
+  },
+  {
+    key: "CLASSICO",
+    label: "Clássico",
+    descricaoCurta: "Tudo do Básico + confirmação de presença, recados e galeria.",
+    recursos: recursosLiberados("CLASSICO"),
+  },
+  {
+    key: "PREMIUM",
+    label: "Premium",
+    descricaoCurta: "Tudo do Clássico + white-label (sua marca) e domínio próprio.",
+    recursos: recursosLiberados("PREMIUM"),
+  },
+];
+
+/** Rotulo legivel de um plano (para badges). */
+export function rotuloPlano(plan: Plan): string {
+  return PLANOS_INFO.find((p) => p.key === plan)?.label ?? plan;
+}
+
+// ----------------------------------------------------------------------------
+// Compat shim (componente DORMANT `components/Convite.tsx`)
+//
+// `Convite.tsx` (convite single-page, ainda nao usado em rota) consome `SecoesPlano`
+// /`secoesDoPlano`. Mantidos como fina camada derivada da matriz para nao quebrar o
+// tsc; quando esse componente for religado, migra para `recursosDoPlano`.
+// ----------------------------------------------------------------------------
+
 export interface SecoesPlano {
   /** Album de fotos (galeria). */
   album: boolean;
@@ -52,20 +145,11 @@ export interface SecoesPlano {
   semMarcaPlataforma: boolean;
 }
 
-/**
- * Gating das secoes do site publico por plano:
- *  - BASICO   -> sem album, sem musica, com marca da plataforma.
- *  - CLASSICO -> album + musica, ainda com marca da plataforma.
- *  - PREMIUM  -> album + musica + white-label (sem marca da plataforma).
- */
 export function secoesDoPlano(plan: Plan): SecoesPlano {
-  switch (plan) {
-    case "PREMIUM":
-      return { album: true, musica: true, semMarcaPlataforma: true };
-    case "CLASSICO":
-      return { album: true, musica: true, semMarcaPlataforma: false };
-    case "BASICO":
-    default:
-      return { album: false, musica: false, semMarcaPlataforma: false };
-  }
+  const r = recursosDoPlano(plan);
+  return {
+    album: r.galeria,
+    musica: r.galeria,
+    semMarcaPlataforma: r.whiteLabel,
+  };
 }

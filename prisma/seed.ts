@@ -134,7 +134,7 @@ async function main() {
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,
-      plan: Plan.CLASSICO,
+      plan: Plan.BASICO,
       customization: mariaClaraCustomization,
     },
     create: {
@@ -146,7 +146,7 @@ async function main() {
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,
-      plan: Plan.CLASSICO,
+      plan: Plan.BASICO,
       customization: mariaClaraCustomization,
     },
   });

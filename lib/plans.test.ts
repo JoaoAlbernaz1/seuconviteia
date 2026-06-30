@@ -1,32 +1,89 @@
 import { describe, it, expect } from "vitest";
-import { planAllows, secoesDoPlano, PLANS, type Plan } from "./plans";
+import {
+  recursosDoPlano,
+  planoPermite,
+  secoesDoPlano,
+  PLANOS_INFO,
+  RECURSOS,
+  type Plan,
+} from "./plans";
 
-describe("planAllows", () => {
-  it("hoje (stub) libera qualquer feature para qualquer plano", () => {
-    expect(planAllows("BASICO", "site_evento")).toBe(true);
-    expect(planAllows("CLASSICO", "lista_presentes")).toBe(true);
-    expect(planAllows("PREMIUM", "galeria_fotos")).toBe(true);
-    // Ainda sem gating: mesmo feature inexistente retorna true (stub).
-    expect(planAllows("BASICO", "feature_inexistente")).toBe(true);
+describe("recursosDoPlano — a matriz de gating", () => {
+  it("BASICO -> nenhum recurso de valor liberado", () => {
+    expect(recursosDoPlano("BASICO")).toEqual({
+      rsvp: false,
+      recados: false,
+      galeria: false,
+      whiteLabel: false,
+      dominioProprio: false,
+    });
+  });
+
+  it("CLASSICO -> rsvp + recados + galeria; sem white-label/dominio", () => {
+    expect(recursosDoPlano("CLASSICO")).toEqual({
+      rsvp: true,
+      recados: true,
+      galeria: true,
+      whiteLabel: false,
+      dominioProprio: false,
+    });
+  });
+
+  it("PREMIUM -> tudo do CLASSICO + whiteLabel + dominioProprio", () => {
+    expect(recursosDoPlano("PREMIUM")).toEqual({
+      rsvp: true,
+      recados: true,
+      galeria: true,
+      whiteLabel: true,
+      dominioProprio: true,
+    });
   });
 });
 
-describe("PLANS", () => {
-  it("define os tres planos da plataforma", () => {
-    const planos: Plan[] = ["BASICO", "CLASSICO", "PREMIUM"];
-    expect(Object.keys(PLANS)).toEqual(planos);
+describe("planoPermite", () => {
+  it("rsvp/recados/galeria: so CLASSICO e PREMIUM", () => {
+    for (const recurso of ["rsvp", "recados", "galeria"] as const) {
+      expect(planoPermite("BASICO", recurso)).toBe(false);
+      expect(planoPermite("CLASSICO", recurso)).toBe(true);
+      expect(planoPermite("PREMIUM", recurso)).toBe(true);
+    }
   });
 
-  it("cada plano tem label e lista de features", () => {
-    for (const plano of Object.values(PLANS)) {
-      expect(typeof plano.label).toBe("string");
-      expect(Array.isArray(plano.features)).toBe(true);
+  it("whiteLabel/dominioProprio: so PREMIUM", () => {
+    for (const recurso of ["whiteLabel", "dominioProprio"] as const) {
+      expect(planoPermite("BASICO", recurso)).toBe(false);
+      expect(planoPermite("CLASSICO", recurso)).toBe(false);
+      expect(planoPermite("PREMIUM", recurso)).toBe(true);
     }
   });
 });
 
-describe("secoesDoPlano", () => {
-  it("BASICO -> sem album, sem musica, com marca da plataforma", () => {
+describe("PLANOS_INFO — metadados para a UI", () => {
+  it("define os tres planos na ordem Basico -> Classico -> Premium", () => {
+    const planos: Plan[] = ["BASICO", "CLASSICO", "PREMIUM"];
+    expect(PLANOS_INFO.map((p) => p.key)).toEqual(planos);
+  });
+
+  it("cada plano tem label, descricao e lista de recursos coerente com a matriz", () => {
+    for (const info of PLANOS_INFO) {
+      expect(typeof info.label).toBe("string");
+      expect(typeof info.descricaoCurta).toBe("string");
+      const matriz = recursosDoPlano(info.key);
+      const esperados = RECURSOS.filter((r) => matriz[r]);
+      expect(info.recursos).toEqual(esperados);
+    }
+  });
+
+  it("BASICO nao libera nada; PREMIUM libera todos os recursos", () => {
+    const basico = PLANOS_INFO.find((p) => p.key === "BASICO")!;
+    const premium = PLANOS_INFO.find((p) => p.key === "PREMIUM")!;
+    expect(basico.recursos).toEqual([]);
+    expect(premium.recursos).toEqual([...RECURSOS]);
+  });
+});
+
+describe("secoesDoPlano — compat shim (derivado da matriz)", () => {
+  it("BASICO -> sem album/musica, com marca da plataforma", () => {
     expect(secoesDoPlano("BASICO")).toEqual({
       album: false,
       musica: false,

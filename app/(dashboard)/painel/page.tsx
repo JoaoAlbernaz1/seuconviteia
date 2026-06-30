@@ -1,10 +1,11 @@
 // Painel do profissional — protegido. Lista os eventos do profissional logado.
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { EventStatus, EventType } from "@prisma/client";
+import type { EventStatus, EventType, Plan } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl } from "@/lib/tenant";
+import { rotuloPlano } from "@/lib/plans";
 import { sair } from "../actions";
 
 // Depende da sessao (cookies) e do banco -> sempre dinamico.
@@ -24,6 +25,19 @@ const STATUS: Record<EventStatus, { label: string; className: string }> = {
   PUBLISHED: { label: "No ar", className: "bg-emerald-50 text-emerald-700" },
   DRAFT: { label: "Rascunho", className: "bg-slate-100 text-slate-600" },
   EXPIRED: { label: "Expirado", className: "bg-amber-50 text-amber-700" },
+};
+
+// Badge do plano (cor da marca: roxo no Premium, teal no Classico, neutro no Basico).
+const PLAN_BADGE: Record<Plan, string> = {
+  BASICO: "bg-slate-100 text-slate-600",
+  CLASSICO: "bg-teal/10 text-teal",
+  PREMIUM: "bg-violeta/10 text-violeta",
+};
+
+// Nudge de upsell: o que esta travado abaixo do topo (PREMIUM nao mostra nada).
+const UPSELL: Partial<Record<Plan, string>> = {
+  BASICO: "RSVP, Recados e Galeria bloqueados",
+  CLASSICO: "White-label e domínio próprio bloqueados",
 };
 
 const formatadorData = new Intl.DateTimeFormat("pt-BR", {
@@ -100,7 +114,7 @@ export default async function PainelPage() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h2 className="truncate font-display text-lg font-semibold text-ink">
                         {ev.title}
                       </h2>
@@ -109,10 +123,26 @@ export default async function PainelPage() {
                       >
                         {status.label}
                       </span>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${PLAN_BADGE[ev.plan]}`}
+                      >
+                        {rotuloPlano(ev.plan)}
+                      </span>
                     </div>
                     <p className="mt-1 text-sm text-texto-suave">
                       {TIPO_LABEL[ev.type]} · {formatadorData.format(ev.eventDate)}
                     </p>
+                    {UPSELL[ev.plan] ? (
+                      <p className="mt-1.5 text-xs text-texto-suave">
+                        <span aria-hidden>🔒</span> {UPSELL[ev.plan]} —{" "}
+                        <Link
+                          href={`/painel/${ev.id}/editar`}
+                          className="font-medium text-violeta hover:underline"
+                        >
+                          fazer upgrade
+                        </Link>
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <a
                         href={url}

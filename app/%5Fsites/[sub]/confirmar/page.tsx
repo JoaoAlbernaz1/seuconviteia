@@ -8,6 +8,8 @@ import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { RsvpConvite } from "@/components/evt/RsvpConvite";
+import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
+import { recursosDoPlano } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -23,6 +25,16 @@ export default async function ConfirmarPage({
   const visivel = eventoPublico(event, new Date());
   if (!visivel.ok || !event) {
     return <SiteIndisponivel motivo={visivel.motivo ?? "inexistente"} />;
+  }
+
+  // Gate por plano: o RSVP so existe no CLASSICO/PREMIUM.
+  if (!recursosDoPlano(event.plan).rsvp) {
+    return (
+      <RecursoIndisponivel
+        titulo="Confirmação indisponível"
+        texto="A confirmação de presença não está disponível neste convite."
+      />
+    );
   }
 
   const evento = lerEventoFesta(event);

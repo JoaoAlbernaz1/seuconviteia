@@ -21,6 +21,7 @@ import { ConfirmCTA } from "@/components/evt/ConfirmCTA";
 import { MapEmbed } from "@/components/evt/MapEmbed";
 import { Flourish } from "@/components/evt/icons";
 import { textosDoNicho } from "@/lib/textos";
+import { recursosDoPlano } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export default async function EventoPage({
   const evento = lerEventoFesta(event);
   const nome = evento.primeiroNome;
   const t = textosDoNicho(event.type);
+  const recursos = recursosDoPlano(event.plan);
   const local = evento.local ?? "O local";
   const temEmbed = !!evento.mapsEmbedUrl && /^https:\/\//i.test(evento.mapsEmbedUrl);
 
@@ -181,15 +183,17 @@ export default async function EventoPage({
         </section>
       )}
 
-      {/* ═══ CTA — claro ═══ */}
-      <section className={`bg-evt-blush-soft/55 ${PAD} py-[clamp(4.5rem,9vw,6.5rem)]`}>
-        <Reveal className={`flex flex-col items-center gap-6 text-center ${WRAP}`}>
-          <h2 className="font-evt-script text-[clamp(2.2rem,7vw,3.2rem)] leading-tight text-evt-ink">
-            Você vem?
-          </h2>
-          <ConfirmCTA />
-        </Reveal>
-      </section>
+      {/* ═══ CTA confirmar presença — UPSELL (só com plano que libera RSVP) ═══ */}
+      {recursos.rsvp && (
+        <section className={`bg-evt-blush-soft/55 ${PAD} py-[clamp(4.5rem,9vw,6.5rem)]`}>
+          <Reveal className={`flex flex-col items-center gap-6 text-center ${WRAP}`}>
+            <h2 className="font-evt-script text-[clamp(2.2rem,7vw,3.2rem)] leading-tight text-evt-ink">
+              Você vem?
+            </h2>
+            <ConfirmCTA />
+          </Reveal>
+        </section>
+      )}
     </main>
   );
 }

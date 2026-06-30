@@ -8,6 +8,7 @@ import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { textosDoNicho } from "@/lib/textos";
+import { recursosDoPlano } from "@/lib/plans";
 
 import { Button } from "@/components/evt/Button";
 import { Reveal } from "@/components/evt/Reveal";
@@ -42,26 +43,35 @@ export default async function EventSitePage({
   const nome = evento.primeiroNome;
   const t = textosDoNicho(event.type);
 
+  // Gating por plano do evento: a base (capa, convite, evento, presentes) e
+  // sempre on; rsvp/galeria/recados aparecem so se o plano libera.
+  const recursos = recursosDoPlano(event.plan);
+
   const TEASERS = [
     {
       href: "/presentes",
       eyebrow: "Presentes",
       titulo: "Sua presença é o presente",
       texto: t.teaserPresentes,
+      visivel: true, // presentes e base — sempre visivel
     },
     {
       href: "/galeria",
       eyebrow: "Galeria",
       titulo: "Momentos",
       texto: t.teaserGaleria,
+      visivel: recursos.galeria,
     },
     {
       href: "/recados",
       eyebrow: "Recados",
       titulo: "Deixe seu carinho",
       texto: t.teaserRecados,
+      visivel: recursos.recados,
     },
-  ] as const;
+  ].filter((teaser) => teaser.visivel);
+
+  const mostrarMomentos = recursos.galeria && evento.fotos.length > 0;
 
   return (
     <main className="bg-transparent">
@@ -123,7 +133,8 @@ export default async function EventSitePage({
               </div>
             </Card>
           </Reveal>
-          {/* Confirmar presenca — CTA hero com moldura (filete + linha) + efeitos. */}
+          {/* "Faça parte dessa noite" — texto SEMPRE visível (base). O botão
+              Confirmar presença é UPSELL: só aparece com plano que libera RSVP. */}
           <Reveal delay={140} className="mt-12 flex flex-col items-center gap-5 text-center">
             <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
               <span className="h-px w-12 bg-evt-rosa/50" />
@@ -133,12 +144,13 @@ export default async function EventSitePage({
             <p className="font-evt-script text-[clamp(1.8rem,5.5vw,2.4rem)] text-evt-rosa-ink">
               {t.ctaConvite}
             </p>
-            <ConfirmCTA />
+            {recursos.rsvp && <ConfirmCTA />}
           </Reveal>
         </div>
       </section>
 
-      {/* ═══ TEASERS — presentes / galeria / recados ═══ */}
+      {/* ═══ TEASERS — só na experiência paga; no Básico a home termina antes ═══ */}
+      {recursos.rsvp && TEASERS.length > 0 && (
       <section className={`bg-evt-blush-soft/55 ${PAD} ${RHYTHM}`}>
         <div className={WRAP}>
           <Reveal>
@@ -176,8 +188,10 @@ export default async function EventSitePage({
           </div>
         </div>
       </section>
+      )}
 
-      {/* ═══ MOMENTOS — carrossel das fotos do ensaio ═══ */}
+      {/* ═══ MOMENTOS — carrossel das fotos (so com plano que libera a galeria) ═══ */}
+      {mostrarMomentos && (
       <section className={`bg-transparent ${PAD} ${RHYTHM}`}>
         <div className={WRAP}>
           <Reveal>
@@ -188,20 +202,24 @@ export default async function EventSitePage({
           <PhotoCarousel fotos={evento.fotos} />
         </Reveal>
       </section>
+      )}
 
-      {/* ═══ FECHO — recadinho dela, depois das fotos (antes do rodape) ═══ */}
-      <section className={`bg-transparent ${PAD} pb-[clamp(3.5rem,8vw,5.5rem)] pt-[clamp(1rem,3vw,2rem)]`}>
-        <Reveal className={`${WRAP} flex flex-col items-center gap-6 text-center`}>
-          <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
-            <span className="h-px w-12 bg-evt-rosa/50" />
-            <span className="rotate-45 text-[0.5rem]">◆</span>
-            <span className="h-px w-12 bg-evt-rosa/50" />
-          </span>
-          <p className="max-w-[640px] font-evt-script text-[clamp(2rem,6.5vw,3.2rem)] leading-[1.25] text-evt-rosa-ink">
-            {t.fecho}
-          </p>
-        </Reveal>
-      </section>
+      {/* ═══ FECHO — parte da experiência paga; no Básico a home termina em
+          "Faça parte dessa noite" e vai direto pro rodapé. ═══ */}
+      {recursos.rsvp && (
+        <section className={`bg-transparent ${PAD} pb-[clamp(3.5rem,8vw,5.5rem)] pt-[clamp(1rem,3vw,2rem)]`}>
+          <Reveal className={`${WRAP} flex flex-col items-center gap-6 text-center`}>
+            <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
+              <span className="h-px w-12 bg-evt-rosa/50" />
+              <span className="rotate-45 text-[0.5rem]">◆</span>
+              <span className="h-px w-12 bg-evt-rosa/50" />
+            </span>
+            <p className="max-w-[640px] font-evt-script text-[clamp(2rem,6.5vw,3.2rem)] leading-[1.25] text-evt-rosa-ink">
+              {t.fecho}
+            </p>
+          </Reveal>
+        </section>
+      )}
     </main>
   );
 }

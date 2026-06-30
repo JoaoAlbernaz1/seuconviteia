@@ -9,6 +9,8 @@ import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { SectionHeading } from "@/components/evt/SectionHeading";
 import { Reveal } from "@/components/evt/Reveal";
 import { Galeria } from "@/components/evt/Galeria";
+import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
+import { recursosDoPlano } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -24,6 +26,16 @@ export default async function GaleriaPage({
   const visivel = eventoPublico(event, new Date());
   if (!visivel.ok || !event) {
     return <SiteIndisponivel motivo={visivel.motivo ?? "inexistente"} />;
+  }
+
+  // Gate por plano: a galeria so existe no CLASSICO/PREMIUM.
+  if (!recursosDoPlano(event.plan).galeria) {
+    return (
+      <RecursoIndisponivel
+        titulo="Galeria indisponível"
+        texto="A galeria de fotos não está disponível neste convite."
+      />
+    );
   }
 
   const evento = lerEventoFesta(event);

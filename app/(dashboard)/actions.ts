@@ -153,9 +153,13 @@ const EVENT_TYPES = [
   "ANIVERSARIO",
 ] as const;
 
+/** Planos validos (espelha o enum `Plan` do Prisma). */
+const PLAN_VALUES = ["BASICO", "CLASSICO", "PREMIUM"] as const;
+
 /** Campos de erro possiveis no form de evento. */
 type CampoEvento =
   | "type"
+  | "plan"
   | "tema"
   | "title"
   | "date"
@@ -170,6 +174,8 @@ type CampoEvento =
 
 const novoEventoSchema = z.object({
   type: z.enum(EVENT_TYPES, { message: "Escolha o tipo de evento." }),
+  // Plano (gating). Opcional no payload; cai para BASICO se ausente.
+  plan: z.enum(PLAN_VALUES, { message: "Plano invalido." }).optional(),
   // Paleta de cor: precisa ser uma chave conhecida de `lib/temas.ts`.
   tema: z
     .string()
@@ -207,6 +213,7 @@ export type NovoEventoState = {
 /** Dados validados + derivados de um form de evento (compartilhado criar/editar). */
 type EventoInterpretado = {
   type: (typeof EVENT_TYPES)[number];
+  plan: (typeof PLAN_VALUES)[number];
   title: string;
   eventDate: Date;
   expiresAt: Date;
@@ -231,6 +238,7 @@ function interpretarEvento(
 
   const parsed = novoEventoSchema.safeParse({
     type: formData.get("type"),
+    plan: str("plan"),
     tema: formData.get("tema"),
     title: formData.get("title"),
     date: formData.get("date"),
@@ -251,6 +259,7 @@ function interpretarEvento(
       state: {
         fieldErrors: {
           type: f.type?.[0],
+          plan: f.plan?.[0],
           tema: f.tema?.[0],
           title: f.title?.[0],
           date: f.date?.[0],
@@ -269,6 +278,7 @@ function interpretarEvento(
 
   const {
     type,
+    plan,
     tema,
     title,
     date,
@@ -325,6 +335,7 @@ function interpretarEvento(
     ok: true,
     data: {
       type,
+      plan: plan ?? "BASICO",
       title,
       eventDate,
       expiresAt: calcularExpiracao(eventDate),
@@ -362,7 +373,7 @@ export async function criarEvento(
 
   const result = interpretarEvento(formData);
   if (!result.ok) return result.state;
-  const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
+  const { type, plan, title, eventDate, expiresAt, customization, presentes, fotos } =
     result.data;
 
   // Subdominio unico (considera RESERVED + colisoes no banco).
@@ -387,7 +398,7 @@ export async function criarEvento(
       eventDate,
       expiresAt,
       status: "PUBLISHED",
-      plan: "BASICO",
+      plan,
       customization,
     },
   });
@@ -435,13 +446,13 @@ export async function editarEvento(
 
   const result = interpretarEvento(formData);
   if (!result.ok) return result.state;
-  const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
+  const { type, plan, title, eventDate, expiresAt, customization, presentes, fotos } =
     result.data;
 
   // Atualiza o evento. `subdomain` e `templateId` ficam ESTAVEIS (nao regerados).
   await prisma.event.update({
     where: { id: existente.id },
-    data: { type, title, eventDate, expiresAt, customization },
+    data: { type, plan, title, eventDate, expiresAt, customization },
   });
 
   // Presentes e fotos: REPLACE total (delete + recria) para casar com o form.

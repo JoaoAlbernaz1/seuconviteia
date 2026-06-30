@@ -2,24 +2,37 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Recurso, RecursosPlano } from "@/lib/plans";
 
-const LINKS = [
-  { href: "/", label: "Início" },
-  { href: "/evento", label: "Evento" },
-  { href: "/confirmar", label: "Confirmar" },
-  { href: "/presentes", label: "Presentes" },
-  { href: "/galeria", label: "Galeria" },
-  { href: "/recados", label: "Recados" },
-] as const;
+// Cada link da nav. `recurso` = recurso de valor que precisa estar liberado pelo
+// plano para o link aparecer; `null` = sempre visivel (base do convite).
+const LINKS: { href: string; label: string; recurso: Recurso | null }[] = [
+  { href: "/", label: "Início", recurso: null },
+  { href: "/evento", label: "Evento", recurso: null },
+  { href: "/confirmar", label: "Confirmar", recurso: "rsvp" },
+  { href: "/presentes", label: "Presentes", recurso: null },
+  { href: "/galeria", label: "Galeria", recurso: "galeria" },
+  { href: "/recados", label: "Recados", recurso: "recados" },
+];
 
 /**
  * SiteNav — barra fixa em TODAS as paginas (inclusive a capa).
  * Sobre o hero ESCURO da capa (topo da home) ela e transparente com texto marfim;
  * ao rolar pro interior claro — ou nas paginas claras — vira branca com texto ink.
  * A marca e o NOME do evento (wordmark de texto), escondido sobre a capa.
+ *
+ * GATING: `recursos` (do plano do evento) filtra os links — Confirmar/Galeria/
+ * Recados so aparecem se o plano libera; Início/Evento/Presentes sao sempre base.
  */
-export function SiteNav({ nome }: { nome: string }) {
+export function SiteNav({
+  nome,
+  recursos,
+}: {
+  nome: string;
+  recursos: RecursosPlano;
+}) {
   const pathname = usePathname();
+  const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -79,7 +92,7 @@ export function SiteNav({ nome }: { nome: string }) {
 
         {/* Links — desktop */}
         <ul className="hidden items-center gap-7 md:flex">
-          {LINKS.map((l) => {
+          {links.map((l) => {
             const active = pathname === l.href;
             return (
               <li key={l.href}>
@@ -116,7 +129,7 @@ export function SiteNav({ nome }: { nome: string }) {
       {open && (
         <div id="mobile-drawer" className="border-t border-[var(--line)] bg-white md:hidden">
           <ul className="mx-auto flex max-w-[1100px] flex-col px-[clamp(1.25rem,5vw,2rem)] py-3">
-            {LINKS.map((l) => {
+            {links.map((l) => {
               const active = pathname === l.href;
               return (
                 <li key={l.href}>

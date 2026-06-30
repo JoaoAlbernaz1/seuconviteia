@@ -9,7 +9,9 @@ import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { SectionHeading } from "@/components/evt/SectionHeading";
 import { Reveal } from "@/components/evt/Reveal";
 import { RecadoForm } from "@/components/evt/RecadoForm";
+import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { listarRecadosAprovados } from "@/lib/recados";
+import { recursosDoPlano } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -25,6 +27,16 @@ export default async function RecadosPage({
   const visivel = eventoPublico(event, new Date());
   if (!visivel.ok || !event) {
     return <SiteIndisponivel motivo={visivel.motivo ?? "inexistente"} />;
+  }
+
+  // Gate por plano: o mural de recados so existe no CLASSICO/PREMIUM.
+  if (!recursosDoPlano(event.plan).recados) {
+    return (
+      <RecursoIndisponivel
+        titulo="Recados indisponíveis"
+        texto="O mural de recados não está disponível neste convite."
+      />
+    );
   }
 
   const evento = lerEventoFesta(event);

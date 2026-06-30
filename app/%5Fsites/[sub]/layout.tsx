@@ -13,6 +13,7 @@ import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
 import { coresParticulas } from "@/lib/cor";
+import { recursosDoPlano } from "@/lib/plans";
 
 // ── Tipografia (igual ao festa) ───────────────────────────────────────────────
 //  Script  = Milton One  (local)  -> --font-milton    -> token evt-script
@@ -72,15 +73,25 @@ export default async function EventSiteLayout({
   const particleColors =
     tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(tema));
 
+  // Gating por plano do evento: a nav filtra os links e o rodape decide o credito
+  // (white-label PREMIUM mostra a marca do profissional no lugar do "feito com...").
+  const recursos = recursosDoPlano(event.plan);
+  const brandName = event.professional?.brandName ?? event.professional?.name;
+
   return (
     <div
       className={`evt font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${FONT_VARS}`}
       style={varsDoTema(tema)}
     >
       <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />
-      <SiteNav nome={dados.primeiroNome} />
+      <SiteNav nome={dados.primeiroNome} recursos={recursos} />
       {children}
-      <SiteFooter nome={dados.primeiroNome} linhaInfo={dados.footerInfo} />
+      <SiteFooter
+        nome={dados.primeiroNome}
+        linhaInfo={dados.footerInfo}
+        whiteLabel={recursos.whiteLabel}
+        brandName={brandName}
+      />
     </div>
   );
 }
