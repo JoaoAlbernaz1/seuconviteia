@@ -7,6 +7,7 @@
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { textosDoNicho } from "@/lib/textos";
 
 import { Button } from "@/components/evt/Button";
 import { Reveal } from "@/components/evt/Reveal";
@@ -39,25 +40,26 @@ export default async function EventSitePage({
 
   const evento = lerEventoFesta(event);
   const nome = evento.primeiroNome;
+  const t = textosDoNicho(event.type);
 
   const TEASERS = [
     {
       href: "/presentes",
       eyebrow: "Presentes",
       titulo: "Sua presença é o presente",
-      texto: "Se quiser deixar um carinho a mais, minha chave Pix está aqui.",
+      texto: t.teaserPresentes,
     },
     {
       href: "/galeria",
       eyebrow: "Galeria",
       titulo: "Momentos",
-      texto: "Um cantinho com as fotos que contam um pouco dessa história.",
+      texto: t.teaserGaleria,
     },
     {
       href: "/recados",
       eyebrow: "Recados",
       titulo: "Deixe seu carinho",
-      texto: `Escreva uma mensagem para ${nome} — ela vai amar ler cada palavra.`,
+      texto: t.teaserRecados,
     },
   ] as const;
 
@@ -75,17 +77,17 @@ export default async function EventSitePage({
       <section className={`bg-evt-blush-soft/55 ${PAD} ${RHYTHM}`}>
         <div className="mx-auto max-w-[680px]">
           <Reveal>
-            <SectionHeading eyebrow="O convite" title="Vem comemorar comigo" />
+            <SectionHeading eyebrow="O convite" title={t.conviteTitulo} />
           </Reveal>
           <Reveal delay={120}>
             <p className="drop-cap mt-10 font-evt-body text-[1.2rem] leading-relaxed text-evt-ink">
-              Há quinze anos, o sonho mais bonito da nossa vida chegou em forma de menina. Hoje esse
-              sonho floresce — e não existe celebração completa sem as pessoas que fizeram parte
-              dessa história.
+              {t.conviteTeaser}
             </p>
           </Reveal>
           <Reveal delay={200} className="mt-9 flex flex-col items-center gap-6 text-center">
-            <p className="font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-rosa-ink">Com carinho, {nome}</p>
+            <p className="font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-rosa-ink">
+              {t.assinaturaPrefixo} {nome}
+            </p>
             <Button href="/evento" variant="ghost">
               Ler o convite e ver os detalhes
             </Button>
@@ -129,7 +131,7 @@ export default async function EventSitePage({
               <span className="h-px w-12 bg-evt-rosa/50" />
             </span>
             <p className="font-evt-script text-[clamp(1.8rem,5.5vw,2.4rem)] text-evt-rosa-ink">
-              Faça parte dessa noite
+              {t.ctaConvite}
             </p>
             <ConfirmCTA />
           </Reveal>
@@ -196,7 +198,7 @@ export default async function EventSitePage({
             <span className="h-px w-12 bg-evt-rosa/50" />
           </span>
           <p className="max-w-[640px] font-evt-script text-[clamp(2rem,6.5vw,3.2rem)] leading-[1.25] text-evt-rosa-ink">
-            Mal posso esperar para viver essa noite com você.
+            {t.fecho}
           </p>
         </Reveal>
       </section>

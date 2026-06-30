@@ -20,6 +20,7 @@ import { Countdown } from "@/components/evt/Countdown";
 import { ConfirmCTA } from "@/components/evt/ConfirmCTA";
 import { MapEmbed } from "@/components/evt/MapEmbed";
 import { Flourish } from "@/components/evt/icons";
+import { textosDoNicho } from "@/lib/textos";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export default async function EventoPage({
 
   const evento = lerEventoFesta(event);
   const nome = evento.primeiroNome;
+  const t = textosDoNicho(event.type);
   const local = evento.local ?? "O local";
   const temEmbed = !!evento.mapsEmbedUrl && /^https:\/\//i.test(evento.mapsEmbedUrl);
 
@@ -52,16 +54,17 @@ export default async function EventoPage({
       <section className={`bg-evt-blush-soft/55 ${PAD} pb-[clamp(4rem,9vw,7rem)] pt-32`}>
         <div className="mx-auto max-w-[680px] text-center">
           <Reveal>
-            <SectionHeading eyebrow="O convite" title="Vem comemorar comigo" />
+            <SectionHeading eyebrow="O convite" title={t.conviteTitulo} />
           </Reveal>
           <Reveal delay={120}>
             <p className="drop-cap mt-10 text-left font-evt-body text-[1.2rem] leading-relaxed text-evt-ink">
-              {evento.mensagemBoasVindas ??
-                "Há quinze anos, o sonho mais bonito da nossa vida chegou em forma de menina. Hoje esse sonho floresce — e não existe celebração completa sem as pessoas que fizeram parte dessa história. Será uma alegria imensa ter você ao meu lado nesta noite, para rir, dançar e guardar para sempre a lembrança dos meus 15 anos."}
+              {evento.mensagemBoasVindas ?? t.mensagemPadrao}
             </p>
           </Reveal>
           <Reveal delay={200}>
-            <p className="mt-8 font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-rosa-ink">Com carinho, {nome}</p>
+            <p className="mt-8 font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-rosa-ink">
+              {t.assinaturaPrefixo} {nome}
+            </p>
           </Reveal>
         </div>
       </section>

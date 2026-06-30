@@ -12,6 +12,7 @@ import { useActionState, useId, useState } from "react";
 import Link from "next/link";
 import type { NovoEventoState } from "../../actions";
 import { eventPublicUrl, slugify } from "@/lib/tenant";
+import { textosDoNicho } from "@/lib/textos";
 
 /** Uma paleta para o seletor visual (montada no servidor a partir de TEMAS). */
 export type PaletaOpt = {
@@ -140,6 +141,16 @@ export default function EventoForm({
   const [tema, setTema] = useState(initial?.tema ?? paletas[0]?.key ?? "rose");
   const [title, setTitle] = useState(initial?.title ?? "");
 
+  // Mensagem de boas-vindas: controlada, com TEXTO PRONTO por nicho. Ao escolher
+  // o tipo, pre-preenche com o padrao do nicho — ate o profissional editar.
+  const [mensagem, setMensagem] = useState(initial?.mensagem ?? "");
+  const [mensagemTocada, setMensagemTocada] = useState(Boolean(initial?.mensagem));
+
+  function escolherTipo(value: string) {
+    setType(value);
+    if (!mensagemTocada) setMensagem(textosDoNicho(value).mensagemPadrao);
+  }
+
   const [programacao, setProgramacao] = useState<Row<{ hora: string; titulo: string }>[]>(
     () =>
       (initial?.programacao ?? [{ hora: "", titulo: "" }]).map((p) =>
@@ -197,7 +208,7 @@ export default function EventoForm({
                   name="type"
                   value={t.value}
                   checked={type === t.value}
-                  onChange={() => setType(t.value)}
+                  onChange={() => escolherTipo(t.value)}
                   className="sr-only"
                 />
                 {t.label}
@@ -321,11 +332,15 @@ export default function EventoForm({
               <textarea
                 id={`${uid}-mensagem`}
                 name="mensagem"
-                rows={3}
+                rows={4}
                 maxLength={2000}
-                defaultValue={initial?.mensagem}
+                value={mensagem}
+                onChange={(e) => {
+                  setMensagem(e.target.value);
+                  setMensagemTocada(true);
+                }}
                 className={inputClass}
-                placeholder="Uma frase de convite para a capa do site."
+                placeholder="Escolha o tipo de evento e sugerimos um texto — você pode editar."
               />
             </Field>
           </div>
