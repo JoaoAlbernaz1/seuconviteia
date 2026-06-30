@@ -20,8 +20,13 @@ import {
   GuestStatus,
   GiftMode,
 } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+// Senha do profissional demo (pra logar no painel e explorar).
+// Login: demo@seuconviteia.com / demo12345
+const DEMO_PASSWORD_HASH = bcrypt.hashSync("demo12345", 10);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -54,10 +59,12 @@ async function main() {
     update: {
       name: "Estudio Demo Eventos",
       plan: Plan.PREMIUM,
+      passwordHash: DEMO_PASSWORD_HASH,
     },
     create: {
       name: "Estudio Demo Eventos",
       email: "demo@seuconviteia.com",
+      passwordHash: DEMO_PASSWORD_HASH,
       plan: Plan.PREMIUM,
       brandName: "Estudio Demo Eventos",
     },
