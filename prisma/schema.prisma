@@ -95,6 +95,7 @@ model Event {
   guests       Guest[]
   gifts        GiftItem[]
   photos       Photo[]
+  recados      Recado[]
   transactions Transaction[]
 
   @@index([professionalId])
@@ -142,6 +143,20 @@ model Photo {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   url       String
   order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+}
+
+/// Recado do mural publico de um evento (mensagem de carinho de um convidado).
+/// Auto-aprovado por enquanto (`approved` default true); moderacao vira depois.
+model Recado {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  message   String   @db.Text
+  approved  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   @@index([eventId])

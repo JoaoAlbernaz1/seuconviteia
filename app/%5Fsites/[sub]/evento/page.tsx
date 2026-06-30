@@ -18,6 +18,7 @@ import { Reveal } from "@/components/evt/Reveal";
 import { Timeline } from "@/components/evt/Timeline";
 import { Countdown } from "@/components/evt/Countdown";
 import { ConfirmCTA } from "@/components/evt/ConfirmCTA";
+import { MapEmbed } from "@/components/evt/MapEmbed";
 import { Flourish } from "@/components/evt/icons";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
@@ -79,7 +80,7 @@ export default async function EventoPage({
                 {evento.horario}
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row md:items-start">
-                <Button href="/api/agenda.ics" variant="ghost" prefetch={false}>
+                <Button href="/agenda" variant="ghost" prefetch={false}>
                   Adicionar à agenda
                 </Button>
               </div>
@@ -116,27 +117,11 @@ export default async function EventoPage({
             pílula. DESVIO documentado vs. festa (que usava PNG estático próprio). */}
         {temEmbed ? (
           <Reveal delay={140} className={`mt-6 ${WRAP}`}>
-            <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-[var(--line)] shadow-[0_22px_50px_-40px_rgba(46,26,32,0.35)]">
-              <iframe
-                src={evento.mapsEmbedUrl}
-                title={`Mapa — ${local}`}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-                className="block h-[300px] w-full border-0 sm:h-[380px]"
-              />
-              {evento.mapsLinkUrl && (
-                <a
-                  href={evento.mapsLinkUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`Abrir ${local} no Google Maps`}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-5 py-2 font-evt-util text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-evt-rosa-ink shadow-[0_8px_24px_-8px_rgba(46,26,32,0.4)] transition-colors hover:text-evt-framboesa focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evt-rosa-ink focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-                >
-                  Abrir no Google Maps →
-                </a>
-              )}
-            </div>
+            <MapEmbed
+              src={evento.mapsEmbedUrl!}
+              local={local}
+              linkUrl={evento.mapsLinkUrl}
+            />
           </Reveal>
         ) : (
           evento.mapsLinkUrl && (

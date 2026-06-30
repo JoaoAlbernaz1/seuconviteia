@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { eventoPublico } from "@/lib/event";
+import { validateGuests, montarGuestRow, type GuestInput } from "@/lib/rsvpFesta";
 
 /**
  * Server action de RSVP do site publico do evento (Fase 6).
@@ -83,4 +84,75 @@ export async function confirmarPresenca(
   }
 
   return { status: "ok", nome, presenca };
+}
+
+/**
+ * Server action do RSVP "festa" (formulario multi-convidado `RsvpConvite`,
+ * portado do festa-15-maria-clara). Recebe a lista de convidados do cliente +
+ * o `eventId` + o consentimento, e grava UMA linha `Guest` (achatada por
+ * `montarGuestRow`). Mesmas garantias de seguranca/LGPD do `confirmarPresenca`:
+ *
+ *  - o `eventId` e RE-RESOLVIDO e RE-VALIDADO no servidor (`eventoPublico`);
+ *    nunca confiamos so no input do cliente.
+ *  - consentimento explicito obrigatorio (LGPD).
+ *  - a lista do cliente e validada por Zod (shape) e por `validateGuests`
+ *    (nomes nao-vazios) antes de gravar.
+ */
+const festaGuestSchema = z.object({
+  nome: z.string(),
+  tipo: z.enum(["adulto", "crianca"]),
+  vai_comparecer: z.boolean(),
+});
+
+const festaRsvpSchema = z.object({
+  eventId: z.string().min(1),
+  consentimento: z.literal(true, {
+    message: "É preciso aceitar o compartilhamento dos dados.",
+  }),
+  guests: z.array(festaGuestSchema).min(1, "Informe ao menos um convidado."),
+});
+
+export async function confirmarPresencaFesta(
+  eventId: string,
+  guests: GuestInput[],
+  consentimento: boolean,
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const parsed = festaRsvpSchema.safeParse({ eventId, guests, consentimento });
+  if (!parsed.success) {
+    const msg =
+      parsed.error.issues[0]?.message ?? "Confira os dados e tente de novo.";
+    return { ok: false, error: msg };
+  }
+
+  const v = validateGuests(parsed.data.guests);
+  if (!v.ok) return v;
+
+  // Re-resolve e re-valida o evento no servidor (nao confia no cliente).
+  const event = await prisma.event.findUnique({
+    where: { id: parsed.data.eventId },
+  });
+  const visivel = eventoPublico(event, new Date());
+  if (!event || !visivel.ok) {
+    return {
+      ok: false,
+      error: "Este convite não está disponível para confirmação.",
+    };
+  }
+
+  const row = montarGuestRow(v.guests);
+  try {
+    await prisma.guest.create({
+      data: {
+        eventId: event.id,
+        name: row.name,
+        status: row.status,
+        companions: row.companions,
+        message: row.message,
+      },
+    });
+  } catch {
+    return { ok: false, error: "Falha ao salvar. Tente de novo." };
+  }
+
+  return { ok: true, count: v.guests.length };
 }
