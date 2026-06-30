@@ -60,7 +60,6 @@ export default async function EditarEventoPage({
   const initial: EventoFormInitial = {
     eventId: event.id,
     type: event.type,
-    plan: event.plan,
     tema: lerTema(event.customization),
     title: event.title,
     date,

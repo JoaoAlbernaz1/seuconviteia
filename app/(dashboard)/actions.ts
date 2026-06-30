@@ -33,25 +33,32 @@ import {
 // Cadastro (signup)
 // ----------------------------------------------------------------------------
 
+/** Planos validos (espelha o enum `Plan` do Prisma). */
+const PLAN_VALUES = ["BASICO", "CLASSICO", "PREMIUM"] as const;
+
 const signupSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome.").max(120),
   email: z.string().trim().toLowerCase().email("E-mail invalido."),
   password: z.string().min(8, "A senha precisa de ao menos 8 caracteres.").max(200),
+  // Plano da CONTA (escolhido no signup; herdado por todos os eventos). Ausente -> BASICO.
+  plan: z.enum(PLAN_VALUES, { message: "Plano invalido." }).optional().default("BASICO"),
 });
 
 export type SignupState = {
   error?: string;
-  fieldErrors?: Partial<Record<"name" | "email" | "password", string>>;
+  fieldErrors?: Partial<Record<"name" | "email" | "password" | "plan", string>>;
 };
 
 export async function cadastrarProfissional(
   _prev: SignupState,
   formData: FormData,
 ): Promise<SignupState> {
+  const planRaw = formData.get("plan");
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
+    plan: typeof planRaw === "string" && planRaw ? planRaw : undefined,
   });
 
   if (!parsed.success) {
@@ -61,11 +68,12 @@ export async function cadastrarProfissional(
         name: f.name?.[0],
         email: f.email?.[0],
         password: f.password?.[0],
+        plan: f.plan?.[0],
       },
     };
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, plan } = parsed.data;
 
   const existing = await prisma.professional.findUnique({ where: { email } });
   if (existing) {
@@ -74,7 +82,7 @@ export async function cadastrarProfissional(
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.professional.create({
-    data: { name, email, passwordHash, plan: "BASICO" },
+    data: { name, email, passwordHash, plan },
   });
 
   // Loga e redireciona para o painel. `signIn` lanca o redirect (NEXT_REDIRECT)
@@ -153,13 +161,9 @@ const EVENT_TYPES = [
   "ANIVERSARIO",
 ] as const;
 
-/** Planos validos (espelha o enum `Plan` do Prisma). */
-const PLAN_VALUES = ["BASICO", "CLASSICO", "PREMIUM"] as const;
-
 /** Campos de erro possiveis no form de evento. */
 type CampoEvento =
   | "type"
-  | "plan"
   | "tema"
   | "title"
   | "date"
@@ -174,8 +178,6 @@ type CampoEvento =
 
 const novoEventoSchema = z.object({
   type: z.enum(EVENT_TYPES, { message: "Escolha o tipo de evento." }),
-  // Plano (gating). Opcional no payload; cai para BASICO se ausente.
-  plan: z.enum(PLAN_VALUES, { message: "Plano invalido." }).optional(),
   // Paleta de cor: precisa ser uma chave conhecida de `lib/temas.ts`.
   tema: z
     .string()
@@ -213,7 +215,6 @@ export type NovoEventoState = {
 /** Dados validados + derivados de um form de evento (compartilhado criar/editar). */
 type EventoInterpretado = {
   type: (typeof EVENT_TYPES)[number];
-  plan: (typeof PLAN_VALUES)[number];
   title: string;
   eventDate: Date;
   expiresAt: Date;
@@ -238,7 +239,6 @@ function interpretarEvento(
 
   const parsed = novoEventoSchema.safeParse({
     type: formData.get("type"),
-    plan: str("plan"),
     tema: formData.get("tema"),
     title: formData.get("title"),
     date: formData.get("date"),
@@ -259,7 +259,6 @@ function interpretarEvento(
       state: {
         fieldErrors: {
           type: f.type?.[0],
-          plan: f.plan?.[0],
           tema: f.tema?.[0],
           title: f.title?.[0],
           date: f.date?.[0],
@@ -278,7 +277,6 @@ function interpretarEvento(
 
   const {
     type,
-    plan,
     tema,
     title,
     date,
@@ -335,7 +333,6 @@ function interpretarEvento(
     ok: true,
     data: {
       type,
-      plan: plan ?? "BASICO",
       title,
       eventDate,
       expiresAt: calcularExpiracao(eventDate),
@@ -371,9 +368,18 @@ export async function criarEvento(
   if (!session?.user) redirect("/entrar");
   const professionalId = session.user.id;
 
+  // Plano HERDADO da conta: o evento usa o plano atual do profissional logado
+  // (o plano e escolhido no signup, nao por evento). Le sempre da sessao/banco.
+  const professional = await prisma.professional.findUnique({
+    where: { id: professionalId },
+    select: { plan: true },
+  });
+  if (!professional) redirect("/entrar");
+  const plan = professional.plan;
+
   const result = interpretarEvento(formData);
   if (!result.ok) return result.state;
-  const { type, plan, title, eventDate, expiresAt, customization, presentes, fotos } =
+  const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
     result.data;
 
   // Subdominio unico (considera RESERVED + colisoes no banco).
@@ -444,9 +450,18 @@ export async function editarEvento(
     return { error: "Evento nao encontrado." };
   }
 
+  // Plano HERDADO da conta (mesma regra do create): ao salvar, o evento passa a
+  // refletir o plano atual do profissional. Nao vem do form.
+  const professional = await prisma.professional.findUnique({
+    where: { id: professionalId },
+    select: { plan: true },
+  });
+  if (!professional) redirect("/entrar");
+  const plan = professional.plan;
+
   const result = interpretarEvento(formData);
   if (!result.ok) return result.state;
-  const { type, plan, title, eventDate, expiresAt, customization, presentes, fotos } =
+  const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
     result.data;
 
   // Atualiza o evento. `subdomain` e `templateId` ficam ESTAVEIS (nao regerados).

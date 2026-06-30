@@ -1,10 +1,13 @@
 "use client";
 
 // Cadastro do profissional. Form client com `useActionState` -> server action
-// `cadastrarProfissional` (Zod + bcrypt + cria Professional BASICO + auto-login).
-import { useActionState } from "react";
+// `cadastrarProfissional` (Zod + bcrypt + cria Professional com o PLANO escolhido
+// no signup + auto-login). O plano e ESCOLHIDO NA CONTA (aqui) e herdado por todos
+// os eventos do profissional — nao se escolhe plano por evento.
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { cadastrarProfissional, type SignupState } from "../actions";
+import { PLANOS_INFO, RECURSOS, RECURSO_LABEL, type Plan } from "@/lib/plans";
 
 const INITIAL: SignupState = {};
 
@@ -21,10 +24,11 @@ export default function CadastrarPage() {
     cadastrarProfissional,
     INITIAL,
   );
+  const [plan, setPlan] = useState<Plan>("BASICO");
 
   return (
     <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md">
         <h1 className="font-display text-3xl font-semibold text-ink">
           Criar conta
         </h1>
@@ -81,6 +85,69 @@ export default function CadastrarPage() {
             />
             <FieldError msg={state.fieldErrors?.password} />
           </div>
+
+          {/* Plano da CONTA — todos os eventos herdam este plano. */}
+          <fieldset className="flex flex-col gap-2.5">
+            <legend className="mb-1 text-sm font-medium text-ink">
+              Plano da conta
+            </legend>
+            <p className="-mt-1 mb-1 text-xs text-texto-suave">
+              Define o que fica liberado nos sites que voce criar. Voce pode
+              comecar no Basico e fazer upgrade depois.
+            </p>
+            {PLANOS_INFO.map((p) => {
+              const selected = plan === p.key;
+              return (
+                <label
+                  key={p.key}
+                  className={`flex cursor-pointer flex-col rounded-xl border p-4 transition ${
+                    selected
+                      ? "border-violeta ring-2 ring-violeta/25"
+                      : "border-black/10 hover:border-violeta/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="plan"
+                    value={p.key}
+                    checked={selected}
+                    onChange={() => setPlan(p.key)}
+                    className="sr-only"
+                  />
+                  <span className="flex items-center justify-between">
+                    <span className="font-display text-base font-semibold text-ink">
+                      {p.label}
+                    </span>
+                    {selected ? (
+                      <span className="text-xs font-semibold text-violeta">✓</span>
+                    ) : null}
+                  </span>
+                  <span className="mt-1 text-xs leading-snug text-texto-suave">
+                    {p.descricaoCurta}
+                  </span>
+                  <ul className="mt-3 flex flex-col gap-1.5">
+                    {RECURSOS.map((r) => {
+                      const incluso = p.recursos.includes(r);
+                      return (
+                        <li
+                          key={r}
+                          className={`flex items-center gap-1.5 text-xs ${
+                            incluso ? "text-ink" : "text-texto-suave/60"
+                          }`}
+                        >
+                          <span aria-hidden>{incluso ? "✅" : "🔒"}</span>
+                          <span className={incluso ? "" : "line-through"}>
+                            {RECURSO_LABEL[r]}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </label>
+              );
+            })}
+            <FieldError msg={state.fieldErrors?.plan} />
+          </fieldset>
 
           {state.error ? (
             <p

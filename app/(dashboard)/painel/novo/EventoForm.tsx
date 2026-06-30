@@ -14,12 +14,6 @@ import Image from "next/image";
 import type { NovoEventoState } from "../../actions";
 import { eventPublicUrl, slugify } from "@/lib/tenant";
 import { textosDoNicho } from "@/lib/textos";
-import {
-  PLANOS_INFO,
-  RECURSOS,
-  RECURSO_LABEL,
-  type Plan,
-} from "@/lib/plans";
 
 /** Uma paleta para o seletor visual (montada no servidor a partir de TEMAS). */
 export type PaletaOpt = {
@@ -34,8 +28,6 @@ export type EventoFormInitial = {
   /** Id do evento (modo "edit") — viaja como hidden field e e revalidado no servidor. */
   eventId?: string;
   type?: string;
-  /** Plano do evento (gating). Default "BASICO" no create. */
-  plan?: Plan;
   tema?: string;
   title?: string;
   date?: string;
@@ -343,7 +335,6 @@ export default function EventoForm({
   const uid = useId();
 
   const [type, setType] = useState(initial?.type ?? "");
-  const [plan, setPlan] = useState<Plan>(initial?.plan ?? "BASICO");
   const [tema, setTema] = useState(initial?.tema ?? paletas[0]?.key ?? "rose");
   const [title, setTitle] = useState(initial?.title ?? "");
 
@@ -429,74 +420,10 @@ export default function EventoForm({
           <SectionError msg={state.fieldErrors?.type} />
         </section>
 
-        {/* 2 — Plano (gating / upsell) */}
+        {/* 2 — Paleta (headline) */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
             n={2}
-            title="Plano"
-            hint="Define o que fica liberado no site. Planos menores travam os recursos. Voce pode mudar depois — o pagamento entra numa proxima fase."
-          />
-          {/* Valor submetido: o plano escolhido (radio). */}
-          <div className="grid gap-2.5 sm:grid-cols-3">
-            {PLANOS_INFO.map((p) => {
-              const selected = plan === p.key;
-              return (
-                <label
-                  key={p.key}
-                  className={`flex cursor-pointer flex-col rounded-xl border p-4 transition ${
-                    selected
-                      ? "border-violeta ring-2 ring-violeta/25"
-                      : "border-black/10 hover:border-violeta/40"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="plan"
-                    value={p.key}
-                    checked={selected}
-                    onChange={() => setPlan(p.key)}
-                    className="sr-only"
-                  />
-                  <span className="flex items-center justify-between">
-                    <span className="font-display text-base font-semibold text-ink">
-                      {p.label}
-                    </span>
-                    {selected ? (
-                      <span className="text-xs font-semibold text-violeta">✓</span>
-                    ) : null}
-                  </span>
-                  <span className="mt-1 text-xs leading-snug text-texto-suave">
-                    {p.descricaoCurta}
-                  </span>
-                  <ul className="mt-3 flex flex-col gap-1.5">
-                    {RECURSOS.map((r) => {
-                      const incluso = p.recursos.includes(r);
-                      return (
-                        <li
-                          key={r}
-                          className={`flex items-center gap-1.5 text-xs ${
-                            incluso ? "text-ink" : "text-texto-suave/60"
-                          }`}
-                        >
-                          <span aria-hidden>{incluso ? "✅" : "🔒"}</span>
-                          <span className={incluso ? "" : "line-through"}>
-                            {RECURSO_LABEL[r]}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </label>
-              );
-            })}
-          </div>
-          <SectionError msg={state.fieldErrors?.plan} />
-        </section>
-
-        {/* 3 — Paleta (headline) */}
-        <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-          <StepHead
-            n={3}
             title="Paleta de cores"
             hint="Define o visual do site do evento. Voce pode trocar depois."
           />
@@ -547,9 +474,9 @@ export default function EventoForm({
           <SectionError msg={state.fieldErrors?.tema} />
         </section>
 
-        {/* 4 — Dados */}
+        {/* 3 — Dados */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-          <StepHead n={4} title="Dados do evento" />
+          <StepHead n={3} title="Dados do evento" />
           <div className="flex flex-col gap-4">
             <Field
               label="Titulo"
@@ -621,10 +548,10 @@ export default function EventoForm({
           </div>
         </section>
 
-        {/* 5 — Local */}
+        {/* 4 — Local */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
-            n={5}
+            n={4}
             title="Local"
             hint="O mapa e o link do Google Maps sao gerados a partir do endereco."
           />
@@ -677,10 +604,10 @@ export default function EventoForm({
           </div>
         </section>
 
-        {/* 6 — Programacao */}
+        {/* 5 — Programacao */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
-            n={6}
+            n={5}
             title="Programacao"
             hint="Os horarios da festa, em ordem. Opcional."
           />
@@ -735,10 +662,10 @@ export default function EventoForm({
           </button>
         </section>
 
-        {/* 7 — Presentes */}
+        {/* 6 — Presentes */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
-            n={7}
+            n={6}
             title="Presentes"
             hint="Chave Pix do recebedor e uma lista de sugestoes. Opcional."
           />
@@ -843,10 +770,10 @@ export default function EventoForm({
           </button>
         </section>
 
-        {/* 8 — Foto de capa */}
+        {/* 7 — Foto de capa */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
-            n={8}
+            n={7}
             title="Foto de capa"
             hint="A imagem principal do site (hero). Opcional — ha um fallback sem foto."
           />
@@ -854,30 +781,24 @@ export default function EventoForm({
           <SectionError msg={state.fieldErrors?.fotoUrl} />
         </section>
 
-        {/* 9 — Album (galeria) */}
+        {/* 8 — Album (galeria) */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
-            n={9}
+            n={8}
             title="Album (galeria)"
             hint="Fotos do ensaio para o carrossel e a galeria do site. Opcional."
           />
           <AlbumUploader initialUrls={initial?.fotos} />
         </section>
 
-        {/* 10 — Revisao + publicar */}
+        {/* 9 — Revisao + publicar */}
         <section className="rounded-2xl border border-violeta/20 bg-lilas/40 p-5">
-          <StepHead n={10} title="Revisao" />
+          <StepHead n={9} title="Revisao" />
           <dl className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-texto-suave">Tipo</dt>
               <dd className="font-medium text-ink">
                 {TIPOS.find((t) => t.value === type)?.label ?? "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-texto-suave">Plano</dt>
-              <dd className="font-medium text-ink">
-                {PLANOS_INFO.find((p) => p.key === plan)?.label ?? "—"}
               </dd>
             </div>
             <div className="flex justify-between gap-4">

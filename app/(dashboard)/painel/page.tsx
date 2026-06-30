@@ -35,9 +35,11 @@ const PLAN_BADGE: Record<Plan, string> = {
 };
 
 // Nudge de upsell: o que esta travado abaixo do topo (PREMIUM nao mostra nada).
+// O plano e da CONTA (escolhido no signup) e herdado pelos eventos — o upgrade e
+// no nivel da conta, nao por evento. Por isso e so um aviso informativo.
 const UPSELL: Partial<Record<Plan, string>> = {
-  BASICO: "RSVP, Recados e Galeria bloqueados",
-  CLASSICO: "White-label e domínio próprio bloqueados",
+  BASICO: "RSVP, Recados e Galeria bloqueados no plano da conta",
+  CLASSICO: "White-label e domínio próprio bloqueados no plano da conta",
 };
 
 const formatadorData = new Intl.DateTimeFormat("pt-BR", {
@@ -134,13 +136,7 @@ export default async function PainelPage() {
                     </p>
                     {UPSELL[ev.plan] ? (
                       <p className="mt-1.5 text-xs text-texto-suave">
-                        <span aria-hidden>🔒</span> {UPSELL[ev.plan]} —{" "}
-                        <Link
-                          href={`/painel/${ev.id}/editar`}
-                          className="font-medium text-violeta hover:underline"
-                        >
-                          fazer upgrade
-                        </Link>
+                        <span aria-hidden>🔒</span> {UPSELL[ev.plan]}
                       </p>
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
