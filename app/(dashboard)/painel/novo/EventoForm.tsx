@@ -14,6 +14,14 @@ import Image from "next/image";
 import type { NovoEventoState } from "../../actions";
 import { eventPublicUrl, slugify } from "@/lib/tenant";
 import { textosDoNicho } from "@/lib/textos";
+import {
+  programacaoSugerida,
+  presentesSugeridos,
+  DICA_FOTO_CAPA,
+  DICA_FOTO_ALBUM,
+  DICA_TITULO,
+  DICA_MENSAGEM,
+} from "@/lib/sugestoes";
 
 /** Uma paleta para o seletor visual (montada no servidor a partir de TEMAS). */
 export type PaletaOpt = {
@@ -103,12 +111,15 @@ function Field({
   label,
   htmlFor,
   optional,
+  hint,
   children,
   error,
 }: {
   label: string;
   htmlFor: string;
   optional?: boolean;
+  /** Dica de preenchimento (como escrever / exemplos), abaixo do rotulo. */
+  hint?: string;
   children: React.ReactNode;
   error?: string;
 }) {
@@ -120,9 +131,37 @@ function Field({
           <span className="font-normal text-texto-suave">(opcional)</span>
         ) : null}
       </label>
+      {hint ? <p className="-mt-0.5 text-xs leading-snug text-texto-suave">{hint}</p> : null}
       {children}
       <SectionError msg={error} />
     </div>
+  );
+}
+
+/**
+ * Botao "✨ Sugerir" — preenche um campo/lista com uma sugestao pronta do nicho.
+ * Quando nao ha tipo de evento escolhido, fica desabilitado com a dica de
+ * escolher o tipo antes (as sugestoes dependem do nicho).
+ */
+function SugerirBtn({
+  onClick,
+  temTipo,
+  children = "Sugerir",
+}: {
+  onClick: () => void;
+  temTipo: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!temTipo}
+      title={temTipo ? undefined : "Escolha o tipo de evento primeiro"}
+      className="inline-flex items-center gap-1 rounded-full border border-violeta/30 bg-lilas/50 px-2.5 py-1 text-xs font-semibold text-violeta transition hover:bg-lilas disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span aria-hidden>✨</span> {children}
+    </button>
   );
 }
 
@@ -366,9 +405,29 @@ export default function EventoForm({
     ),
   );
 
+  // ✨ Sugestoes por nicho (preenchem o campo/lista; o profissional ajusta).
+  function sugerirMensagem() {
+    if (!type) return;
+    setMensagem(textosDoNicho(type).mensagemPadrao);
+    setMensagemTocada(true);
+  }
+  function sugerirProgramacao() {
+    if (!type) return;
+    setProgramacao(programacaoSugerida(type).map((i) => makeRow(i)));
+  }
+  function sugerirPresentes() {
+    if (!type) return;
+    setPresentes(
+      presentesSugeridos(type).map((p) =>
+        makeRow({ titulo: p.titulo, descricao: p.descricao, valor: p.valor }),
+      ),
+    );
+  }
+
   const previewSlug = slugify(title) || "evento";
   const previewUrl = eventPublicUrl(previewSlug, rootDomain);
   const canSubmit = Boolean(type && tema && title.trim());
+  const temTipo = Boolean(type);
 
   const isEdit = mode === "edit";
 
@@ -481,6 +540,7 @@ export default function EventoForm({
             <Field
               label="Titulo"
               htmlFor={`${uid}-title`}
+              hint={DICA_TITULO}
               error={state.fieldErrors?.title}
             >
               <input
@@ -491,7 +551,7 @@ export default function EventoForm({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className={inputClass}
-                placeholder="Ex.: Casamento de Ana e Leo"
+                placeholder="Ex.: Ana & Léo"
               />
             </Field>
 
@@ -529,8 +589,14 @@ export default function EventoForm({
               label="Mensagem de boas-vindas"
               htmlFor={`${uid}-mensagem`}
               optional
+              hint={DICA_MENSAGEM}
               error={state.fieldErrors?.mensagem}
             >
+              <div className="mb-1.5 flex justify-end">
+                <SugerirBtn onClick={sugerirMensagem} temTipo={temTipo}>
+                  Sugerir texto
+                </SugerirBtn>
+              </div>
               <textarea
                 id={`${uid}-mensagem`}
                 name="mensagem"
@@ -542,7 +608,7 @@ export default function EventoForm({
                   setMensagemTocada(true);
                 }}
                 className={inputClass}
-                placeholder="Escolha o tipo de evento e sugerimos um texto — você pode editar."
+                placeholder="Escolha o tipo de evento e toque em ✨ Sugerir texto — você pode editar depois."
               />
             </Field>
           </div>
@@ -608,9 +674,14 @@ export default function EventoForm({
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead
             n={5}
-            title="Programacao"
-            hint="Os horarios da festa, em ordem. Opcional."
+            title="Programação"
+            hint="Os horários da festa, em ordem. Opcional — toque em ✨ para começar com a programação típica do tipo escolhido."
           />
+          <div className="mb-3">
+            <SugerirBtn onClick={sugerirProgramacao} temTipo={temTipo}>
+              Sugerir programação
+            </SugerirBtn>
+          </div>
           <div className="flex flex-col gap-2.5">
             {programacao.map((row, i) => (
               <div key={row._id} className="flex items-center gap-2">
@@ -702,9 +773,12 @@ export default function EventoForm({
             </Field>
           </div>
 
-          <p className="mb-2 mt-5 text-sm font-medium text-ink">
-            Lista de presentes
-          </p>
+          <div className="mb-2 mt-5 flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-ink">Lista de presentes</p>
+            <SugerirBtn onClick={sugerirPresentes} temTipo={temTipo}>
+              Sugerir presentes
+            </SugerirBtn>
+          </div>
           <div className="flex flex-col gap-3">
             {presentes.map((row, i) => (
               <div
@@ -775,25 +849,36 @@ export default function EventoForm({
           <StepHead
             n={7}
             title="Foto de capa"
-            hint="A imagem principal do site (hero). Opcional — ha um fallback sem foto."
+            hint={`A imagem principal do site (capa). ${DICA_FOTO_CAPA} Opcional — há um fallback sem foto.`}
           />
           <FotoCapaUploader initialUrl={initial?.fotoUrl} />
           <SectionError msg={state.fieldErrors?.fotoUrl} />
         </section>
 
-        {/* 8 — Album (galeria) */}
+        {/* 8 — Album (galeria) — UPSELL */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-          <StepHead
-            n={8}
-            title="Album (galeria)"
-            hint="Fotos do ensaio para o carrossel e a galeria do site. Opcional."
-          />
+          <div className="mb-4 flex items-start gap-3">
+            <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-lilas text-sm font-semibold text-violeta">
+              8
+            </span>
+            <div>
+              <h2 className="flex flex-wrap items-center gap-2 font-display text-lg font-semibold text-ink">
+                Álbum (galeria)
+                <span className="rounded-full bg-teal/10 px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-teal">
+                  recurso extra
+                </span>
+              </h2>
+              <p className="text-xs text-texto-suave">
+                {`Fotos do ensaio para o carrossel e a galeria. ${DICA_FOTO_ALBUM} Você já deixa tudo pronto aqui; a galeria é um upsell, ativado quando o cliente liberar.`}
+              </p>
+            </div>
+          </div>
           <AlbumUploader initialUrls={initial?.fotos} />
         </section>
 
-        {/* 9 — Revisao + publicar */}
+        {/* 9 — Revisao + criar (prévia) */}
         <section className="rounded-2xl border border-violeta/20 bg-lilas/40 p-5">
-          <StepHead n={9} title="Revisao" />
+          <StepHead n={9} title="Revisão" />
           <dl className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-texto-suave">Tipo</dt>
@@ -808,12 +893,34 @@ export default function EventoForm({
               </dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-texto-suave">Endereco (aprox.)</dt>
+              <dt className="text-texto-suave">Link do site</dt>
               <dd className="break-all text-right font-medium text-violeta">
                 {title.trim() ? previewUrl : "—"}
               </dd>
             </div>
           </dl>
+
+          {/* O que entra no site x o que é extra (upsell). */}
+          <div className="mt-4 rounded-xl border border-black/5 bg-white/70 p-3.5 text-xs leading-relaxed text-texto-suave">
+            <p>
+              <span className="font-semibold text-ink">Já incluído:</span> capa,
+              convite, evento e lista de presentes.
+            </p>
+            <p className="mt-1">
+              <span className="font-semibold text-ink">Extras (upsells):</span>{" "}
+              confirmação de presença, recados, álbum e domínio próprio —
+              ativados à parte.
+            </p>
+          </div>
+
+          {/* Aviso do modelo: nasce como prévia com marca d'água. */}
+          <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span aria-hidden>💧</span>
+            <span>
+              O site é criado como <strong>prévia</strong>, com marca d&apos;água.
+              É publicado de verdade (sem marca) ao pagar o valor único.
+            </span>
+          </p>
 
           {state.error ? (
             <p
@@ -827,15 +934,15 @@ export default function EventoForm({
           <button
             type="submit"
             disabled={pending || !canSubmit}
-            className="mt-5 w-full rounded-lg bg-violeta px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violeta/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-5 w-full rounded-lg bg-gradient-to-r from-teal to-violeta px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending
               ? isEdit
                 ? "Salvando…"
-                : "Publicando…"
+                : "Criando…"
               : isEdit
-                ? "Salvar alteracoes"
-                : "Publicar evento"}
+                ? "Salvar alterações"
+                : "Criar site (prévia)"}
           </button>
         </section>
       </form>
