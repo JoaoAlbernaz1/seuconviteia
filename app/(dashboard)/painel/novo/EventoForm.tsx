@@ -92,10 +92,14 @@ function StepHead({
   n,
   title,
   hint,
+  info,
 }: {
   n: number;
   title: string;
+  /** Frase curta de contexto, abaixo do titulo. */
   hint?: string;
+  /** Dica longa (dimensoes etc.) — vai para o "!" ao lado do titulo. */
+  info?: string;
 }) {
   return (
     <div className="mb-4 flex items-start gap-3">
@@ -103,10 +107,43 @@ function StepHead({
         {n}
       </span>
       <div>
-        <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
+        <h2 className="flex items-center gap-1.5 font-display text-lg font-semibold text-ink">
+          {title}
+          {info ? <InfoHint text={info} /> : null}
+        </h2>
         {hint ? <p className="text-xs text-texto-suave">{hint}</p> : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * InfoHint — botaozinho "!" que revela uma dica (dimensoes, como escrever) num
+ * balao ao clicar. Tira o texto de ajuda da frente, deixando o form mais limpo.
+ */
+function InfoHint({ text, rotulo = "Ver dica" }: { text: string; rotulo?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex align-middle">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => setOpen(false)}
+        aria-label={rotulo}
+        aria-expanded={open}
+        className="grid size-[1.05rem] place-items-center rounded-full border border-violeta/40 bg-lilas/50 text-[0.62rem] font-bold leading-none text-violeta transition hover:bg-lilas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violeta/30"
+      >
+        !
+      </button>
+      {open ? (
+        <span
+          role="tooltip"
+          className="absolute left-0 top-full z-30 mt-1.5 w-[min(17rem,72vw)] rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-normal leading-snug text-texto-suave shadow-[0_12px_30px_-12px_rgba(15,23,42,0.35)]"
+        >
+          {text}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -121,20 +158,22 @@ function Field({
   label: string;
   htmlFor: string;
   optional?: boolean;
-  /** Dica de preenchimento (como escrever / exemplos), abaixo do rotulo. */
+  /** Dica de preenchimento — vai para o "!" ao lado do rotulo (nao polui o form). */
   hint?: string;
   children: React.ReactNode;
   error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
-        {label}{" "}
-        {optional ? (
-          <span className="font-normal text-texto-suave">(opcional)</span>
-        ) : null}
+      <label htmlFor={htmlFor} className="flex items-center gap-1.5 text-sm font-medium text-ink">
+        <span>
+          {label}{" "}
+          {optional ? (
+            <span className="font-normal text-texto-suave">(opcional)</span>
+          ) : null}
+        </span>
+        {hint ? <InfoHint text={hint} /> : null}
       </label>
-      {hint ? <p className="-mt-0.5 text-xs leading-snug text-texto-suave">{hint}</p> : null}
       {children}
       <SectionError msg={error} />
     </div>
@@ -434,6 +473,23 @@ export default function EventoForm({
     );
   }
 
+  // Edicao das linhas (CONTROLADAS: value + onChange no estado). Antes eram
+  // `defaultValue` (nao-controladas), o que "bugava" ao sugerir/adicionar/remover.
+  function setProgRow(id: string, campo: "hora" | "titulo", valor: string) {
+    setProgramacao((rows) =>
+      rows.map((r) => (r._id === id ? { ...r, [campo]: valor } : r)),
+    );
+  }
+  function setPresenteRow(
+    id: string,
+    campo: "titulo" | "descricao" | "valor",
+    valor: string,
+  ) {
+    setPresentes((rows) =>
+      rows.map((r) => (r._id === id ? { ...r, [campo]: valor } : r)),
+    );
+  }
+
   const previewSlug = slugify(title) || "evento";
   const previewUrl = eventPublicUrl(previewSlug, rootDomain);
   const canSubmit = Boolean(type && tema && title.trim());
@@ -698,18 +754,20 @@ export default function EventoForm({
                 <input
                   name="programacao_hora"
                   type="text"
-                  defaultValue={row.hora}
+                  value={row.hora}
+                  onChange={(e) => setProgRow(row._id, "hora", e.target.value)}
                   className={`${inputClass} w-28 shrink-0`}
                   placeholder="20h30"
-                  aria-label={`Horario do item ${i + 1}`}
+                  aria-label={`Horário do item ${i + 1}`}
                 />
                 <input
                   name="programacao_titulo"
                   type="text"
-                  defaultValue={row.titulo}
+                  value={row.titulo}
+                  onChange={(e) => setProgRow(row._id, "titulo", e.target.value)}
                   className={inputClass}
-                  placeholder="Recepcao"
-                  aria-label={`Descricao do item ${i + 1}`}
+                  placeholder="Recepção"
+                  aria-label={`Descrição do item ${i + 1}`}
                 />
                 <button
                   type="button"
@@ -753,9 +811,12 @@ export default function EventoForm({
 
           {/* Foto que aparece ao lado da lista (como na festa da Maria). */}
           <div className="mb-5">
-            <p className="text-sm font-medium text-ink">Foto da lista de presentes</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+              <span>Foto da lista de presentes</span>
+              <InfoHint text={DICA_FOTO_PRESENTES} />
+            </p>
             <p className="-mt-0.5 mb-2 text-xs leading-snug text-texto-suave">
-              {DICA_FOTO_PRESENTES} Se vazia, usa a foto de capa.
+              Se vazia, usa a foto de capa.
             </p>
             <FotoCapaUploader
               name="presentesFotoUrl"
@@ -812,16 +873,18 @@ export default function EventoForm({
                   <input
                     name="gift_titulo"
                     type="text"
-                    defaultValue={row.titulo}
+                    value={row.titulo}
+                    onChange={(e) => setPresenteRow(row._id, "titulo", e.target.value)}
                     className={inputClass}
-                    placeholder="Titulo do presente (ex.: Cota da festa)"
-                    aria-label={`Titulo do presente ${i + 1}`}
+                    placeholder="Título do presente (ex.: Cota da festa)"
+                    aria-label={`Título do presente ${i + 1}`}
                   />
                   <input
                     name="gift_valor"
                     type="text"
                     inputMode="decimal"
-                    defaultValue={row.valor}
+                    value={row.valor}
+                    onChange={(e) => setPresenteRow(row._id, "valor", e.target.value)}
                     className={`${inputClass} w-28 shrink-0`}
                     placeholder="150,00"
                     aria-label={`Valor do presente ${i + 1}`}
@@ -845,10 +908,11 @@ export default function EventoForm({
                 <input
                   name="gift_descricao"
                   type="text"
-                  defaultValue={row.descricao}
+                  value={row.descricao}
+                  onChange={(e) => setPresenteRow(row._id, "descricao", e.target.value)}
                   className={`${inputClass} mt-2`}
-                  placeholder="Descricao (opcional)"
-                  aria-label={`Descricao do presente ${i + 1}`}
+                  placeholder="Descrição (opcional)"
+                  aria-label={`Descrição do presente ${i + 1}`}
                 />
               </div>
             ))}
@@ -872,7 +936,8 @@ export default function EventoForm({
           <StepHead
             n={7}
             title="Foto de capa"
-            hint={`A imagem principal do site (capa). ${DICA_FOTO_CAPA} Opcional — há um fallback sem foto.`}
+            hint="A imagem principal do site (capa). Opcional — há um fallback sem foto."
+            info={DICA_FOTO_CAPA}
           />
           <FotoCapaUploader initialUrl={initial?.fotoUrl} />
           <SectionError msg={state.fieldErrors?.fotoUrl} />
@@ -890,9 +955,11 @@ export default function EventoForm({
                 <span className="rounded-full bg-teal/10 px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-teal">
                   recurso extra
                 </span>
+                <InfoHint text={DICA_FOTO_ALBUM} />
               </h2>
               <p className="text-xs text-texto-suave">
-                {`Fotos do ensaio para o carrossel e a galeria. ${DICA_FOTO_ALBUM} Você já deixa tudo pronto aqui; a galeria é um upsell, ativado quando o cliente liberar.`}
+                Fotos do ensaio para o carrossel e a galeria. A galeria é um
+                upsell — você já deixa tudo pronto aqui.
               </p>
             </div>
           </div>
