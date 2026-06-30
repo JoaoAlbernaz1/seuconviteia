@@ -444,10 +444,20 @@ export async function editarEvento(
   // Ownership: o evento precisa pertencer ao profissional logado.
   const existente = await prisma.event.findFirst({
     where: { id: eventId, professionalId },
-    select: { id: true },
+    select: { id: true, purchased: true },
   });
   if (!existente) {
     return { error: "Evento nao encontrado." };
+  }
+
+  // Regra do modelo: site PUBLICADO (pago) nao se altera de graca — e preciso
+  // liberar a edicao (voltar para previa) antes. Defesa no servidor; a UI do
+  // editor ja bloqueia, mas nunca confiamos so nela.
+  if (existente.purchased) {
+    return {
+      error:
+        "Este site está publicado. Libere a edição (ele volta a ser prévia) antes de alterar.",
+    };
   }
 
   const result = interpretarEvento(formData);
@@ -511,6 +521,18 @@ export async function alternarCompra(formData: FormData) {
     data: { purchased: !atual?.purchased },
   });
   revalidatePath("/painel");
+}
+
+/**
+ * Libera a edicao de um site PUBLICADO: volta para PRÉVIA (despublica) e abre o
+ * editor. No modelo, alterar um site pago exige "pagar de novo" — por ora (stub)
+ * a liberacao e a despublicacao; com pagamento real vira um passo de cobranca.
+ */
+export async function liberarEdicao(formData: FormData) {
+  const id = await eventoDoDono(formData.get("eventId"));
+  if (!id) redirect("/entrar");
+  await prisma.event.update({ where: { id }, data: { purchased: false } });
+  redirect(`/painel/${id}/editar`);
 }
 
 /** Liga/desliga um upsell avulso do evento (rsvp/recados/galeria/dominio). */
