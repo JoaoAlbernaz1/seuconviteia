@@ -95,6 +95,10 @@ export const DICA_FOTO_CAPA =
 export const DICA_FOTO_ALBUM =
   "As melhores do ensaio. Quadradas ou verticais, ~1200×1200px ou maiores. JPG, PNG ou WebP, até 6MB cada.";
 
+/** Dimensoes recomendadas da FOTO ao lado da lista de PRESENTES. */
+export const DICA_FOTO_PRESENTES =
+  "Aparece ao lado da lista de presentes. Vertical (retrato), ~1200×1500px (proporção 4:5). JPG, PNG ou WebP, até 6MB.";
+
 /** Dica de escrita do TITULO (nome em destaque na capa). */
 export const DICA_TITULO =
   'O nome que aparece em destaque na capa. Ex.: "Ana & Léo", "Maria Clara", "Bodas de Ouro do Sr. José".';

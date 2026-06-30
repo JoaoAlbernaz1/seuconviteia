@@ -43,7 +43,7 @@ export default async function PresentesPage({
 
         <Reveal delay={200} className="mt-12">
           <PainelPresentes
-            fotoUrl={evento.fotoUrl ?? evento.fotos[0]}
+            fotoUrl={evento.presentesFotoUrl}
             nome={evento.primeiroNome}
             itens={evento.presentes}
             pixChave={evento.pixChave}

@@ -19,6 +19,7 @@ import {
   presentesSugeridos,
   DICA_FOTO_CAPA,
   DICA_FOTO_ALBUM,
+  DICA_FOTO_PRESENTES,
   DICA_TITULO,
   DICA_MENSAGEM,
 } from "@/lib/sugestoes";
@@ -49,6 +50,8 @@ export type EventoFormInitial = {
   pixNome?: string;
   pixChave?: string;
   fotoUrl?: string;
+  /** Foto ao lado da lista de presentes (modo "edit"). */
+  presentesFotoUrl?: string;
   /** Album (galeria) — URLs ja salvas (modo "edit"). */
   fotos?: string[];
 };
@@ -191,7 +194,14 @@ async function enviarUpload(file: File): Promise<string> {
  * vai num hidden `name="fotoUrl"`. Falha de upload nao trava o form (a capa e
  * opcional; o site tem fallback sem foto).
  */
-function FotoCapaUploader({ initialUrl }: { initialUrl?: string }) {
+function FotoCapaUploader({
+  initialUrl,
+  name = "fotoUrl",
+}: {
+  initialUrl?: string;
+  /** Nome do hidden field submetido (reusavel: capa, foto dos presentes...). */
+  name?: string;
+}) {
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState(initialUrl ?? "");
@@ -216,7 +226,7 @@ function FotoCapaUploader({ initialUrl }: { initialUrl?: string }) {
   return (
     <div className="flex flex-col gap-3">
       {/* Valor submetido: a URL salva. */}
-      <input type="hidden" name="fotoUrl" value={url} />
+      <input type="hidden" name={name} value={url} />
 
       {url ? (
         <div className="flex items-start gap-3">
@@ -738,8 +748,21 @@ export default function EventoForm({
           <StepHead
             n={6}
             title="Presentes"
-            hint="Chave Pix do recebedor e uma lista de sugestoes. Opcional."
+            hint="Foto ao lado da lista, chave Pix do recebedor e uma lista de sugestões. Tudo opcional."
           />
+
+          {/* Foto que aparece ao lado da lista (como na festa da Maria). */}
+          <div className="mb-5">
+            <p className="text-sm font-medium text-ink">Foto da lista de presentes</p>
+            <p className="-mt-0.5 mb-2 text-xs leading-snug text-texto-suave">
+              {DICA_FOTO_PRESENTES} Se vazia, usa a foto de capa.
+            </p>
+            <FotoCapaUploader
+              name="presentesFotoUrl"
+              initialUrl={initial?.presentesFotoUrl}
+            />
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               label="Nome do recebedor (Pix)"

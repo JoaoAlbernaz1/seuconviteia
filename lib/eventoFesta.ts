@@ -54,6 +54,8 @@ export type EventoFesta = {
   fotoUrl?: string;
   /** Foto da capa para DESKTOP (paisagem); cai para `fotoUrl` se ausente. */
   fotoDesktopUrl?: string;
+  /** Foto ao lado da lista de presentes (editavel; cai para a capa/album). */
+  presentesFotoUrl?: string;
   /** Album do ensaio (carrossel + galeria). */
   fotos: string[];
   /** Linha discreta do rodape: "DD . MM . AAAA · Local". */
@@ -73,6 +75,7 @@ const extrasSchema = z
   .object({
     tema: z.string(),
     fotoDesktopUrl: z.string(),
+    presentesFotoUrl: z.string(),
     mapsEmbedUrl: z.string(),
     pixQrUrl: z.string(),
   })
@@ -143,6 +146,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     presentes: c.presentes,
     fotoUrl: c.fotoUrl,
     fotoDesktopUrl: texto(extras.fotoDesktopUrl) ?? c.fotoUrl,
+    presentesFotoUrl: texto(extras.presentesFotoUrl) ?? c.fotoUrl ?? c.fotos[0],
     fotos: c.fotos,
     footerInfo: `${dataPontilhada(event.eventDate)}${footerLocal}`,
     tema: texto(extras.tema) ?? TEMA_PADRAO,

@@ -167,7 +167,8 @@ type CampoEvento =
   | "traje"
   | "pixNome"
   | "pixChave"
-  | "fotoUrl";
+  | "fotoUrl"
+  | "presentesFotoUrl";
 
 const novoEventoSchema = z.object({
   type: z.enum(EVENT_TYPES, { message: "Escolha o tipo de evento." }),
@@ -190,6 +191,15 @@ const novoEventoSchema = z.object({
   pixNome: z.string().trim().max(140).optional(),
   pixChave: z.string().trim().max(200).optional(),
   fotoUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .refine(
+      (v) => !v || v.startsWith("/") || /^https?:\/\//i.test(v),
+      "Use uma URL (https://...) ou um caminho iniciado por /.",
+    ),
+  presentesFotoUrl: z
     .string()
     .trim()
     .max(500)
@@ -243,6 +253,7 @@ function interpretarEvento(
     pixNome: str("pixNome"),
     pixChave: str("pixChave"),
     fotoUrl: str("fotoUrl"),
+    presentesFotoUrl: str("presentesFotoUrl"),
   });
 
   if (!parsed.success) {
@@ -281,11 +292,14 @@ function interpretarEvento(
     pixNome,
     pixChave,
     fotoUrl,
+    presentesFotoUrl,
   } = parsed.data;
 
-  // Data + horario do evento (horario default 20:00). Localizado no fuso do
-  // servidor; a renderizacao formata em America/Sao_Paulo.
-  const eventDate = new Date(`${date}T${time || "20:00"}:00`);
+  // Data + horario do evento. Fixamos o fuso de BRASILIA (-03:00, sem horario de
+  // verao desde 2019) para que a data/contador batam com o que foi digitado em
+  // QUALQUER servidor — em prod a Vercel roda em UTC, e sem o offset o instante
+  // deslocaria 3h (a renderizacao formata em America/Sao_Paulo).
+  const eventDate = new Date(`${date}T${time || "20:00"}:00-03:00`);
   if (Number.isNaN(eventDate.getTime())) {
     return { ok: false, state: { fieldErrors: { date: "Data ou horario invalido." } } };
   }
@@ -318,6 +332,7 @@ function interpretarEvento(
     traje,
     programacao: programacao.length ? programacao : undefined,
     fotoUrl,
+    presentesFotoUrl,
     pixNome,
     pixChave,
   });

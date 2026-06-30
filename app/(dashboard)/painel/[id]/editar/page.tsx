@@ -34,6 +34,15 @@ function centsParaInput(cents?: number | null): string {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
+/** Le uma string crua do `customization` (sem fallback) — vazio vira `undefined`. */
+function lerCustomString(customization: unknown, key: string): string | undefined {
+  if (customization && typeof customization === "object" && key in customization) {
+    const v = (customization as Record<string, unknown>)[key];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return undefined;
+}
+
 export default async function EditarEventoPage({
   params,
 }: {
@@ -77,6 +86,7 @@ export default async function EditarEventoPage({
     pixNome: conteudo.pixNome,
     pixChave: conteudo.pixChave,
     fotoUrl: conteudo.fotoUrl,
+    presentesFotoUrl: lerCustomString(event.customization, "presentesFotoUrl"),
     fotos: event.photos.map((p) => p.url),
   };
 
