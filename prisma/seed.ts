@@ -244,6 +244,12 @@ async function main() {
     "/exemplo/sel-05446.jpg",
     "/exemplo/sel-05556.jpg",
     "/exemplo/sel-05377.jpg",
+    "/exemplo/sel-05100.jpg",
+    "/exemplo/sel-05150.jpg",
+    "/exemplo/sel-05191.jpg",
+    "/exemplo/sel-05214.jpg",
+    "/exemplo/sel-05269.jpg",
+    "/exemplo/sel-05290.jpg",
   ];
   for (let i = 0; i < fotosDemo.length; i++) {
     const id = `photo-demo-${i + 1}`;
