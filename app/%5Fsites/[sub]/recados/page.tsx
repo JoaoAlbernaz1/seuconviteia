@@ -11,7 +11,7 @@ import { Reveal } from "@/components/evt/Reveal";
 import { RecadoForm } from "@/components/evt/RecadoForm";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { listarRecadosAprovados } from "@/lib/recados";
-import { recursosDoEvento } from "@/lib/upsells";
+import { recursosDoPlano } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export default async function RecadosPage({
   }
 
   // Gate por plano: o mural de recados so existe no CLASSICO/PREMIUM.
-  if (!recursosDoEvento(event).recados) {
+  if (!recursosDoPlano(event.plan).recados) {
     return (
       <RecursoIndisponivel
         titulo="Recados indisponíveis"

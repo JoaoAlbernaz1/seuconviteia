@@ -2,14 +2,13 @@
 // `professionalId` da sessao (ownership; 404 se nao for dono), mapeia para o shape
 // `EventoFormInitial` e reusa o MESMO `EventoForm` (mode="edit"), passando a action
 // `editarEvento`. O `id` viaja num hidden field e e revalidado no servidor.
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { paletasSeletor, TEMAS, TEMA_PADRAO } from "@/lib/temas";
 import { lerConteudo } from "@/lib/convite";
 import { dividirDataHoraSP } from "@/lib/dates";
-import { editarEvento, liberarEdicao } from "../../../actions";
+import { editarEvento } from "../../../actions";
 import EventoForm, {
   type EventoFormInitial,
   type PaletaOpt,
@@ -63,52 +62,6 @@ export default async function EditarEventoPage({
     },
   });
   if (!event) notFound();
-
-  // Regra do modelo: site PUBLICADO (pago) nao se edita direto — e preciso
-  // LIBERAR a edicao (volta para previa). Mostra um aviso com o botao de liberar.
-  if (event.purchased) {
-    return (
-      <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-6">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="font-display text-3xl font-semibold text-ink">
-            Editar evento
-          </h1>
-          <Link
-            href="/painel"
-            className="text-sm font-medium text-texto-suave hover:text-ink"
-          >
-            ← Voltar
-          </Link>
-        </div>
-
-        <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50/60 p-6">
-          <p className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
-            <i className="bi bi-lock-fill text-amber-600" aria-hidden /> Este site está publicado
-          </p>
-          <p className="mt-2 text-sm text-texto-suave">
-            <span className="font-medium text-ink">{event.title}</span> já foi
-            publicado. Para alterar, é preciso liberar a edição — o site volta a
-            ser <strong>prévia</strong> (com marca d&apos;água) até você publicar
-            de novo.
-          </p>
-
-          <form action={liberarEdicao} className="mt-5">
-            <input type="hidden" name="eventId" value={event.id} />
-            <button
-              type="submit"
-              className="rounded-lg bg-gradient-to-r from-teal to-violeta px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
-            >
-              Liberar edição
-            </button>
-          </form>
-          <p className="mt-3 text-xs text-texto-suave">
-            Simulação — quando o pagamento estiver ligado, liberar a edição será
-            um passo de cobrança.
-          </p>
-        </div>
-      </main>
-    );
-  }
 
   const conteudo = lerConteudo(event);
   const { date, time } = dividirDataHoraSP(event.eventDate);

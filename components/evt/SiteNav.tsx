@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Upsell, RecursosEvento } from "@/lib/upsells";
+import type { Recurso, RecursosPlano } from "@/lib/plans";
 
 // Cada link da nav. `recurso` = upsell que precisa estar destravado para o link
 // aparecer; `null` = sempre visivel (base do convite).
-const LINKS: { href: string; label: string; recurso: Upsell | null }[] = [
+const LINKS: { href: string; label: string; recurso: Recurso | null }[] = [
   { href: "/", label: "Início", recurso: null },
   { href: "/evento", label: "Evento", recurso: null },
   { href: "/confirmar", label: "Confirmar", recurso: "rsvp" },
@@ -30,7 +30,7 @@ export function SiteNav({
   recursos,
 }: {
   nome: string;
-  recursos: RecursosEvento;
+  recursos: RecursosPlano;
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);

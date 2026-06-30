@@ -8,7 +8,7 @@ import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { textosDoNicho } from "@/lib/textos";
-import { recursosDoEvento } from "@/lib/upsells";
+import { recursosDoPlano } from "@/lib/plans";
 
 import { Button } from "@/components/evt/Button";
 import { Reveal } from "@/components/evt/Reveal";
@@ -46,7 +46,7 @@ export default async function EventSitePage({
   // Gating por upsell: a base (capa, convite, evento, presentes, momentos, fecho)
   // e a previa bonita que vende — sempre on. Os LINKS pra paginas de upsell
   // (confirmar/galeria/recados) so aparecem se o upsell esta destravado.
-  const recursos = recursosDoEvento(event);
+  const recursos = recursosDoPlano(event.plan);
 
   const TEASERS = [
     {

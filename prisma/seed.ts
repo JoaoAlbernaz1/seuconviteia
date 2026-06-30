@@ -14,6 +14,7 @@
  */
 import {
   PrismaClient,
+  Plan,
   EventType,
   EventStatus,
   GuestStatus,
@@ -57,10 +58,12 @@ async function main() {
     where: { email: "demo@seuconviteia.com" },
     update: {
       name: "Estudio Demo Eventos",
+      plan: Plan.PREMIUM,
       passwordHash: DEMO_PASSWORD_HASH,
     },
     create: {
       name: "Estudio Demo Eventos",
+      plan: Plan.PREMIUM,
       email: "demo@seuconviteia.com",
       passwordHash: DEMO_PASSWORD_HASH,
       brandName: "Estudio Demo Eventos",
@@ -134,11 +137,7 @@ async function main() {
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,
-      purchased: false,
-      upsellRsvp: true,
-      upsellRecados: true,
-      upsellGaleria: true,
-      upsellDominio: false,
+      plan: Plan.PREMIUM,
       customization: mariaClaraCustomization,
     },
     create: {
@@ -150,11 +149,7 @@ async function main() {
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,
-      purchased: false,
-      upsellRsvp: true,
-      upsellRecados: true,
-      upsellGaleria: true,
-      upsellDominio: false,
+      plan: Plan.PREMIUM,
       customization: mariaClaraCustomization,
     },
   });

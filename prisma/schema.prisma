@@ -22,6 +22,12 @@ generator client {
 // Enums
 // ----------------------------------------------------------------------------
 
+enum Plan {
+  BASICO
+  CLASSICO
+  PREMIUM
+}
+
 enum EventType {
   CASAMENTO
   QUINZE_ANOS
@@ -57,6 +63,7 @@ model Professional {
   name         String
   email        String   @unique
   passwordHash String?
+  plan         Plan     @default(BASICO)
   avatarUrl    String?
   brandName    String?
   brandLogoUrl String?
@@ -80,15 +87,9 @@ model Event {
   eventDate      DateTime
   expiresAt      DateTime
   status         EventStatus @default(DRAFT)
-  // Monetizacao = marca d'agua + upsells (sem planos). `purchased` = pagou o
-  // VALOR UNICO -> tira a marca d'agua e publica de verdade. Cada `upsell*` =
-  // recurso avulso destravado por pagamento proprio. A base (capa, convite,
-  // evento, presentes) e sempre visivel; estes campos sao a fonte do gating.
-  purchased      Boolean     @default(false)
-  upsellRsvp     Boolean     @default(false)
-  upsellRecados  Boolean     @default(false)
-  upsellGaleria  Boolean     @default(false)
-  upsellDominio  Boolean     @default(false)
+  // Plano HERDADO da conta (assinatura): o evento usa o plano do profissional;
+  // o gating de recursos (rsvp/recados/galeria/white-label/dominio) deriva daqui.
+  plan           Plan        @default(BASICO)
   customization  Json?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

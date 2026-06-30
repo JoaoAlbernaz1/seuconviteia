@@ -28,31 +28,37 @@ import {
   parseFotos,
   semUndefined,
 } from "@/lib/eventoForm";
-import { UPSELLS, UPSELL_FIELD, type Upsell } from "@/lib/upsells";
 
 // ----------------------------------------------------------------------------
 // Cadastro (signup)
 // ----------------------------------------------------------------------------
 
+/** Planos validos (espelha o enum `Plan` do Prisma). */
+const PLAN_VALUES = ["BASICO", "CLASSICO", "PREMIUM"] as const;
+
 const signupSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome.").max(120),
   email: z.string().trim().toLowerCase().email("E-mail invalido."),
   password: z.string().min(8, "A senha precisa de ao menos 8 caracteres.").max(200),
+  // Plano da CONTA (escolhido no cadastro; herdado pelos eventos). Ausente -> BASICO.
+  plan: z.enum(PLAN_VALUES, { message: "Plano invalido." }).optional().default("BASICO"),
 });
 
 export type SignupState = {
   error?: string;
-  fieldErrors?: Partial<Record<"name" | "email" | "password", string>>;
+  fieldErrors?: Partial<Record<"name" | "email" | "password" | "plan", string>>;
 };
 
 export async function cadastrarProfissional(
   _prev: SignupState,
   formData: FormData,
 ): Promise<SignupState> {
+  const planRaw = formData.get("plan");
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
+    plan: typeof planRaw === "string" && planRaw ? planRaw : undefined,
   });
 
   if (!parsed.success) {
@@ -62,11 +68,12 @@ export async function cadastrarProfissional(
         name: f.name?.[0],
         email: f.email?.[0],
         password: f.password?.[0],
+        plan: f.plan?.[0],
       },
     };
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, plan } = parsed.data;
 
   const existing = await prisma.professional.findUnique({ where: { email } });
   if (existing) {
@@ -75,7 +82,7 @@ export async function cadastrarProfissional(
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.professional.create({
-    data: { name, email, passwordHash },
+    data: { name, email, passwordHash, plan },
   });
 
   // Loga e redireciona para o painel. `signIn` lanca o redirect (NEXT_REDIRECT)
@@ -376,6 +383,14 @@ export async function criarEvento(
   if (!session?.user) redirect("/entrar");
   const professionalId = session.user.id;
 
+  // Plano HERDADO da conta (assinatura): o evento usa o plano do profissional.
+  const professional = await prisma.professional.findUnique({
+    where: { id: professionalId },
+    select: { plan: true },
+  });
+  if (!professional) redirect("/entrar");
+  const plan = professional.plan;
+
   const result = interpretarEvento(formData);
   if (!result.ok) return result.state;
   const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
@@ -393,8 +408,7 @@ export async function criarEvento(
     orderBy: { createdAt: "asc" },
   });
 
-  // Nasce como PREVIEW: PUBLISHED (visivel no subdominio) mas `purchased=false`
-  // (marca d'agua) e upsells desligados — destravam por pagamento depois.
+  // Publicado (incluido no plano, sem marca d'agua); plano herdado da conta.
   const event = await prisma.event.create({
     data: {
       professionalId,
@@ -405,6 +419,7 @@ export async function criarEvento(
       eventDate,
       expiresAt,
       status: "PUBLISHED",
+      plan,
       customization,
     },
   });
@@ -444,21 +459,19 @@ export async function editarEvento(
   // Ownership: o evento precisa pertencer ao profissional logado.
   const existente = await prisma.event.findFirst({
     where: { id: eventId, professionalId },
-    select: { id: true, purchased: true },
+    select: { id: true },
   });
   if (!existente) {
     return { error: "Evento nao encontrado." };
   }
 
-  // Regra do modelo: site PUBLICADO (pago) nao se altera de graca — e preciso
-  // liberar a edicao (voltar para previa) antes. Defesa no servidor; a UI do
-  // editor ja bloqueia, mas nunca confiamos so nela.
-  if (existente.purchased) {
-    return {
-      error:
-        "Este site está publicado. Libere a edição (ele volta a ser prévia) antes de alterar.",
-    };
-  }
+  // Plano HERDADO da conta (assinatura): ao salvar, o evento reflete o plano atual.
+  const professional = await prisma.professional.findUnique({
+    where: { id: professionalId },
+    select: { plan: true },
+  });
+  if (!professional) redirect("/entrar");
+  const plan = professional.plan;
 
   const result = interpretarEvento(formData);
   if (!result.ok) return result.state;
@@ -469,7 +482,7 @@ export async function editarEvento(
   // ESTAVEIS (compra/destrave de upsell sao acoes proprias, nao mexem aqui).
   await prisma.event.update({
     where: { id: existente.id },
-    data: { type, title, eventDate, expiresAt, customization },
+    data: { type, plan, title, eventDate, expiresAt, customization },
   });
 
   // Presentes e fotos: REPLACE total (delete + recria) para casar com o form.
@@ -508,31 +521,20 @@ async function eventoDoDono(eventId: unknown): Promise<string | null> {
   return ev?.id ?? null;
 }
 
-/** Liga/desliga a compra (valor unico) do site — tira/poe a marca d'agua. */
-export async function alternarCompra(formData: FormData) {
+/** Publica o site (rascunho -> no ar). Incluido no plano; sem cobranca. */
+export async function publicarEvento(formData: FormData) {
   const id = await eventoDoDono(formData.get("eventId"));
   if (!id) redirect("/entrar");
-  const atual = await prisma.event.findUnique({
-    where: { id },
-    select: { purchased: true },
-  });
-  await prisma.event.update({
-    where: { id },
-    data: { purchased: !atual?.purchased },
-  });
+  await prisma.event.update({ where: { id }, data: { status: "PUBLISHED" } });
   revalidatePath("/painel");
 }
 
-/**
- * Libera a edicao de um site PUBLICADO: volta para PRÉVIA (despublica) e abre o
- * editor. No modelo, alterar um site pago exige "pagar de novo" — por ora (stub)
- * a liberacao e a despublicacao; com pagamento real vira um passo de cobranca.
- */
-export async function liberarEdicao(formData: FormData) {
+/** Despublica o site (volta a rascunho — sai do ar). */
+export async function despublicarEvento(formData: FormData) {
   const id = await eventoDoDono(formData.get("eventId"));
   if (!id) redirect("/entrar");
-  await prisma.event.update({ where: { id }, data: { purchased: false } });
-  redirect(`/painel/${id}/editar`);
+  await prisma.event.update({ where: { id }, data: { status: "DRAFT" } });
+  revalidatePath("/painel");
 }
 
 // ----------------------------------------------------------------------------
@@ -615,31 +617,3 @@ export async function atualizarPerfil(
   return { ok: true };
 }
 
-/** Liga/desliga um upsell avulso do evento (rsvp/recados/galeria/dominio). */
-export async function alternarUpsell(formData: FormData) {
-  const id = await eventoDoDono(formData.get("eventId"));
-  if (!id) redirect("/entrar");
-
-  const upsellRaw = formData.get("upsell");
-  if (typeof upsellRaw !== "string" || !UPSELLS.includes(upsellRaw as Upsell)) {
-    return;
-  }
-  const field = UPSELL_FIELD[upsellRaw as Upsell];
-
-  const ev = await prisma.event.findUnique({
-    where: { id },
-    select: {
-      upsellRsvp: true,
-      upsellRecados: true,
-      upsellGaleria: true,
-      upsellDominio: true,
-    },
-  });
-  if (!ev) return;
-
-  await prisma.event.update({
-    where: { id },
-    data: { [field]: !ev[field] } as Prisma.EventUpdateInput,
-  });
-  revalidatePath("/painel");
-}
