@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Recurso, RecursosPlano } from "@/lib/plans";
+import type { Upsell, RecursosEvento } from "@/lib/upsells";
 
-// Cada link da nav. `recurso` = recurso de valor que precisa estar liberado pelo
-// plano para o link aparecer; `null` = sempre visivel (base do convite).
-const LINKS: { href: string; label: string; recurso: Recurso | null }[] = [
+// Cada link da nav. `recurso` = upsell que precisa estar destravado para o link
+// aparecer; `null` = sempre visivel (base do convite).
+const LINKS: { href: string; label: string; recurso: Upsell | null }[] = [
   { href: "/", label: "Início", recurso: null },
   { href: "/evento", label: "Evento", recurso: null },
   { href: "/confirmar", label: "Confirmar", recurso: "rsvp" },
@@ -21,15 +21,16 @@ const LINKS: { href: string; label: string; recurso: Recurso | null }[] = [
  * ao rolar pro interior claro — ou nas paginas claras — vira branca com texto ink.
  * A marca e o NOME do evento (wordmark de texto), escondido sobre a capa.
  *
- * GATING: `recursos` (do plano do evento) filtra os links — Confirmar/Galeria/
- * Recados so aparecem se o plano libera; Início/Evento/Presentes sao sempre base.
+ * GATING: `recursos` (upsells do evento) filtra os links — Confirmar/Galeria/
+ * Recados so aparecem se o upsell esta destravado; Início/Evento/Presentes sao
+ * sempre base.
  */
 export function SiteNav({
   nome,
   recursos,
 }: {
   nome: string;
-  recursos: RecursosPlano;
+  recursos: RecursosEvento;
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);

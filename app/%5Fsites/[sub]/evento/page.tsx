@@ -21,7 +21,7 @@ import { ConfirmCTA } from "@/components/evt/ConfirmCTA";
 import { MapEmbed } from "@/components/evt/MapEmbed";
 import { Flourish } from "@/components/evt/icons";
 import { textosDoNicho } from "@/lib/textos";
-import { recursosDoPlano } from "@/lib/plans";
+import { recursosDoEvento } from "@/lib/upsells";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export default async function EventoPage({
   const evento = lerEventoFesta(event);
   const nome = evento.primeiroNome;
   const t = textosDoNicho(event.type);
-  const recursos = recursosDoPlano(event.plan);
+  const recursos = recursosDoEvento(event);
   const local = evento.local ?? "O local";
   const temEmbed = !!evento.mapsEmbedUrl && /^https:\/\//i.test(evento.mapsEmbedUrl);
 

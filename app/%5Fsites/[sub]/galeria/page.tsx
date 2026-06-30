@@ -10,7 +10,7 @@ import { SectionHeading } from "@/components/evt/SectionHeading";
 import { Reveal } from "@/components/evt/Reveal";
 import { Galeria } from "@/components/evt/Galeria";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
-import { recursosDoPlano } from "@/lib/plans";
+import { recursosDoEvento } from "@/lib/upsells";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function GaleriaPage({
   }
 
   // Gate por plano: a galeria so existe no CLASSICO/PREMIUM.
-  if (!recursosDoPlano(event.plan).galeria) {
+  if (!recursosDoEvento(event).galeria) {
     return (
       <RecursoIndisponivel
         titulo="Galeria indisponível"

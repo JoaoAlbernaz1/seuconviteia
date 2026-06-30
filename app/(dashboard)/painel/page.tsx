@@ -1,12 +1,15 @@
 // Painel do profissional — protegido. Lista os eventos do profissional logado.
+// Monetizacao por evento: cada site nasce como PREVIA (marca d'agua); "Publicar"
+// paga o valor unico e tira a marca; cada upsell destrava avulso. (Os botoes sao
+// STUB — alternam as flags; o pagamento real entra depois.)
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { EventStatus, EventType, Plan } from "@prisma/client";
+import type { EventStatus, EventType } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl } from "@/lib/tenant";
-import { rotuloPlano } from "@/lib/plans";
-import { sair } from "../actions";
+import { recursosDoEvento, UPSELLS, UPSELL_LABEL } from "@/lib/upsells";
+import { sair, alternarCompra, alternarUpsell } from "../actions";
 
 // Depende da sessao (cookies) e do banco -> sempre dinamico.
 export const dynamic = "force-dynamic";
@@ -25,21 +28,6 @@ const STATUS: Record<EventStatus, { label: string; className: string }> = {
   PUBLISHED: { label: "No ar", className: "bg-emerald-50 text-emerald-700" },
   DRAFT: { label: "Rascunho", className: "bg-slate-100 text-slate-600" },
   EXPIRED: { label: "Expirado", className: "bg-amber-50 text-amber-700" },
-};
-
-// Badge do plano (cor da marca: roxo no Premium, teal no Classico, neutro no Basico).
-const PLAN_BADGE: Record<Plan, string> = {
-  BASICO: "bg-slate-100 text-slate-600",
-  CLASSICO: "bg-teal/10 text-teal",
-  PREMIUM: "bg-violeta/10 text-violeta",
-};
-
-// Nudge de upsell: o que esta travado abaixo do topo (PREMIUM nao mostra nada).
-// O plano e da CONTA (escolhido no signup) e herdado pelos eventos — o upgrade e
-// no nivel da conta, nao por evento. Por isso e so um aviso informativo.
-const UPSELL: Partial<Record<Plan, string>> = {
-  BASICO: "RSVP, Recados e Galeria bloqueados no plano da conta",
-  CLASSICO: "White-label e domínio próprio bloqueados no plano da conta",
 };
 
 const formatadorData = new Intl.DateTimeFormat("pt-BR", {
@@ -109,6 +97,7 @@ export default async function PainelPage() {
           {events.map((ev) => {
             const url = eventPublicUrl(ev.subdomain, ROOT_DOMAIN);
             const status = STATUS[ev.status];
+            const recursos = recursosDoEvento(ev);
             return (
               <li
                 key={ev.id}
@@ -126,19 +115,18 @@ export default async function PainelPage() {
                         {status.label}
                       </span>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${PLAN_BADGE[ev.plan]}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          ev.purchased
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-amber-50 text-amber-700"
+                        }`}
                       >
-                        {rotuloPlano(ev.plan)}
+                        {ev.purchased ? "Publicado" : "Prévia · marca d'água"}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-texto-suave">
                       {TIPO_LABEL[ev.type]} · {formatadorData.format(ev.eventDate)}
                     </p>
-                    {UPSELL[ev.plan] ? (
-                      <p className="mt-1.5 text-xs text-texto-suave">
-                        <span aria-hidden>🔒</span> {UPSELL[ev.plan]}
-                      </p>
-                    ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <a
                         href={url}
@@ -165,6 +153,55 @@ export default async function PainelPage() {
                       {ev._count.guests === 1 ? "convidado" : "convidados"}
                     </p>
                   </div>
+                </div>
+
+                {/* Monetizacao (STUB): publicar (valor unico) + destravar upsells. */}
+                <div className="mt-3 border-t border-black/5 pt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <form action={alternarCompra}>
+                      <input type="hidden" name="eventId" value={ev.id} />
+                      <button
+                        type="submit"
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                          ev.purchased
+                            ? "border border-black/10 text-texto-suave hover:text-ink"
+                            : "bg-violeta text-white hover:bg-violeta/90"
+                        }`}
+                      >
+                        {ev.purchased
+                          ? "↩︎ Voltar p/ prévia"
+                          : "Publicar — tirar marca d'água"}
+                      </button>
+                    </form>
+
+                    <span className="mx-0.5 hidden h-4 w-px bg-black/10 sm:inline-block" />
+
+                    {UPSELLS.map((u) => {
+                      const ativo = recursos[u];
+                      return (
+                        <form key={u} action={alternarUpsell}>
+                          <input type="hidden" name="eventId" value={ev.id} />
+                          <input type="hidden" name="upsell" value={u} />
+                          <button
+                            type="submit"
+                            aria-pressed={ativo}
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                              ativo
+                                ? "bg-teal/10 text-teal ring-1 ring-teal/30"
+                                : "border border-black/10 text-texto-suave hover:text-ink"
+                            }`}
+                          >
+                            {ativo ? "✓ " : "+ "}
+                            {UPSELL_LABEL[u]}
+                          </button>
+                        </form>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[0.7rem] text-texto-suave/80">
+                    Simulação — o pagamento real (Pix) entra depois. A base (capa,
+                    convite, evento, presentes) é sempre incluída.
+                  </p>
                 </div>
               </li>
             );

@@ -14,7 +14,6 @@
  */
 import {
   PrismaClient,
-  Plan,
   EventType,
   EventStatus,
   GuestStatus,
@@ -58,14 +57,12 @@ async function main() {
     where: { email: "demo@seuconviteia.com" },
     update: {
       name: "Estudio Demo Eventos",
-      plan: Plan.PREMIUM,
       passwordHash: DEMO_PASSWORD_HASH,
     },
     create: {
       name: "Estudio Demo Eventos",
       email: "demo@seuconviteia.com",
       passwordHash: DEMO_PASSWORD_HASH,
-      plan: Plan.PREMIUM,
       brandName: "Estudio Demo Eventos",
     },
   });
@@ -126,6 +123,9 @@ async function main() {
 
   const event = await prisma.event.upsert({
     where: { subdomain: "maria-clara" },
+    // Demo da MARCA D'AGUA: previa (purchased=false) com os 3 upsells de conteudo
+    // ligados -> abre o site completo + marca d'agua. No painel, "Publicar" tira a
+    // marca; os upsells alternam as abas/secoes.
     update: {
       title: "Maria Clara",
       professionalId: professional.id,
@@ -134,7 +134,11 @@ async function main() {
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,
-      plan: Plan.BASICO,
+      purchased: false,
+      upsellRsvp: true,
+      upsellRecados: true,
+      upsellGaleria: true,
+      upsellDominio: false,
       customization: mariaClaraCustomization,
     },
     create: {
@@ -146,7 +150,11 @@ async function main() {
       eventDate,
       expiresAt,
       status: EventStatus.PUBLISHED,
-      plan: Plan.BASICO,
+      purchased: false,
+      upsellRsvp: true,
+      upsellRecados: true,
+      upsellGaleria: true,
+      upsellDominio: false,
       customization: mariaClaraCustomization,
     },
   });

@@ -9,11 +9,12 @@ import localFont from "next/font/local";
 import { SiteAtmosphere } from "@/components/evt/SiteAtmosphere";
 import { SiteNav } from "@/components/evt/SiteNav";
 import { SiteFooter } from "@/components/evt/SiteFooter";
+import { MarcaDagua } from "@/components/evt/MarcaDagua";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
 import { coresParticulas } from "@/lib/cor";
-import { recursosDoPlano } from "@/lib/plans";
+import { recursosDoEvento, temMarcaDagua } from "@/lib/upsells";
 
 // ── Tipografia (igual ao festa) ───────────────────────────────────────────────
 //  Script  = Milton One  (local)  -> --font-milton    -> token evt-script
@@ -73,9 +74,11 @@ export default async function EventSiteLayout({
   const particleColors =
     tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(tema));
 
-  // Gating por plano do evento: a nav filtra os links e o rodape decide o credito
-  // (white-label PREMIUM mostra a marca do profissional no lugar do "feito com...").
-  const recursos = recursosDoPlano(event.plan);
+  // Gating por upsell do evento: a nav filtra os links; o rodape e a marca d'agua
+  // dependem de `purchased` (preview x comprado). Comprado + marca do profissional
+  // -> credito do profissional; senao, credito da plataforma.
+  const recursos = recursosDoEvento(event);
+  const preview = temMarcaDagua(event);
   const brandName = event.professional?.brandName ?? event.professional?.name;
 
   return (
@@ -89,9 +92,10 @@ export default async function EventSiteLayout({
       <SiteFooter
         nome={dados.primeiroNome}
         linhaInfo={dados.footerInfo}
-        whiteLabel={recursos.whiteLabel}
+        purchased={event.purchased}
         brandName={brandName}
       />
+      {preview && <MarcaDagua />}
     </div>
   );
 }

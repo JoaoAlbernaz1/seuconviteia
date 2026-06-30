@@ -5,22 +5,22 @@ import { Flourish } from "@/components/evt/icons";
  * tipografica: o NOME do evento em destaque, filigrana rosa como divisor, data e
  * local discretos, fecho "Feito com carinho".
  *
- * GATING (credito): por padrao mostra "Feito com seuconviteia" (marca da
- * plataforma). Quando o plano libera `whiteLabel` (PREMIUM), o credito da
- * plataforma SOME e, no lugar, aparece a marca do profissional (`brandName`) —
- * ou nada, se ele nao tiver marca.
+ * GATING (credito): enquanto o evento e PREVIEW (`purchased = false`) mostra
+ * "Feito com seuconviteia" (marca da plataforma). Quando e COMPRADO (valor unico),
+ * o credito da plataforma SOME e, no lugar, aparece a marca do profissional
+ * (`brandName`) — ou nada, se ele nao tiver marca.
  *
  * `nome` = nome do evento (destaque). `linhaInfo` = "DD . MM . AAAA · Local".
  */
 export function SiteFooter({
   nome,
   linhaInfo,
-  whiteLabel = false,
+  purchased = false,
   brandName,
 }: {
   nome: string;
   linhaInfo: string;
-  whiteLabel?: boolean;
+  purchased?: boolean;
   brandName?: string;
 }) {
   return (
@@ -42,7 +42,7 @@ export function SiteFooter({
           Feito com carinho.
         </p>
 
-        {whiteLabel ? (
+        {purchased ? (
           brandName ? (
             <p className="font-evt-util text-[0.58rem] uppercase tracking-[0.3em] text-evt-ink-soft/70">
               por {brandName}

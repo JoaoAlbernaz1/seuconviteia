@@ -8,7 +8,7 @@ import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { textosDoNicho } from "@/lib/textos";
-import { recursosDoPlano } from "@/lib/plans";
+import { recursosDoEvento } from "@/lib/upsells";
 
 import { Button } from "@/components/evt/Button";
 import { Reveal } from "@/components/evt/Reveal";
@@ -43,9 +43,10 @@ export default async function EventSitePage({
   const nome = evento.primeiroNome;
   const t = textosDoNicho(event.type);
 
-  // Gating por plano do evento: a base (capa, convite, evento, presentes) e
-  // sempre on; rsvp/galeria/recados aparecem so se o plano libera.
-  const recursos = recursosDoPlano(event.plan);
+  // Gating por upsell: a base (capa, convite, evento, presentes, momentos, fecho)
+  // e a previa bonita que vende — sempre on. Os LINKS pra paginas de upsell
+  // (confirmar/galeria/recados) so aparecem se o upsell esta destravado.
+  const recursos = recursosDoEvento(event);
 
   const TEASERS = [
     {
@@ -71,7 +72,8 @@ export default async function EventSitePage({
     },
   ].filter((teaser) => teaser.visivel);
 
-  const mostrarMomentos = recursos.galeria && evento.fotos.length > 0;
+  // Momentos faz parte da previa bonita (base) — aparece sempre que ha fotos.
+  const mostrarMomentos = evento.fotos.length > 0;
 
   return (
     <main className="bg-transparent">
@@ -149,8 +151,8 @@ export default async function EventSitePage({
         </div>
       </section>
 
-      {/* ═══ TEASERS — só na experiência paga; no Básico a home termina antes ═══ */}
-      {recursos.rsvp && TEASERS.length > 0 && (
+      {/* ═══ TEASERS — cards pras seções; só os upsells destravados aparecem ═══ */}
+      {TEASERS.length > 0 && (
       <section className={`bg-evt-blush-soft/55 ${PAD} ${RHYTHM}`}>
         <div className={WRAP}>
           <Reveal>
@@ -204,22 +206,19 @@ export default async function EventSitePage({
       </section>
       )}
 
-      {/* ═══ FECHO — parte da experiência paga; no Básico a home termina em
-          "Faça parte dessa noite" e vai direto pro rodapé. ═══ */}
-      {recursos.rsvp && (
-        <section className={`bg-transparent ${PAD} pb-[clamp(3.5rem,8vw,5.5rem)] pt-[clamp(1rem,3vw,2rem)]`}>
-          <Reveal className={`${WRAP} flex flex-col items-center gap-6 text-center`}>
-            <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
-              <span className="h-px w-12 bg-evt-rosa/50" />
-              <span className="rotate-45 text-[0.5rem]">◆</span>
-              <span className="h-px w-12 bg-evt-rosa/50" />
-            </span>
-            <p className="max-w-[640px] font-evt-script text-[clamp(2rem,6.5vw,3.2rem)] leading-[1.25] text-evt-rosa-ink">
-              {t.fecho}
-            </p>
-          </Reveal>
-        </section>
-      )}
+      {/* ═══ FECHO — parte da prévia bonita (base): sempre fecha o convite. ═══ */}
+      <section className={`bg-transparent ${PAD} pb-[clamp(3.5rem,8vw,5.5rem)] pt-[clamp(1rem,3vw,2rem)]`}>
+        <Reveal className={`${WRAP} flex flex-col items-center gap-6 text-center`}>
+          <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
+            <span className="h-px w-12 bg-evt-rosa/50" />
+            <span className="rotate-45 text-[0.5rem]">◆</span>
+            <span className="h-px w-12 bg-evt-rosa/50" />
+          </span>
+          <p className="max-w-[640px] font-evt-script text-[clamp(2rem,6.5vw,3.2rem)] leading-[1.25] text-evt-rosa-ink">
+            {t.fecho}
+          </p>
+        </Reveal>
+      </section>
     </main>
   );
 }
