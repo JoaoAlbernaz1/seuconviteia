@@ -135,19 +135,21 @@ export default async function EventSitePage({
               </div>
             </Card>
           </Reveal>
-          {/* "Faça parte dessa noite" — texto SEMPRE visível (base). O botão
-              Confirmar presença é UPSELL: só aparece com plano que libera RSVP. */}
-          <Reveal delay={140} className="mt-12 flex flex-col items-center gap-5 text-center">
-            <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
-              <span className="h-px w-12 bg-evt-rosa/50" />
-              <span className="rotate-45 text-[0.5rem]">◆</span>
-              <span className="h-px w-12 bg-evt-rosa/50" />
-            </span>
-            <p className="font-evt-script text-[clamp(1.8rem,5.5vw,2.4rem)] text-evt-rosa-ink">
-              {t.ctaConvite}
-            </p>
-            {recursos.rsvp && <ConfirmCTA />}
-          </Reveal>
+          {/* "Faça parte dessa noite" + Confirmar presença — só quando o upsell
+              de RSVP está ligado (senão o texto vira um CTA sem ação = vão). */}
+          {recursos.rsvp && (
+            <Reveal delay={140} className="mt-12 flex flex-col items-center gap-5 text-center">
+              <span className="flex items-center gap-3 text-evt-rosa" aria-hidden>
+                <span className="h-px w-12 bg-evt-rosa/50" />
+                <span className="rotate-45 text-[0.5rem]">◆</span>
+                <span className="h-px w-12 bg-evt-rosa/50" />
+              </span>
+              <p className="font-evt-script text-[clamp(1.8rem,5.5vw,2.4rem)] text-evt-rosa-ink">
+                {t.ctaConvite}
+              </p>
+              <ConfirmCTA />
+            </Reveal>
+          )}
         </div>
       </section>
 
@@ -158,7 +160,15 @@ export default async function EventSitePage({
           <Reveal>
             <SectionHeading eyebrow="Explore" title="O que mais te espera" />
           </Reveal>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
+          <div
+            className={`mt-12 grid gap-6 ${
+              TEASERS.length === 1
+                ? "mx-auto max-w-md"
+                : TEASERS.length === 2
+                  ? "mx-auto max-w-3xl sm:grid-cols-2"
+                  : "md:grid-cols-3"
+            }`}
+          >
             {TEASERS.map((t, i) => (
               <Reveal key={t.href} delay={i * 100} className="h-full">
                 <Card interactive className="group h-full p-8">
