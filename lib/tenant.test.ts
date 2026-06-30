@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eventPublicUrl, resolveSubdomain, slugify } from "./tenant";
+import { appUrl, eventPublicUrl, resolveSubdomain, slugify } from "./tenant";
 
 const ROOT = "seuconviteia.com";
 
@@ -79,6 +79,30 @@ describe("eventPublicUrl", () => {
   it("usa https em producao", () => {
     expect(eventPublicUrl("ana", "seuconviteia.com")).toBe(
       "https://ana.seuconviteia.com",
+    );
+  });
+});
+
+describe("appUrl — link absoluto pro painel (app.<root>)", () => {
+  it("monta caminho do painel em dev", () => {
+    expect(appUrl("/cadastrar", "localhost:3000")).toBe(
+      "http://app.localhost:3000/cadastrar",
+    );
+  });
+
+  it("monta caminho do painel em producao", () => {
+    expect(appUrl("/entrar", "seuconviteia.com")).toBe(
+      "https://app.seuconviteia.com/entrar",
+    );
+  });
+
+  it("sem caminho retorna a raiz do app", () => {
+    expect(appUrl("", "seuconviteia.com")).toBe("https://app.seuconviteia.com");
+  });
+
+  it("normaliza caminho sem barra inicial", () => {
+    expect(appUrl("cadastrar", "localhost:3000")).toBe(
+      "http://app.localhost:3000/cadastrar",
     );
   });
 });

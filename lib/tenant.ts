@@ -113,3 +113,19 @@ export function eventPublicUrl(subdomain: string, rootDomain: string): string {
   const protocol = rootDomain.includes("localhost") ? "http" : "https";
   return `${protocol}://${subdomain}.${rootDomain}`;
 }
+
+/**
+ * Monta uma URL ABSOLUTA do painel (`app.<root>`) para um caminho. Necessario
+ * para links que partem do site de marketing (dominio raiz) rumo ao painel/
+ * cadastro/login, que vivem no subdominio `app.` — link relativo daria 404.
+ *
+ * @example
+ *   appUrl("/cadastrar", "localhost:3000")   // "http://app.localhost:3000/cadastrar"
+ *   appUrl("/entrar", "seuconviteia.com")     // "https://app.seuconviteia.com/entrar"
+ *   appUrl("", "seuconviteia.com")            // "https://app.seuconviteia.com"
+ */
+export function appUrl(path: string, rootDomain: string): string {
+  const base = eventPublicUrl("app", rootDomain);
+  if (!path) return base;
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}

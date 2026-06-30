@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
-import Link from "next/link";
+import { appUrl } from "@/lib/tenant";
 
 export const metadata: Metadata = {
   title: "SeuConvite IA — sites de evento lindos para os seus clientes",
   description:
-    "A plataforma white-label para cerimonialistas e profissionais de eventos. Casamento, 15 anos, bodas e mais — cada festa no seu endereço próprio, com confirmação de presença, lista de presentes no Pix e álbum. Sem programar.",
+    "A plataforma para cerimonialistas e profissionais de eventos. Monte o site (casamento, 15 anos, bodas e mais), mostre funcionando pro seu cliente com marca d'água e publique com um pagamento único. Recursos extras avulsos. Sem mensalidade, sem programar.",
 };
 
+// Links do painel vivem no subdominio `app.` — a partir do marketing (dominio
+// raiz) precisam ser ABSOLUTOS, senao caem em 404. `appUrl` resolve dev/prod.
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+const CADASTRO = appUrl("/cadastrar", ROOT_DOMAIN);
+const ENTRAR = appUrl("/entrar", ROOT_DOMAIN);
+// TODO(joão): número de WhatsApp do negócio (ex.: https://wa.me/55DDDNUMERO).
 const WHATSAPP = "https://wa.me/";
-const PAINEL = "/painel";
 
 /** Rise-in delay helper (no-op visually under prefers-reduced-motion). */
 function delay(s: number): CSSProperties {
@@ -28,33 +33,34 @@ function Wordmark({ className = "" }: { className?: string }) {
 const NAV_LINKS = [
   { href: "#como-funciona", label: "Como funciona" },
   { href: "#recursos", label: "Recursos" },
-  { href: "#precos", label: "Preços" },
+  { href: "#precos", label: "Quanto custa" },
 ] as const;
 
 const STEPS: { n: string; t: string; d: ReactNode }[] = [
   {
     n: "01",
-    t: "Escolha o nicho e o modelo",
-    d: "casamento, 15 anos, 60 anos, bodas, aniversário.",
+    t: "Monte o site com os dados do cliente",
+    d: "nicho, fotos, cores, data — tudo ao vivo, em minutos.",
   },
   {
     n: "02",
-    t: "Personalize com os dados do cliente",
-    d: "fotos, textos, cores e data, ao vivo.",
+    t: "Mostre funcionando — de graça",
+    d: "o cliente vê o site pronto no ar, com marca d'água.",
   },
   {
     n: "03",
-    t: "Publique no endereço próprio",
+    t: "Aprovou? Publique com um pagamento único",
     d: (
       <>
-        <code className="mkt-code">cliente.seuconviteia.com</code>, na hora.
+        a marca d'água sai e o site fica no ar em{" "}
+        <code className="mkt-code">cliente.seuconviteia.com</code>.
       </>
     ),
   },
   {
     n: "04",
-    t: "Receba confirmações e presentes",
-    d: "RSVP, Pix e álbum, tudo num painel só.",
+    t: "Ative os extras quando quiser",
+    d: "confirmação de presença, recados e álbum — avulsos.",
   },
 ];
 
@@ -62,44 +68,48 @@ const FEATURES: { icon: string; t: string; d: string }[] = [
   { icon: "❖", t: "Multi-nicho", d: "um template para cada tipo de festa." },
   { icon: "↗", t: "Endereço próprio", d: "cada evento num subdomínio automático." },
   {
-    icon: "✓",
-    t: "Confirmação de presença",
-    d: "convidados confirmam, você acompanha no painel.",
+    icon: "✦",
+    t: "Prévia grátis",
+    d: "mostre o site funcionando com marca d'água; cobre só quando aprovar.",
   },
   {
     icon: "◈",
     t: "Lista de presentes no Pix",
-    d: "QR e copia-e-cola; o valor cai na conta.",
+    d: "QR e copia-e-cola; o valor cai na conta. Sempre incluída.",
+  },
+  {
+    icon: "✓",
+    t: "Confirmação de presença",
+    d: "convidados confirmam, você acompanha no painel.",
   },
   { icon: "❏", t: "Álbum de fotos", d: "as memórias do grande dia." },
-  {
-    icon: "✦",
-    t: "White-label (Premium)",
-    d: "site e e-mails com a SUA marca, não a nossa.",
-  },
 ];
 
-const PLANS: {
+const PRICING: {
   name: string;
+  price: string;
   d: string;
   featured: boolean;
   badge?: string;
 }[] = [
   {
-    name: "Básico",
-    d: "o essencial para publicar um site bonito.",
+    name: "Criar e mostrar",
+    price: "Grátis",
+    d: "Monte, personalize e mostre o site funcionando pro cliente — com marca d'água. Quantos eventos quiser.",
     featured: false,
   },
   {
-    name: "Clássico",
-    d: "mais recursos (música, layouts exclusivos).",
-    featured: false,
-  },
-  {
-    name: "Premium",
-    d: "white-label + tudo liberado.",
+    name: "Publicar o site",
+    price: "pagamento único",
+    d: "Quando o cliente aprova, um pagamento tira a marca d'água e publica de verdade, no endereço próprio.",
     featured: true,
-    badge: "mais escolhido",
+    badge: "o essencial",
+  },
+  {
+    name: "Recursos extras",
+    price: "avulsos",
+    d: "Confirmação de presença, recados, álbum e domínio próprio: ative só os que a festa precisa.",
+    featured: false,
   },
 ];
 
@@ -122,15 +132,12 @@ export default function MarketingHome() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <a
-              href={WHATSAPP}
-              className="mkt-btn mkt-btn-ghost hidden sm:inline-flex"
-            >
-              Falar no WhatsApp
+            <a href={ENTRAR} className="mkt-btn mkt-btn-ghost hidden sm:inline-flex">
+              Entrar
             </a>
-            <Link href={PAINEL} className="mkt-btn mkt-btn-grad">
+            <a href={CADASTRO} className="mkt-btn mkt-btn-grad">
               Criar conta
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -154,23 +161,24 @@ export default function MarketingHome() {
               </h1>
 
               <p className="mkt-lede mkt-rise" style={delay(0.16)}>
-                A plataforma white-label para cerimonialistas e profissionais de
-                eventos. Casamento, 15 anos, bodas e mais — cada festa no seu
-                endereço próprio, com confirmação de presença, lista de
-                presentes no Pix e álbum. Sem programar.
+                Monte o site, mostre funcionando pro seu cliente{" "}
+                <strong>de graça, com marca d'água</strong>, e publique com um{" "}
+                <strong>pagamento único</strong>. Casamento, 15 anos, bodas e
+                mais — cada festa no seu endereço próprio. Sem mensalidade, sem
+                programar.
               </p>
 
               <div className="mkt-hero-cta mkt-rise" style={delay(0.24)}>
-                <Link href={PAINEL} className="mkt-btn mkt-btn-grad mkt-btn-lg">
+                <a href={CADASTRO} className="mkt-btn mkt-btn-grad mkt-btn-lg">
                   Criar conta grátis →
-                </Link>
+                </a>
                 <a href={WHATSAPP} className="mkt-btn mkt-btn-ghost mkt-btn-lg">
                   Falar no WhatsApp
                 </a>
               </div>
 
               <p className="mkt-trust mkt-rise" style={delay(0.32)}>
-                Comece grátis · a sua marca no plano Premium
+                Crie e mostre de graça · o cliente paga só pra publicar
               </p>
             </div>
 
@@ -268,20 +276,19 @@ export default function MarketingHome() {
           </div>
         </section>
 
-        {/* ---------- Preços ---------- */}
+        {/* ---------- Quanto custa ---------- */}
         <section id="precos" aria-labelledby="precos-h" className="mkt-section">
           <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
             <header className="mkt-section-head">
-              <p className="mkt-kicker mkt-rise">Preços</p>
+              <p className="mkt-kicker mkt-rise">Quanto custa</p>
               <h2 id="precos-h" className="mkt-h2 mkt-rise" style={delay(0.05)}>
-                Planos para{" "}
-                <span className="mkt-jewel italic">cada etapa</span> do seu
-                negócio.
+                Sem mensalidade. Você paga{" "}
+                <span className="mkt-jewel italic">só quando publica</span>.
               </h2>
             </header>
 
             <ul className="mkt-grid-3 mkt-plans">
-              {PLANS.map((p, i) => (
+              {PRICING.map((p, i) => (
                 <li
                   key={p.name}
                   className={`mkt-plan mkt-rise ${
@@ -293,18 +300,16 @@ export default function MarketingHome() {
                     <span className="mkt-plan-badge">{p.badge}</span>
                   ) : null}
                   <h3 className="mkt-plan-name">{p.name}</h3>
-                  <p className="mkt-plan-price">
-                    <span className="mkt-plan-soon">em breve</span>
-                  </p>
+                  <p className="mkt-plan-price">{p.price}</p>
                   <p className="mkt-plan-d">{p.d}</p>
-                  <Link
-                    href={PAINEL}
+                  <a
+                    href={CADASTRO}
                     className={`mkt-btn mkt-btn-block ${
                       p.featured ? "mkt-btn-grad" : "mkt-btn-soft"
                     }`}
                   >
                     Criar conta
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -330,11 +335,11 @@ export default function MarketingHome() {
                 Pronto para encantar os clientes dos seus clientes?
               </h2>
               <p className="mkt-cta-sub">
-                Crie sua conta e publique o primeiro site hoje.
+                Crie sua conta e monte o primeiro site hoje — de graça.
               </p>
-              <Link href={PAINEL} className="mkt-btn mkt-btn-grad mkt-btn-lg">
+              <a href={CADASTRO} className="mkt-btn mkt-btn-grad mkt-btn-lg">
                 Criar conta grátis →
-              </Link>
+              </a>
             </div>
           </div>
         </section>
@@ -361,10 +366,10 @@ export default function MarketingHome() {
                 Recursos
               </a>
               <a href="#precos" className="mkt-foot-link">
-                Preços
+                Quanto custa
               </a>
-              <a href={WHATSAPP} className="mkt-foot-link">
-                WhatsApp
+              <a href={ENTRAR} className="mkt-foot-link">
+                Entrar
               </a>
               <a href="mailto:sac@seuconviteia.com" className="mkt-foot-link">
                 sac@seuconviteia.com
