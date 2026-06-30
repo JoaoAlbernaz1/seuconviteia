@@ -191,3 +191,23 @@ export function acentoDoTema(tema?: string | null): string {
   const escolhido = (tema && TEMAS[tema]) || TEMAS[TEMA_PADRAO];
   return escolhido.vars["--ev-rosa"];
 }
+
+/** Uma paleta no seletor visual do form (`{ key, label, dots }`). */
+export type PaletaSeletor = { key: string; label: string; dots: string[] };
+
+/**
+ * Monta as opcoes de paleta para o seletor do form (criar/editar). Cada swatch
+ * leva 4 cores (forte -> clara) + o ink. Reusado pelas duas paginas do painel.
+ */
+export function paletasSeletor(): PaletaSeletor[] {
+  return Object.values(TEMAS).map((t) => ({
+    key: t.key,
+    label: t.label,
+    dots: [
+      t.vars["--ev-framboesa"],
+      t.vars["--ev-rosa"],
+      t.vars["--ev-blush"],
+      t.vars["--ev-ink"],
+    ],
+  }));
+}

@@ -116,6 +116,26 @@ export function parsePresentes(
 }
 
 /**
+ * Sanitiza a lista de URLs de fotos do album (campos `fotos` repetidos no
+ * FormData). Aparada, sem vazios, so caminhos `/...` ou `http(s)://...`,
+ * deduplicada (preservando ordem) e limitada a `max` itens. PURO.
+ */
+export function parseFotos(urls: readonly string[], max = 40): string[] {
+  const out: string[] = [];
+  const vistos = new Set<string>();
+  for (const raw of urls) {
+    const u = raw?.trim();
+    if (!u) continue;
+    if (!(u.startsWith("/") || /^https?:\/\//i.test(u))) continue;
+    if (vistos.has(u)) continue;
+    vistos.add(u);
+    out.push(u);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/**
  * Deriva os links do Google Maps a partir do local + endereco (sem campo
  * separado). Sem nenhum dos dois -> objeto vazio.
  */

@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { TEMAS, TEMA_PADRAO, varsDoTema, acentoDoTema } from "./temas";
+import {
+  TEMAS,
+  TEMA_PADRAO,
+  varsDoTema,
+  acentoDoTema,
+  paletasSeletor,
+} from "./temas";
 
 describe("temas (presets de cor)", () => {
   it('o preset "rose" tem os valores EXATOS do festa original', () => {
@@ -45,5 +51,13 @@ describe("temas (presets de cor)", () => {
   it("acentoDoTema devolve o --ev-rosa do preset (default rose)", () => {
     expect(acentoDoTema("azul")).toBe("#6E97C9");
     expect(acentoDoTema("zzz")).toBe("#E86FA6");
+  });
+
+  it("paletasSeletor monta uma opcao por preset com 4 swatches", () => {
+    const paletas = paletasSeletor();
+    expect(paletas).toHaveLength(Object.keys(TEMAS).length);
+    const rose = paletas.find((p) => p.key === "rose");
+    expect(rose?.label).toBe("Rosé");
+    expect(rose?.dots).toEqual(["#CE578B", "#E86FA6", "#FADADD", "#2E1A20"]);
   });
 });

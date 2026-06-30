@@ -12,6 +12,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { AuthError } from "next-auth";
+import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
@@ -24,6 +25,7 @@ import {
   montarMapsUrls,
   parseProgramacao,
   parsePresentes,
+  parseFotos,
   semUndefined,
 } from "@/lib/eventoForm";
 
@@ -202,15 +204,26 @@ export type NovoEventoState = {
   fieldErrors?: Partial<Record<CampoEvento, string>>;
 };
 
-export async function criarEvento(
-  _prev: NovoEventoState,
-  formData: FormData,
-): Promise<NovoEventoState> {
-  // Tenant SEMPRE da sessao — nunca do cliente.
-  const session = await auth();
-  if (!session?.user) redirect("/entrar");
-  const professionalId = session.user.id;
+/** Dados validados + derivados de um form de evento (compartilhado criar/editar). */
+type EventoInterpretado = {
+  type: (typeof EVENT_TYPES)[number];
+  title: string;
+  eventDate: Date;
+  expiresAt: Date;
+  customization: Prisma.InputJsonValue;
+  presentes: ReturnType<typeof parsePresentes>;
+  fotos: string[];
+};
 
+/**
+ * Valida (Zod) + monta os dados derivados de um form de evento. PURO em relacao a
+ * sessao/banco (so le o FormData). Reusado por `criarEvento` e `editarEvento`.
+ */
+function interpretarEvento(
+  formData: FormData,
+):
+  | { ok: true; data: EventoInterpretado }
+  | { ok: false; state: NovoEventoState } {
   const str = (k: string) => {
     const v = formData.get(k);
     return typeof v === "string" && v.trim() ? v : undefined;
@@ -234,19 +247,22 @@ export async function criarEvento(
   if (!parsed.success) {
     const f = z.flattenError(parsed.error).fieldErrors;
     return {
-      fieldErrors: {
-        type: f.type?.[0],
-        tema: f.tema?.[0],
-        title: f.title?.[0],
-        date: f.date?.[0],
-        time: f.time?.[0],
-        mensagem: f.mensagem?.[0],
-        local: f.local?.[0],
-        endereco: f.endereco?.[0],
-        traje: f.traje?.[0],
-        pixNome: f.pixNome?.[0],
-        pixChave: f.pixChave?.[0],
-        fotoUrl: f.fotoUrl?.[0],
+      ok: false,
+      state: {
+        fieldErrors: {
+          type: f.type?.[0],
+          tema: f.tema?.[0],
+          title: f.title?.[0],
+          date: f.date?.[0],
+          time: f.time?.[0],
+          mensagem: f.mensagem?.[0],
+          local: f.local?.[0],
+          endereco: f.endereco?.[0],
+          traje: f.traje?.[0],
+          pixNome: f.pixNome?.[0],
+          pixChave: f.pixChave?.[0],
+          fotoUrl: f.fotoUrl?.[0],
+        },
       },
     };
   }
@@ -270,7 +286,7 @@ export async function criarEvento(
   // servidor; a renderizacao formata em America/Sao_Paulo.
   const eventDate = new Date(`${date}T${time || "20:00"}:00`);
   if (Number.isNaN(eventDate.getTime())) {
-    return { fieldErrors: { date: "Data ou horario invalido." } };
+    return { ok: false, state: { fieldErrors: { date: "Data ou horario invalido." } } };
   }
 
   // Listas repetiveis: arrays paralelos no FormData -> linhas sanitizadas.
@@ -283,20 +299,8 @@ export async function criarEvento(
     formData.getAll("gift_descricao").map(String),
     formData.getAll("gift_valor").map(String),
   );
-
-  // Subdominio unico (considera RESERVED + colisoes no banco).
-  const subdomain = await gerarSlugUnico(title, async (s) =>
-    Boolean(await prisma.event.findUnique({ where: { subdomain: s } })),
-  );
-
-  const expiresAt = calcularExpiracao(eventDate);
-
-  // Template do nicho (auto): mantem `templateId` valido sem expor a escolha no
-  // form. Se nao houver modelo para o nicho, fica `null` (a coluna e opcional).
-  const template = await prisma.template.findFirst({
-    where: { nicho: type },
-    orderBy: { createdAt: "asc" },
-  });
+  // Album: URLs salvas pelo upload (hidden inputs `fotos` repetidos).
+  const fotos = parseFotos(formData.getAll("fotos").map(String));
 
   const { mapsUrl, mapsEmbedUrl } = montarMapsUrls(local, endereco);
 
@@ -317,6 +321,62 @@ export async function criarEvento(
     pixChave,
   });
 
+  return {
+    ok: true,
+    data: {
+      type,
+      title,
+      eventDate,
+      expiresAt: calcularExpiracao(eventDate),
+      customization,
+      presentes,
+      fotos,
+    },
+  };
+}
+
+/** Mapeia presentes parseados -> linhas do GiftItem (Pix). */
+function giftRows(eventId: string, presentes: EventoInterpretado["presentes"]) {
+  return presentes.map((g) => ({
+    eventId,
+    title: g.titulo,
+    description: g.descricao ?? null,
+    priceCents: g.valorCents ?? 0,
+    mode: "PIX" as const,
+  }));
+}
+
+/** Mapeia URLs do album -> linhas de Photo (ordenadas). */
+function photoRows(eventId: string, fotos: string[]) {
+  return fotos.map((url, i) => ({ eventId, url, order: i }));
+}
+
+export async function criarEvento(
+  _prev: NovoEventoState,
+  formData: FormData,
+): Promise<NovoEventoState> {
+  // Tenant SEMPRE da sessao — nunca do cliente.
+  const session = await auth();
+  if (!session?.user) redirect("/entrar");
+  const professionalId = session.user.id;
+
+  const result = interpretarEvento(formData);
+  if (!result.ok) return result.state;
+  const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
+    result.data;
+
+  // Subdominio unico (considera RESERVED + colisoes no banco).
+  const subdomain = await gerarSlugUnico(title, async (s) =>
+    Boolean(await prisma.event.findUnique({ where: { subdomain: s } })),
+  );
+
+  // Template do nicho (auto): mantem `templateId` valido sem expor a escolha no
+  // form. Se nao houver modelo para o nicho, fica `null` (a coluna e opcional).
+  const template = await prisma.template.findFirst({
+    where: { nicho: type },
+    orderBy: { createdAt: "asc" },
+  });
+
   const event = await prisma.event.create({
     data: {
       professionalId,
@@ -334,15 +394,65 @@ export async function criarEvento(
 
   // Itens da lista de presentes (Pix). `priceCents` e obrigatorio (0 = sem valor).
   if (presentes.length) {
-    await prisma.giftItem.createMany({
-      data: presentes.map((g) => ({
-        eventId: event.id,
-        title: g.titulo,
-        description: g.descricao ?? null,
-        priceCents: g.valorCents ?? 0,
-        mode: "PIX" as const,
-      })),
-    });
+    await prisma.giftItem.createMany({ data: giftRows(event.id, presentes) });
+  }
+  // Album do evento (Photo rows ordenadas).
+  if (fotos.length) {
+    await prisma.photo.createMany({ data: photoRows(event.id, fotos) });
+  }
+
+  revalidatePath("/painel");
+  redirect("/painel");
+}
+
+// ----------------------------------------------------------------------------
+// Editar evento
+// ----------------------------------------------------------------------------
+
+export async function editarEvento(
+  _prev: NovoEventoState,
+  formData: FormData,
+): Promise<NovoEventoState> {
+  // Tenant SEMPRE da sessao.
+  const session = await auth();
+  if (!session?.user) redirect("/entrar");
+  const professionalId = session.user.id;
+
+  // O id viaja num hidden field — NUNCA confiado cru: revalidamos ownership.
+  const eventId = formData.get("eventId");
+  if (typeof eventId !== "string" || !eventId) {
+    return { error: "Evento invalido." };
+  }
+
+  // Ownership: o evento precisa pertencer ao profissional logado.
+  const existente = await prisma.event.findFirst({
+    where: { id: eventId, professionalId },
+    select: { id: true },
+  });
+  if (!existente) {
+    return { error: "Evento nao encontrado." };
+  }
+
+  const result = interpretarEvento(formData);
+  if (!result.ok) return result.state;
+  const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
+    result.data;
+
+  // Atualiza o evento. `subdomain` e `templateId` ficam ESTAVEIS (nao regerados).
+  await prisma.event.update({
+    where: { id: existente.id },
+    data: { type, title, eventDate, expiresAt, customization },
+  });
+
+  // Presentes e fotos: REPLACE total (delete + recria) para casar com o form.
+  await prisma.giftItem.deleteMany({ where: { eventId: existente.id } });
+  if (presentes.length) {
+    await prisma.giftItem.createMany({ data: giftRows(existente.id, presentes) });
+  }
+
+  await prisma.photo.deleteMany({ where: { eventId: existente.id } });
+  if (fotos.length) {
+    await prisma.photo.createMany({ data: photoRows(existente.id, fotos) });
   }
 
   revalidatePath("/painel");

@@ -1,0 +1,62 @@
+// Upload de imagem autenticado (capa/album do evento).
+//
+// POST multipart com campo `file`. Requer sessao (`auth()`); valida com Zod que e
+// uma imagem (JPG/PNG/WebP) de ate ~6MB; salva via storage provider sob um diretorio
+// por profissional; devolve `{ url }`.
+//
+// Esta rota fica no subdominio `app` (reservado) — o middleware NAO reescreve `/api/*`,
+// entao ela responde como rota raiz normal do app. Runtime Node (Prisma/bcrypt no auth).
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { auth } from "@/auth";
+import { getStorageProvider } from "@/lib/storage";
+
+export const runtime = "nodejs";
+
+const TIPOS_OK = ["image/jpeg", "image/png", "image/webp"] as const;
+const MAX_BYTES = 6 * 1024 * 1024; // ~6MB
+
+const fileSchema = z
+  .instanceof(File, { message: "Envie um arquivo de imagem." })
+  .refine((f) => f.size > 0, "Arquivo vazio.")
+  .refine((f) => f.size <= MAX_BYTES, "A imagem deve ter no maximo 6MB.")
+  .refine(
+    (f) => (TIPOS_OK as readonly string[]).includes(f.type),
+    "Formato invalido — use JPG, PNG ou WebP.",
+  );
+
+export async function POST(req: Request) {
+  // Tenant SEMPRE da sessao — sem login, 401.
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Nao autorizado." }, { status: 401 });
+  }
+
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return NextResponse.json({ error: "Requisicao invalida." }, { status: 400 });
+  }
+
+  const parsed = fileSchema.safeParse(form.get("file"));
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? "Arquivo invalido.";
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  try {
+    // Diretorio por profissional (isolamento) — id vem da sessao, nao do cliente.
+    const { url } = await getStorageProvider().salvar(
+      parsed.data,
+      `eventos/${session.user.id}`,
+    );
+    return NextResponse.json({ url });
+  } catch (err) {
+    console.error("[upload] falha ao salvar arquivo", err);
+    return NextResponse.json(
+      { error: "Falha ao salvar o arquivo. Tente novamente." },
+      { status: 500 },
+    );
+  }
+}

@@ -113,14 +113,22 @@ export default async function PainelPage() {
                     <p className="mt-1 text-sm text-texto-suave">
                       {TIPO_LABEL[ev.type]} · {formatadorData.format(ev.eventDate)}
                     </p>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-block break-all text-sm font-medium text-violeta hover:underline"
-                    >
-                      {url}
-                    </a>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block break-all text-sm font-medium text-violeta hover:underline"
+                      >
+                        {url}
+                      </a>
+                      <Link
+                        href={`/painel/${ev.id}/editar`}
+                        className="text-sm font-medium text-texto-suave hover:text-ink hover:underline"
+                      >
+                        Editar
+                      </Link>
+                    </div>
                   </div>
 
                   <div className="shrink-0 text-right">

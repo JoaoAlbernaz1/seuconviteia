@@ -8,8 +8,9 @@
 // REUSABILIDADE: e apresentacional e parametrizado por `action` + `initial` +
 // `mode`, entao a Fatia 3b (editor) reusa o mesmo componente passando a action de
 // edicao e os valores atuais. Nada aqui assume "create".
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { NovoEventoState } from "../../actions";
 import { eventPublicUrl, slugify } from "@/lib/tenant";
 import { textosDoNicho } from "@/lib/textos";
@@ -24,6 +25,8 @@ export type PaletaOpt = {
 
 /** Valores iniciais (modo "edit" preenche; "create" deixa vazio). */
 export type EventoFormInitial = {
+  /** Id do evento (modo "edit") — viaja como hidden field e e revalidado no servidor. */
+  eventId?: string;
   type?: string;
   tema?: string;
   title?: string;
@@ -38,6 +41,8 @@ export type EventoFormInitial = {
   pixNome?: string;
   pixChave?: string;
   fotoUrl?: string;
+  /** Album (galeria) — URLs ja salvas (modo "edit"). */
+  fotos?: string[];
 };
 
 type FormAction = (
@@ -121,6 +126,198 @@ function Field({
   );
 }
 
+/** Envia uma imagem para `/api/upload` e devolve a URL publica salva. */
+async function enviarUpload(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/upload", { method: "POST", body: fd });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg =
+      data && typeof data === "object" && "error" in data
+        ? String((data as { error: unknown }).error)
+        : "Falha no upload.";
+    throw new Error(msg);
+  }
+  const url =
+    data && typeof data === "object" && "url" in data
+      ? String((data as { url: unknown }).url)
+      : "";
+  if (!url) throw new Error("Resposta invalida do upload.");
+  return url;
+}
+
+/**
+ * Foto de capa: input de arquivo -> upload -> preview + remover. A URL resultante
+ * vai num hidden `name="fotoUrl"`. Falha de upload nao trava o form (a capa e
+ * opcional; o site tem fallback sem foto).
+ */
+function FotoCapaUploader({ initialUrl }: { initialUrl?: string }) {
+  const inputId = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [url, setUrl] = useState(initialUrl ?? "");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | undefined>();
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErro(undefined);
+    setEnviando(true);
+    try {
+      setUrl(await enviarUpload(file));
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha no upload.");
+    } finally {
+      setEnviando(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Valor submetido: a URL salva. */}
+      <input type="hidden" name="fotoUrl" value={url} />
+
+      {url ? (
+        <div className="flex items-start gap-3">
+          <Image
+            src={url}
+            alt="Previa da foto de capa"
+            width={120}
+            height={160}
+            unoptimized
+            className="h-40 w-30 rounded-lg object-cover ring-1 ring-black/10"
+          />
+          <button
+            type="button"
+            onClick={() => setUrl("")}
+            className="text-sm font-medium text-red-600 hover:underline"
+          >
+            Remover
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-3">
+        <label
+          htmlFor={inputId}
+          className={`inline-flex cursor-pointer items-center rounded-lg border border-black/10 bg-white px-3.5 py-2 text-sm font-medium text-ink transition hover:border-violeta/40 ${
+            enviando ? "pointer-events-none opacity-60" : ""
+          }`}
+        >
+          {enviando ? "Enviando…" : url ? "Trocar foto" : "Escolher foto"}
+        </label>
+        <input
+          id={inputId}
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={onPick}
+          disabled={enviando}
+          className="sr-only"
+        />
+        <span className="text-xs text-texto-suave">JPG, PNG ou WebP (ate 6MB).</span>
+      </div>
+
+      <SectionError msg={erro} />
+    </div>
+  );
+}
+
+/**
+ * Album (galeria): adiciona varias fotos (upload por arquivo) e mostra os
+ * thumbnails com remover. Cada URL vira um hidden `name="fotos"` (repetido) —
+ * a action faz `getAll("fotos")`.
+ */
+function AlbumUploader({ initialUrls }: { initialUrls?: string[] }) {
+  const inputId = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [urls, setUrls] = useState<string[]>(() => initialUrls ?? []);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | undefined>();
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setErro(undefined);
+    setEnviando(true);
+    try {
+      // Sequencial: simples e mantem a ordem de selecao.
+      for (const file of files) {
+        const u = await enviarUpload(file);
+        setUrls((prev) => [...prev, u]);
+      }
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha no upload.");
+    } finally {
+      setEnviando(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {urls.map((u, i) => (
+        <input key={`${u}-${i}`} type="hidden" name="fotos" value={u} />
+      ))}
+
+      {urls.length ? (
+        <ul className="flex flex-wrap gap-2.5">
+          {urls.map((u, i) => (
+            <li key={`${u}-${i}`} className="relative">
+              <Image
+                src={u}
+                alt={`Foto ${i + 1} do album`}
+                width={80}
+                height={80}
+                unoptimized
+                className="size-20 rounded-lg object-cover ring-1 ring-black/10"
+              />
+              <button
+                type="button"
+                onClick={() => setUrls((prev) => prev.filter((_, j) => j !== i))}
+                className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-white text-xs text-red-600 shadow ring-1 ring-black/10 hover:bg-red-50"
+                aria-label={`Remover foto ${i + 1}`}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="flex items-center gap-3">
+        <label
+          htmlFor={inputId}
+          className={`inline-flex cursor-pointer items-center rounded-lg border border-black/10 bg-white px-3.5 py-2 text-sm font-medium text-ink transition hover:border-violeta/40 ${
+            enviando ? "pointer-events-none opacity-60" : ""
+          }`}
+        >
+          {enviando ? "Enviando…" : "Adicionar fotos"}
+        </label>
+        <input
+          id={inputId}
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          onChange={onPick}
+          disabled={enviando}
+          className="sr-only"
+        />
+        {urls.length ? (
+          <span className="text-xs text-texto-suave">
+            {urls.length} foto{urls.length > 1 ? "s" : ""}
+          </span>
+        ) : null}
+      </div>
+
+      <SectionError msg={erro} />
+    </div>
+  );
+}
+
 export default function EventoForm({
   paletas,
   rootDomain,
@@ -190,6 +387,11 @@ export default function EventoForm({
       </div>
 
       <form action={formAction} className="mt-8 flex flex-col gap-6">
+        {/* Id do evento (modo edit) — revalidado no servidor; nunca confiado cru. */}
+        {initial?.eventId ? (
+          <input type="hidden" name="eventId" value={initial.eventId} />
+        ) : null}
+
         {/* 1 — Tipo */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
           <StepHead n={1} title="Tipo de evento" />
@@ -570,30 +772,28 @@ export default function EventoForm({
 
         {/* 7 — Foto de capa */}
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-          <StepHead n={7} title="Foto de capa" />
-          <Field
-            label="URL da foto de capa"
-            htmlFor={`${uid}-fotoUrl`}
-            optional
-            error={state.fieldErrors?.fotoUrl}
-          >
-            <input
-              id={`${uid}-fotoUrl`}
-              name="fotoUrl"
-              type="text"
-              defaultValue={initial?.fotoUrl}
-              className={inputClass}
-              placeholder="https://... ou /exemplo/foto.jpg"
-            />
-          </Field>
-          <p className="mt-2 text-xs text-texto-suave">
-            Upload de fotos chega em breve.
-          </p>
+          <StepHead
+            n={7}
+            title="Foto de capa"
+            hint="A imagem principal do site (hero). Opcional — ha um fallback sem foto."
+          />
+          <FotoCapaUploader initialUrl={initial?.fotoUrl} />
+          <SectionError msg={state.fieldErrors?.fotoUrl} />
         </section>
 
-        {/* 8 — Revisao + publicar */}
+        {/* 8 — Album (galeria) */}
+        <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
+          <StepHead
+            n={8}
+            title="Album (galeria)"
+            hint="Fotos do ensaio para o carrossel e a galeria do site. Opcional."
+          />
+          <AlbumUploader initialUrls={initial?.fotos} />
+        </section>
+
+        {/* 9 — Revisao + publicar */}
         <section className="rounded-2xl border border-violeta/20 bg-lilas/40 p-5">
-          <StepHead n={8} title="Revisao" />
+          <StepHead n={9} title="Revisao" />
           <dl className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-texto-suave">Tipo</dt>

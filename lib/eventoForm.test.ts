@@ -3,6 +3,7 @@ import {
   brlParaCents,
   parseProgramacao,
   parsePresentes,
+  parseFotos,
   montarMapsUrls,
   semUndefined,
   TEMA_KEYS,
@@ -95,6 +96,32 @@ describe("parsePresentes", () => {
     expect(parsePresentes(["Presente"], [""], [""])).toEqual([
       { titulo: "Presente", descricao: undefined, valorCents: undefined },
     ]);
+  });
+});
+
+describe("parseFotos", () => {
+  it("apara, descarta vazios e mantem a ordem", () => {
+    expect(
+      parseFotos(["/uploads/a.jpg", "  ", " /uploads/b.png ", ""]),
+    ).toEqual(["/uploads/a.jpg", "/uploads/b.png"]);
+  });
+
+  it("aceita caminhos / e URLs http(s); rejeita o resto", () => {
+    expect(
+      parseFotos(["/uploads/a.jpg", "https://x.com/b.png", "javascript:alert(1)", "ftp://x"]),
+    ).toEqual(["/uploads/a.jpg", "https://x.com/b.png"]);
+  });
+
+  it("deduplica preservando a primeira ocorrencia", () => {
+    expect(parseFotos(["/a.jpg", "/b.jpg", "/a.jpg"])).toEqual([
+      "/a.jpg",
+      "/b.jpg",
+    ]);
+  });
+
+  it("respeita o limite maximo", () => {
+    const urls = Array.from({ length: 5 }, (_, i) => `/u${i}.jpg`);
+    expect(parseFotos(urls, 3)).toEqual(["/u0.jpg", "/u1.jpg", "/u2.jpg"]);
   });
 });
 
