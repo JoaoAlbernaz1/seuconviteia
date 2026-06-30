@@ -1,32 +1,23 @@
 // Editar evento — protegido e isolado por tenant. Carrega o evento pelo `id` E
 // `professionalId` da sessao (ownership; 404 se nao for dono), mapeia para o shape
-// `EventoFormInitial` e reusa o MESMO `EventoForm` (mode="edit"), passando a action
-// `editarEvento`. O `id` viaja num hidden field e e revalidado no servidor.
+// `EventoFormInitial` e renderiza o `EditorEvento` (3 painéis + preview ao vivo)
+// em modo "edit". O `id` viaja num hidden field e e revalidado no servidor.
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { paletasSeletor, TEMAS, TEMA_PADRAO } from "@/lib/temas";
+import { paletasSeletor, lerTemaKey } from "@/lib/temas";
+import { eventPublicUrl } from "@/lib/tenant";
 import { lerConteudo } from "@/lib/convite";
 import { dividirDataHoraSP } from "@/lib/dates";
-import { editarEvento } from "../../../actions";
-import EventoForm, {
+import EditorEvento, {
   type EventoFormInitial,
   type PaletaOpt,
-} from "../../novo/EventoForm";
+} from "../../_editor/EditorEvento";
 
 export const dynamic = "force-dynamic";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 const PALETAS: PaletaOpt[] = paletasSeletor();
-
-/** Le o preset de cor do `customization` (cai para o padrao se ausente/invalido). */
-function lerTema(customization: unknown): string {
-  if (customization && typeof customization === "object" && "tema" in customization) {
-    const t = (customization as { tema: unknown }).tema;
-    if (typeof t === "string" && TEMAS[t]) return t;
-  }
-  return TEMA_PADRAO;
-}
 
 /** Centavos -> string do input do form ("15000" -> "150,00"; 0/ausente -> ""). */
 function centsParaInput(cents?: number | null): string {
@@ -59,6 +50,7 @@ export default async function EditarEventoPage({
     include: {
       gifts: { orderBy: { createdAt: "asc" } },
       photos: { orderBy: { order: "asc" } },
+      professional: { select: { plan: true } },
     },
   });
   if (!event) notFound();
@@ -69,7 +61,7 @@ export default async function EditarEventoPage({
   const initial: EventoFormInitial = {
     eventId: event.id,
     type: event.type,
-    tema: lerTema(event.customization),
+    tema: lerTemaKey(event.customization),
     title: event.title,
     date,
     time,
@@ -91,12 +83,15 @@ export default async function EditarEventoPage({
   };
 
   return (
-    <EventoForm
+    <EditorEvento
       paletas={PALETAS}
       rootDomain={ROOT_DOMAIN}
-      action={editarEvento}
       mode="edit"
+      plan={event.professional?.plan ?? event.plan}
       initial={initial}
+      status={event.status}
+      publicUrl={eventPublicUrl(event.subdomain, ROOT_DOMAIN)}
+      subdomain={event.subdomain}
     />
   );
 }

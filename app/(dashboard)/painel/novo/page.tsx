@@ -1,29 +1,32 @@
-// Criar evento — protegido. Monta as opcoes de paleta (a partir de `lib/temas`)
-// no servidor e delega o formulario rico ao client `EventoForm`, passando a
-// server action `criarEvento`. O `professionalId` vem da sessao (na action).
+// Criar evento — protegido. Usa o EditorEvento (3 painéis + preview ao vivo) em
+// modo "create". As paletas vêm de `lib/temas`; o plano (gating) vem da conta do
+// profissional logado. A criação é feita pela server action `criarEvento`.
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
 import { paletasSeletor } from "@/lib/temas";
-import { criarEvento } from "../../actions";
-import EventoForm, { type PaletaOpt } from "./EventoForm";
+import EditorEvento, { type PaletaOpt } from "../_editor/EditorEvento";
 
 export const dynamic = "force-dynamic";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
-
-// Swatch de cada paleta: 4 cores (forte -> clara) + o ink, para o seletor visual.
 const PALETAS: PaletaOpt[] = paletasSeletor();
 
 export default async function NovoEventoPage() {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
 
+  const prof = await prisma.professional.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true },
+  });
+
   return (
-    <EventoForm
+    <EditorEvento
       paletas={PALETAS}
       rootDomain={ROOT_DOMAIN}
-      action={criarEvento}
       mode="create"
+      plan={prof?.plan ?? "BASICO"}
     />
   );
 }
