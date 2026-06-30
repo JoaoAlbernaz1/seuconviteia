@@ -959,13 +959,13 @@ export default function EventoForm({
               <h2 className="flex flex-wrap items-center gap-2 font-display text-lg font-semibold text-ink">
                 Álbum (galeria)
                 <span className="rounded-full bg-teal/10 px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-teal">
-                  recurso extra
+                  Clássico+
                 </span>
                 <InfoHint text={DICA_FOTO_ALBUM} />
               </h2>
               <p className="text-xs text-texto-suave">
-                Fotos do ensaio para o carrossel e a galeria. A galeria é um
-                upsell — você já deixa tudo pronto aqui.
+                Fotos do ensaio para o carrossel e a galeria. A galeria aparece
+                no site a partir do plano Clássico — deixe tudo pronto aqui.
               </p>
             </div>
           </div>
@@ -996,25 +996,11 @@ export default function EventoForm({
             </div>
           </dl>
 
-          {/* O que entra no site x o que é extra (upsell). */}
-          <div className="mt-4 rounded-xl border border-black/5 bg-white/70 p-3.5 text-xs leading-relaxed text-texto-suave">
-            <p>
-              <span className="font-semibold text-ink">Já incluído:</span> capa,
-              convite, evento e lista de presentes.
-            </p>
-            <p className="mt-1">
-              <span className="font-semibold text-ink">Extras (upsells):</span>{" "}
-              confirmação de presença, recados, álbum e domínio próprio —
-              ativados à parte.
-            </p>
-          </div>
-
-          {/* Aviso do modelo: nasce como prévia com marca d'água. */}
-          <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <i className="bi bi-droplet mt-0.5" aria-hidden />
+          <p className="mt-4 flex items-start gap-2 rounded-lg bg-lilas/50 px-3 py-2 text-xs text-texto-suave">
+            <i className="bi bi-check-circle mt-0.5 text-violeta" aria-hidden />
             <span>
-              O site é criado como <strong>prévia</strong>, com marca d&apos;água.
-              É publicado de verdade (sem marca) ao pagar o valor único.
+              Publicar está <strong>incluído no seu plano</strong> — sem cobrança
+              por site. Os recursos da festa liberam conforme o seu plano.
             </span>
           </p>
 
@@ -1035,10 +1021,10 @@ export default function EventoForm({
             {pending
               ? isEdit
                 ? "Salvando…"
-                : "Criando…"
+                : "Publicando…"
               : isEdit
                 ? "Salvar alterações"
-                : "Criar site (prévia)"}
+                : "Publicar evento"}
           </button>
         </section>
       </form>

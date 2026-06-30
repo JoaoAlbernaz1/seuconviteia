@@ -3,9 +3,10 @@
 // Cadastro do profissional. Form client com `useActionState` -> server action
 // `cadastrarProfissional` (Zod + bcrypt + cria Professional + auto-login). Sem
 // plano: a monetizacao e por evento (valor unico + upsells), nao por conta.
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { cadastrarProfissional, type SignupState } from "../actions";
+import { PLANOS_INFO, type Plan } from "@/lib/plans";
 
 const INITIAL: SignupState = {};
 
@@ -25,6 +26,7 @@ export default function CadastrarPage() {
     cadastrarProfissional,
     INITIAL,
   );
+  const [plan, setPlan] = useState<Plan>("CLASSICO");
 
   return (
     <main className="relative flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
@@ -99,6 +101,49 @@ export default function CadastrarPage() {
             />
             <FieldError msg={state.fieldErrors?.password} />
           </div>
+
+          {/* Plano da assinatura — herdado por todos os eventos. */}
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium text-ink">Seu plano</legend>
+            {PLANOS_INFO.map((p) => {
+              const selected = plan === p.key;
+              return (
+                <label
+                  key={p.key}
+                  className={`flex cursor-pointer flex-col rounded-xl border p-3.5 transition ${
+                    selected
+                      ? "border-violeta ring-2 ring-violeta/25"
+                      : "border-black/10 hover:border-violeta/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="plan"
+                    value={p.key}
+                    checked={selected}
+                    onChange={() => setPlan(p.key)}
+                    className="sr-only"
+                  />
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-display text-base font-semibold text-ink">
+                      {p.label}
+                      {p.destaque ? (
+                        <span className="rounded-full bg-violeta/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-violeta">
+                          Popular
+                        </span>
+                      ) : null}
+                    </span>
+                    {selected ? (
+                      <i className="bi bi-check-circle-fill text-violeta" aria-hidden />
+                    ) : null}
+                  </span>
+                  <span className="mt-1 text-xs leading-snug text-texto-suave">
+                    {p.descricaoCurta}
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
 
           {state.error ? (
             <p

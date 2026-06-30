@@ -617,3 +617,22 @@ export async function atualizarPerfil(
   return { ok: true };
 }
 
+
+// ----------------------------------------------------------------------------
+// Plano (assinatura) — troca de plano. STUB: sem cobranca real ainda.
+// ----------------------------------------------------------------------------
+
+export async function trocarPlano(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/entrar");
+  const planRaw = formData.get("plan");
+  if (typeof planRaw !== "string" || !PLAN_VALUES.includes(planRaw as (typeof PLAN_VALUES)[number])) {
+    return;
+  }
+  await prisma.professional.update({
+    where: { id: session.user.id },
+    data: { plan: planRaw as (typeof PLAN_VALUES)[number] },
+  });
+  revalidatePath("/painel/plano");
+  revalidatePath("/painel");
+}

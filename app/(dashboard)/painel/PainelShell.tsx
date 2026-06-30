@@ -13,6 +13,7 @@ import { sair } from "../actions";
 const NAV = [
   { href: "/painel", label: "Meus eventos", icon: "bi-collection" },
   { href: "/painel/novo", label: "Criar evento", icon: "bi-plus-circle" },
+  { href: "/painel/plano", label: "Plano", icon: "bi-gem" },
   { href: "/painel/perfil", label: "Meu perfil", icon: "bi-person" },
 ] as const;
 
