@@ -1,10 +1,11 @@
-// Painel do profissional — protegido. Lista os eventos do profissional logado.
-// Monetizacao por evento: cada site nasce como PREVIA (marca d'agua); "Publicar"
-// paga o valor unico e tira a marca; cada upsell destrava avulso. (Os botoes sao
-// STUB — alternam as flags; o pagamento real entra depois.)
+// Painel do profissional — protegido. Visão geral (boas-vindas + métricas) e a
+// lista de eventos com miniatura da capa. Monetização por evento: cada site nasce
+// como PRÉVIA (marca d'água); "Publicar" tira a marca; cada upsell destrava
+// avulso. (Os botões são STUB — alternam as flags; o pagamento real entra depois.)
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import type { EventStatus, EventType } from "@prisma/client";
+import type { EventType } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl } from "@/lib/tenant";
@@ -22,19 +23,63 @@ const TIPO_LABEL: Record<EventType, string> = {
   QUINZE_ANOS: "15 anos",
   SESSENTA_ANOS: "60 anos",
   BODAS: "Bodas",
-  ANIVERSARIO: "Aniversario",
+  ANIVERSARIO: "Aniversário",
 };
 
-const STATUS: Record<EventStatus, { label: string; className: string }> = {
-  PUBLISHED: { label: "No ar", className: "bg-emerald-50 text-emerald-700" },
-  DRAFT: { label: "Rascunho", className: "bg-slate-100 text-slate-600" },
-  EXPIRED: { label: "Expirado", className: "bg-amber-50 text-amber-700" },
+// Ícone (Bootstrap) por nicho — usado no placeholder da capa sem foto.
+const TIPO_ICON: Record<EventType, string> = {
+  CASAMENTO: "bi-suit-heart",
+  QUINZE_ANOS: "bi-stars",
+  SESSENTA_ANOS: "bi-balloon",
+  BODAS: "bi-gem",
+  ANIVERSARIO: "bi-balloon-heart",
 };
 
 const formatadorData = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "medium",
   timeZone: "America/Sao_Paulo",
 });
+
+/** Lê a foto de capa do `customization` (sem fallback). */
+function capaDoEvento(customization: unknown): string | undefined {
+  if (customization && typeof customization === "object" && "fotoUrl" in customization) {
+    const v = (customization as { fotoUrl?: unknown }).fotoUrl;
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return undefined;
+}
+
+function Metrica({
+  icon,
+  valor,
+  label,
+  tone,
+}: {
+  icon: string;
+  valor: number;
+  label: string;
+  tone: "violeta" | "teal" | "amber" | "ink";
+}) {
+  const chip = {
+    violeta: "bg-violeta/10 text-violeta",
+    teal: "bg-teal/10 text-teal",
+    amber: "bg-amber-100 text-amber-700",
+    ink: "bg-ink/5 text-ink",
+  }[tone];
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+      <span className={`grid size-10 shrink-0 place-items-center rounded-xl text-lg ${chip}`}>
+        <i className={`bi ${icon}`} aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="font-display text-2xl font-semibold leading-none text-ink">
+          {valor}
+        </p>
+        <p className="mt-1 truncate text-xs text-texto-suave">{label}</p>
+      </div>
+    </div>
+  );
+}
 
 export default async function PainelPage() {
   const session = await auth();
@@ -46,127 +91,189 @@ export default async function PainelPage() {
     include: { _count: { select: { guests: true } } },
   });
 
+  const total = events.length;
+  const publicados = events.filter((e) => e.purchased).length;
+  const previas = total - publicados;
+  const convidados = events.reduce((s, e) => s + e._count.guests, 0);
+
+  const primeiroNome = (session.user.name ?? "").trim().split(/\s+/)[0] ?? "";
+
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-semibold text-ink">
-            Meus eventos
-          </h1>
-          <p className="mt-1 text-sm text-texto-suave">
-            {session.user.name ? `Ola, ${session.user.name}. ` : ""}
-            Gerencie e publique os sites dos seus clientes.
-          </p>
+    <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-8 sm:px-6 sm:py-10">
+      {/* ── Boas-vindas ── */}
+      <section className="relative overflow-hidden rounded-3xl border border-black/5 bg-white p-6 shadow-sm sm:p-8">
+        {/* glow da marca */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full opacity-20 blur-3xl"
+          style={{ background: "var(--grad-faisca)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal">
+              Painel
+            </p>
+            <h1 className="mt-2 font-display text-[2rem] font-semibold leading-tight text-ink">
+              Olá{primeiroNome ? `, ${primeiroNome}` : ""} 👋
+            </h1>
+            <p className="mt-1 text-sm text-texto-suave">
+              Crie, personalize e publique os sites dos seus clientes.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/painel/novo"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-teal to-violeta px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
+            >
+              <i className="bi bi-plus-lg" aria-hidden /> Criar evento
+            </Link>
+            <form action={sair}>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3.5 py-2.5 text-sm font-medium text-texto-suave transition hover:text-ink"
+              >
+                <i className="bi bi-box-arrow-right" aria-hidden />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            </form>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/painel/novo"
-            className="rounded-lg bg-violeta px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violeta/90"
-          >
-            Criar evento
-          </Link>
-          <form action={sair}>
-            <button
-              type="submit"
-              className="rounded-lg border border-black/10 bg-white px-4 py-2.5 text-sm font-medium text-texto-suave transition hover:text-ink"
-            >
-              Sair
-            </button>
-          </form>
+        {/* métricas */}
+        <div className="relative mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Metrica icon="bi-collection" valor={total} label="Eventos" tone="ink" />
+          <Metrica icon="bi-globe2" valor={publicados} label="Publicados" tone="teal" />
+          <Metrica icon="bi-eye" valor={previas} label="Em prévia" tone="amber" />
+          <Metrica icon="bi-people" valor={convidados} label="Convidados" tone="violeta" />
         </div>
+      </section>
+
+      {/* ── Eventos ── */}
+      <div className="mt-9 flex items-center justify-between gap-4">
+        <h2 className="font-display text-xl font-semibold text-ink">
+          Seus eventos
+        </h2>
+        {total > 0 ? (
+          <span className="text-sm text-texto-suave">
+            {total} {total === 1 ? "evento" : "eventos"}
+          </span>
+        ) : null}
       </div>
 
       {events.length === 0 ? (
-        <div className="mt-10 rounded-2xl border border-dashed border-black/10 bg-white/60 px-6 py-16 text-center">
-          <p className="font-display text-xl font-semibold text-ink">
+        <div className="mt-5 rounded-3xl border border-dashed border-black/10 bg-white/60 px-6 py-16 text-center">
+          <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-lilas text-2xl text-violeta">
+            <i className="bi bi-calendar2-heart" aria-hidden />
+          </span>
+          <p className="mt-4 font-display text-xl font-semibold text-ink">
             Nenhum evento ainda
           </p>
           <p className="mx-auto mt-2 max-w-sm text-sm text-texto-suave">
-            Crie o seu primeiro site de evento — escolha o nicho, um modelo e
-            publique no endereco proprio em minutos.
+            Crie o seu primeiro site de evento — escolha o nicho, personalize e
+            tenha a prévia no ar em minutos.
           </p>
           <Link
             href="/painel/novo"
-            className="mt-6 inline-flex rounded-lg bg-violeta px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violeta/90"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-teal to-violeta px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
           >
-            Criar primeiro evento
+            <i className="bi bi-plus-lg" aria-hidden /> Criar primeiro evento
           </Link>
         </div>
       ) : (
-        <ul className="mt-8 flex flex-col gap-3">
+        <ul className="mt-5 grid gap-4 sm:grid-cols-2">
           {events.map((ev) => {
             const url = eventPublicUrl(ev.subdomain, ROOT_DOMAIN);
-            const status = STATUS[ev.status];
             const recursos = recursosDoEvento(ev);
+            const capa = capaDoEvento(ev.customization);
             return (
               <li
                 key={ev.id}
-                className="rounded-2xl border border-black/5 bg-white px-5 py-4 shadow-sm"
+                className="flex flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition hover:shadow-md"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate font-display text-lg font-semibold text-ink">
-                        {ev.title}
-                      </h2>
+                <div className="flex gap-4 p-4">
+                  {/* miniatura da capa */}
+                  <div className="relative aspect-[4/5] w-16 shrink-0 overflow-hidden rounded-xl ring-1 ring-black/5 sm:w-20">
+                    {capa ? (
+                      <Image
+                        src={capa}
+                        alt=""
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
+                    ) : (
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}
+                        className="grid h-full w-full place-items-center text-xl text-white"
+                        style={{ background: "var(--grad-faisca)" }}
                       >
-                        {status.label}
+                        <i className={`bi ${TIPO_ICON[ev.type]}`} aria-hidden />
                       </span>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          ev.purchased
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {ev.purchased ? "Publicado" : "Prévia · marca d'água"}
+                    )}
+                  </div>
+
+                  {/* info */}
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="truncate font-display text-lg font-semibold text-ink">
+                        {ev.title}
+                      </h3>
+                      <span className="shrink-0 text-right">
+                        <span className="block font-display text-xl font-semibold leading-none text-ink">
+                          {ev._count.guests}
+                        </span>
+                        <span className="text-[0.65rem] text-texto-suave">
+                          {ev._count.guests === 1 ? "convidado" : "convidados"}
+                        </span>
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-texto-suave">
+
+                    <span
+                      className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[0.68rem] font-semibold ${
+                        ev.purchased
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      <i
+                        className={`bi ${ev.purchased ? "bi-globe2" : "bi-droplet"}`}
+                        aria-hidden
+                      />
+                      {ev.purchased ? "Publicado" : "Prévia"}
+                    </span>
+
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-texto-suave">
+                      <i className={`bi ${TIPO_ICON[ev.type]}`} aria-hidden />
                       {TIPO_LABEL[ev.type]} · {formatadorData.format(ev.eventDate)}
                     </p>
+
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <a
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block break-all text-sm font-medium text-violeta hover:underline"
+                        className="inline-flex items-center gap-1 break-all text-xs font-medium text-violeta hover:underline"
                       >
-                        {url}
+                        <i className="bi bi-box-arrow-up-right" aria-hidden /> Ver site
                       </a>
                       <Link
                         href={`/painel/${ev.id}/editar`}
-                        className="text-sm font-medium text-texto-suave hover:text-ink hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-texto-suave hover:text-ink hover:underline"
                       >
-                        Editar
+                        <i className="bi bi-pencil" aria-hidden /> Editar
                       </Link>
                     </div>
                   </div>
-
-                  <div className="shrink-0 text-right">
-                    <p className="font-display text-2xl font-semibold text-ink">
-                      {ev._count.guests}
-                    </p>
-                    <p className="text-xs text-texto-suave">
-                      {ev._count.guests === 1 ? "convidado" : "convidados"}
-                    </p>
-                  </div>
                 </div>
 
-                {/* Monetizacao (STUB): publicar (valor unico) + destravar upsells. */}
-                <div className="mt-3 border-t border-black/5 pt-3">
+                {/* Monetização (STUB): publicar (valor único) + destravar upsells. */}
+                <div className="mt-auto border-t border-black/5 bg-nevoa/50 px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <PublicarControle
                       eventId={ev.id}
                       purchased={ev.purchased}
                       action={alternarCompra}
                     />
-
-                    <span className="mx-0.5 hidden h-4 w-px bg-black/10 sm:inline-block" />
-
                     {UPSELLS.map((u) => {
                       const ativo = recursos[u];
                       return (
@@ -176,7 +283,8 @@ export default async function PainelPage() {
                           <button
                             type="submit"
                             aria-pressed={ativo}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                            title={UPSELL_LABEL[u]}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition ${
                               ativo
                                 ? "bg-teal/10 text-teal ring-1 ring-teal/30"
                                 : "border border-black/10 text-texto-suave hover:text-ink"
@@ -192,10 +300,6 @@ export default async function PainelPage() {
                       );
                     })}
                   </div>
-                  <p className="mt-2 text-[0.7rem] text-texto-suave/80">
-                    Simulação — o pagamento real (Pix) entra depois. A base (capa,
-                    convite, evento, presentes) é sempre incluída.
-                  </p>
                 </div>
               </li>
             );
