@@ -1,28 +1,38 @@
-// Criar evento — protegido. Carrega os templates (por nicho) no servidor e
-// delega o fluxo (selecao + form) ao client component `NovoEventoForm`.
+// Criar evento — protegido. Monta as opcoes de paleta (a partir de `lib/temas`)
+// no servidor e delega o formulario rico ao client `EventoForm`, passando a
+// server action `criarEvento`. O `professionalId` vem da sessao (na action).
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/db";
-import NovoEventoForm from "./NovoEventoForm";
+import { TEMAS } from "@/lib/temas";
+import { criarEvento } from "../../actions";
+import EventoForm, { type PaletaOpt } from "./EventoForm";
 
 export const dynamic = "force-dynamic";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 
+// Swatch de cada paleta: 4 cores (forte -> clara) + o ink, para o seletor visual.
+const PALETAS: PaletaOpt[] = Object.values(TEMAS).map((t) => ({
+  key: t.key,
+  label: t.label,
+  dots: [
+    t.vars["--ev-framboesa"],
+    t.vars["--ev-rosa"],
+    t.vars["--ev-blush"],
+    t.vars["--ev-ink"],
+  ],
+}));
+
 export default async function NovoEventoPage() {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
 
-  const templates = await prisma.template.findMany({
-    orderBy: { name: "asc" },
-  });
-
-  const templatesData = templates.map((t) => ({
-    id: t.id,
-    name: t.name,
-    nicho: t.nicho as string,
-    accent: (t.config as { accent?: string } | null)?.accent ?? "#6D28D9",
-  }));
-
-  return <NovoEventoForm templates={templatesData} rootDomain={ROOT_DOMAIN} />;
+  return (
+    <EventoForm
+      paletas={PALETAS}
+      rootDomain={ROOT_DOMAIN}
+      action={criarEvento}
+      mode="create"
+    />
+  );
 }
