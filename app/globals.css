@@ -583,8 +583,36 @@ body {
 .mkt-plan-d {
   font-size: 0.94rem;
   color: var(--mkt-fg-soft);
-  margin-bottom: 1.6rem;
+  margin-bottom: 1.3rem;
+  flex: none;
+}
+/* lista de recursos inclusos no plano (empurra o CTA pra base do card) */
+.mkt-plan-feats {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.6rem;
+}
+.mkt-plan-feat {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--mkt-fg-soft);
+}
+.mkt-plan-feat .bi {
+  flex: none;
+  margin-top: 0.1rem;
+  font-size: 1rem;
+  color: #5eead4;
+}
+.mkt-plan-featured .mkt-plan-feat {
+  color: #334155;
+}
+.mkt-plan-featured .mkt-plan-feat .bi {
+  color: #0ea5a6;
 }
 /* card claro em destaque (contraste nevoa/lilas) */
 .mkt-plan-featured {

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
 import { appUrl } from "@/lib/tenant";
+import { PLANOS_INFO, PLAN_ORDER } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "SeuConvite IA — sites de evento lindos para os seus clientes",
   description:
-    "A plataforma para cerimonialistas e profissionais de eventos. Monte o site (casamento, 15 anos, bodas e mais), mostre funcionando pro seu cliente com marca d'água e publique com um pagamento único. Recursos extras avulsos. Sem mensalidade, sem programar.",
+    "A plataforma para cerimonialistas e profissionais de eventos. Assine um plano e crie eventos ilimitados (casamento, 15 anos, bodas e mais), com recursos liberados por nível de plano. Publicar é incluído — sem marca d'água, sem mensalidade por site, sem programar.",
 };
 
 // Links do painel vivem no subdominio `app.` — a partir do marketing (dominio
@@ -39,79 +40,65 @@ const NAV_LINKS = [
 const STEPS: { n: string; t: string; d: ReactNode }[] = [
   {
     n: "01",
-    t: "Monte o site com os dados do cliente",
-    d: "nicho, fotos, cores, data — tudo ao vivo, em minutos.",
+    t: "Assine um plano",
+    d: "Básico, Clássico ou Premium — recursos liberam por nível.",
   },
   {
     n: "02",
-    t: "Mostre funcionando — de graça",
-    d: "o cliente vê o site pronto no ar, com marca d'água.",
+    t: "Monte o site do cliente",
+    d: "nicho, fotos, cores, data e tudo ao vivo — em minutos.",
   },
   {
     n: "03",
-    t: "Aprovou? Publique com um pagamento único",
-    d: (
-      <>
-        a marca d&apos;água sai e o site fica no ar em{" "}
-        <code className="mkt-code">cliente.seuconviteia.com</code>.
-      </>
-    ),
+    t: "Personalize com preview ao vivo",
+    d: "ajuste cada detalhe e veja o resultado na hora.",
   },
   {
     n: "04",
-    t: "Ative os extras quando quiser",
-    d: "confirmação de presença, recados e álbum — avulsos.",
+    t: "Publique — incluído no plano",
+    d: (
+      <>
+        no ar em <code className="mkt-code">cliente.seuconviteia.com</code>, sem
+        marca d&apos;água.
+      </>
+    ),
   },
 ];
 
 const FEATURES: { icon: string; t: string; d: string }[] = [
-  { icon: "❖", t: "Multi-nicho", d: "um template para cada tipo de festa." },
-  { icon: "↗", t: "Endereço próprio", d: "cada evento num subdomínio automático." },
+  { icon: "❖", t: "Multi-nicho", d: "casamento, 15 anos, 60 anos, bodas, aniversário." },
   {
-    icon: "✦",
-    t: "Prévia grátis",
-    d: "mostre o site funcionando com marca d'água; cobre só quando aprovar.",
-  },
-  {
-    icon: "◈",
-    t: "Lista de presentes no Pix",
-    d: "QR e copia-e-cola; o valor cai na conta. Sempre incluída.",
+    icon: "↗",
+    t: "Endereço próprio",
+    d: "cada evento num subdomínio automático.",
   },
   {
     icon: "✓",
     t: "Confirmação de presença",
     d: "convidados confirmam, você acompanha no painel.",
   },
-  { icon: "❏", t: "Álbum de fotos", d: "as memórias do grande dia." },
+  {
+    icon: "◈",
+    t: "Lista de presentes no Pix",
+    d: "QR e copia-e-cola; o valor cai na conta do cliente.",
+  },
+  {
+    icon: "❏",
+    t: "Mural de recados & álbum",
+    d: "memórias e mensagens dos convidados num só lugar.",
+  },
+  {
+    icon: "✦",
+    t: "Eventos ilimitados",
+    d: "crie quantos sites quiser a partir do Clássico.",
+  },
 ];
 
-const PRICING: {
-  name: string;
-  price: string;
-  d: string;
-  featured: boolean;
-  badge?: string;
-}[] = [
-  {
-    name: "Criar e mostrar",
-    price: "Grátis",
-    d: "Monte, personalize e mostre o site funcionando pro cliente — com marca d'água. Quantos eventos quiser.",
-    featured: false,
-  },
-  {
-    name: "Publicar o site",
-    price: "pagamento único",
-    d: "Quando o cliente aprova, um pagamento tira a marca d'água e publica de verdade, no endereço próprio.",
-    featured: true,
-    badge: "o essencial",
-  },
-  {
-    name: "Recursos extras",
-    price: "avulsos",
-    d: "Confirmação de presença, recados, álbum e domínio próprio: ative só os que a festa precisa.",
-    featured: false,
-  },
-];
+// Planos exibidos na ordem canonica (do menor para o maior), com os metadados
+// (label, descricaoCurta, inclui[], destaque) vindos da fonte unica `lib/plans`.
+const PLANOS = PLAN_ORDER.map(
+  (key) => PLANOS_INFO.find((p) => p.key === key)!,
+);
 
 export default function MarketingHome() {
   return (
@@ -161,16 +148,15 @@ export default function MarketingHome() {
               </h1>
 
               <p className="mkt-lede mkt-rise" style={delay(0.16)}>
-                Monte o site, mostre funcionando pro seu cliente{" "}
-                <strong>de graça, com marca d&apos;água</strong>, e publique com um{" "}
-                <strong>pagamento único</strong>. Casamento, 15 anos, bodas e
-                mais — cada festa no seu endereço próprio. Sem mensalidade, sem
-                programar.
+                <strong>Assine um plano</strong> e crie quantos eventos quiser —
+                casamento, 15 anos, bodas e mais, cada festa no seu endereço
+                próprio. Os recursos liberam <strong>por nível de plano</strong>.{" "}
+                <strong>Publicar é incluído no plano.</strong> Sem programar.
               </p>
 
               <div className="mkt-hero-cta mkt-rise" style={delay(0.24)}>
                 <a href={CADASTRO} className="mkt-btn mkt-btn-grad mkt-btn-lg">
-                  Criar conta grátis →
+                  Criar conta →
                 </a>
                 <a href={WHATSAPP} className="mkt-btn mkt-btn-ghost mkt-btn-lg">
                   Falar no WhatsApp
@@ -178,7 +164,7 @@ export default function MarketingHome() {
               </div>
 
               <p className="mkt-trust mkt-rise" style={delay(0.32)}>
-                Crie e mostre de graça · o cliente paga só pra publicar
+                Eventos ilimitados no Clássico · publique sem custo extra
               </p>
             </div>
 
@@ -282,36 +268,47 @@ export default function MarketingHome() {
             <header className="mkt-section-head">
               <p className="mkt-kicker mkt-rise">Quanto custa</p>
               <h2 id="precos-h" className="mkt-h2 mkt-rise" style={delay(0.05)}>
-                Sem mensalidade. Você paga{" "}
-                <span className="mkt-jewel italic">só quando publica</span>.
+                Um plano,{" "}
+                <span className="mkt-jewel italic">eventos ilimitados</span>.
               </h2>
             </header>
 
             <ul className="mkt-grid-3 mkt-plans">
-              {PRICING.map((p, i) => (
-                <li
-                  key={p.name}
-                  className={`mkt-plan mkt-rise ${
-                    p.featured ? "mkt-plan-featured" : "mkt-card"
-                  }`}
-                  style={delay(0.08 + i * 0.07)}
-                >
-                  {p.badge ? (
-                    <span className="mkt-plan-badge">{p.badge}</span>
-                  ) : null}
-                  <h3 className="mkt-plan-name">{p.name}</h3>
-                  <p className="mkt-plan-price">{p.price}</p>
-                  <p className="mkt-plan-d">{p.d}</p>
-                  <a
-                    href={CADASTRO}
-                    className={`mkt-btn mkt-btn-block ${
-                      p.featured ? "mkt-btn-grad" : "mkt-btn-soft"
+              {PLANOS.map((p, i) => {
+                const featured = p.destaque === true;
+                return (
+                  <li
+                    key={p.key}
+                    className={`mkt-plan mkt-rise ${
+                      featured ? "mkt-plan-featured" : "mkt-card"
                     }`}
+                    style={delay(0.08 + i * 0.07)}
                   >
-                    Criar conta
-                  </a>
-                </li>
-              ))}
+                    {featured ? (
+                      <span className="mkt-plan-badge">mais popular</span>
+                    ) : null}
+                    <h3 className="mkt-plan-name">{p.label}</h3>
+                    <p className="mkt-plan-price">Assinatura mensal</p>
+                    <p className="mkt-plan-d">{p.descricaoCurta}</p>
+                    <ul className="mkt-plan-feats">
+                      {p.inclui.map((item) => (
+                        <li key={item} className="mkt-plan-feat">
+                          <i className="bi bi-check2" aria-hidden />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <a
+                      href={CADASTRO}
+                      className={`mkt-btn mkt-btn-block ${
+                        featured ? "mkt-btn-grad" : "mkt-btn-soft"
+                      }`}
+                    >
+                      Criar conta
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
 
             <p className="mkt-plans-note mkt-rise">
@@ -335,7 +332,8 @@ export default function MarketingHome() {
                 Pronto para encantar os clientes dos seus clientes?
               </h2>
               <p className="mkt-cta-sub">
-                Crie sua conta e monte o primeiro site hoje — de graça.
+                Assine um plano e monte o primeiro site hoje — publicar é
+                incluído.
               </p>
               <a href={CADASTRO} className="mkt-btn mkt-btn-grad mkt-btn-lg">
                 Criar conta grátis →
