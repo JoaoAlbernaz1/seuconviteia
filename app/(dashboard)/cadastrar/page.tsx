@@ -35,6 +35,10 @@ export default function CadastrarPage() {
       </div>
 
       <div className="relative w-full max-w-md">
+        <p className="mb-6 text-center font-sans text-lg font-semibold tracking-tight text-ink">
+          seuconvite<span className="text-gradient">ia</span>
+          <span className="text-texto-suave">.com</span>
+        </p>
         <div className="rounded-2xl border border-black/5 bg-white/90 p-7 shadow-[0_18px_60px_-24px_rgba(15,23,42,0.35)] backdrop-blur-sm sm:p-8">
           <p className="mb-3 inline-flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-teal">
             <span aria-hidden>✦</span> Comece grátis
