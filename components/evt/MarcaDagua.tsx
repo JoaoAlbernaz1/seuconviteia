@@ -33,9 +33,7 @@ export function MarcaDagua() {
         aria-label="Pré-visualização — feito com seuconviteia. Crie o seu."
         className="group fixed bottom-4 right-4 z-[101] flex items-center gap-2 rounded-full border border-white/15 bg-[#160C12]/90 px-3.5 py-2 text-white shadow-lg backdrop-blur-md transition hover:bg-[#160C12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       >
-        <span aria-hidden className="text-[0.7rem] text-white/80">
-          ✦
-        </span>
+        <i aria-hidden className="bi bi-stars text-[0.7rem] text-white/80" />
         <span className="font-evt-util text-[0.6rem] uppercase leading-tight tracking-[0.18em]">
           <span className="block text-white/70">Prévia · feito com</span>
           <span className="block font-semibold text-white">

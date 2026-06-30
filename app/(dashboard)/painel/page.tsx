@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { eventPublicUrl } from "@/lib/tenant";
 import { recursosDoEvento, UPSELLS, UPSELL_LABEL } from "@/lib/upsells";
 import { sair, alternarCompra, alternarUpsell } from "../actions";
+import { PublicarControle } from "./PublicarControle";
 
 // Depende da sessao (cookies) e do banco -> sempre dinamico.
 export const dynamic = "force-dynamic";
@@ -158,21 +159,11 @@ export default async function PainelPage() {
                 {/* Monetizacao (STUB): publicar (valor unico) + destravar upsells. */}
                 <div className="mt-3 border-t border-black/5 pt-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <form action={alternarCompra}>
-                      <input type="hidden" name="eventId" value={ev.id} />
-                      <button
-                        type="submit"
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                          ev.purchased
-                            ? "border border-black/10 text-texto-suave hover:text-ink"
-                            : "bg-violeta text-white hover:bg-violeta/90"
-                        }`}
-                      >
-                        {ev.purchased
-                          ? "↩︎ Voltar p/ prévia"
-                          : "Publicar — tirar marca d'água"}
-                      </button>
-                    </form>
+                    <PublicarControle
+                      eventId={ev.id}
+                      purchased={ev.purchased}
+                      action={alternarCompra}
+                    />
 
                     <span className="mx-0.5 hidden h-4 w-px bg-black/10 sm:inline-block" />
 
@@ -185,13 +176,16 @@ export default async function PainelPage() {
                           <button
                             type="submit"
                             aria-pressed={ativo}
-                            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                               ativo
                                 ? "bg-teal/10 text-teal ring-1 ring-teal/30"
                                 : "border border-black/10 text-texto-suave hover:text-ink"
                             }`}
                           >
-                            {ativo ? "✓ " : "+ "}
+                            <i
+                              className={`bi ${ativo ? "bi-check-lg" : "bi-plus-lg"}`}
+                              aria-hidden
+                            />
                             {UPSELL_LABEL[u]}
                           </button>
                         </form>

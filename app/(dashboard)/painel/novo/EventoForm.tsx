@@ -131,9 +131,9 @@ function InfoHint({ text, rotulo = "Ver dica" }: { text: string; rotulo?: string
         onBlur={() => setOpen(false)}
         aria-label={rotulo}
         aria-expanded={open}
-        className="grid size-[1.05rem] place-items-center rounded-full border border-violeta/40 bg-lilas/50 text-[0.62rem] font-bold leading-none text-violeta transition hover:bg-lilas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violeta/30"
+        className="grid size-[1.15rem] place-items-center rounded-full border border-violeta/40 bg-lilas/50 text-[0.7rem] leading-none text-violeta transition hover:bg-lilas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violeta/30"
       >
-        !
+        <i className="bi bi-info-lg" aria-hidden />
       </button>
       {open ? (
         <span
@@ -200,9 +200,9 @@ function SugerirBtn({
       onClick={onClick}
       disabled={!temTipo}
       title={temTipo ? undefined : "Escolha o tipo de evento primeiro"}
-      className="inline-flex items-center gap-1 rounded-full border border-violeta/30 bg-lilas/50 px-2.5 py-1 text-xs font-semibold text-violeta transition hover:bg-lilas disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 rounded-full border border-violeta/30 bg-lilas/50 px-2.5 py-1 text-xs font-semibold text-violeta transition hover:bg-lilas disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <span aria-hidden>✨</span> {children}
+      <i className="bi bi-stars" aria-hidden /> {children}
     </button>
   );
 }
@@ -748,15 +748,21 @@ export default function EventoForm({
               Sugerir programação
             </SugerirBtn>
           </div>
+          {/* GRID (colunas fixas: hora | titulo | remover) — nao vaza pra fora do
+              bloco como o flex com w-full vazava. `min-w-0` deixa as colunas
+              encolherem dentro do card em telas estreitas. */}
           <div className="flex flex-col gap-2.5">
             {programacao.map((row, i) => (
-              <div key={row._id} className="flex items-center gap-2">
+              <div
+                key={row._id}
+                className="grid grid-cols-[5rem_1fr_2.25rem] items-center gap-2 sm:grid-cols-[6rem_1fr_2.25rem]"
+              >
                 <input
                   name="programacao_hora"
                   type="text"
                   value={row.hora}
                   onChange={(e) => setProgRow(row._id, "hora", e.target.value)}
-                  className={`${inputClass} w-28 shrink-0`}
+                  className={`${inputClass} min-w-0 px-2.5 text-center`}
                   placeholder="20h30"
                   aria-label={`Horário do item ${i + 1}`}
                 />
@@ -765,7 +771,7 @@ export default function EventoForm({
                   type="text"
                   value={row.titulo}
                   onChange={(e) => setProgRow(row._id, "titulo", e.target.value)}
-                  className={inputClass}
+                  className={`${inputClass} min-w-0`}
                   placeholder="Recepção"
                   aria-label={`Descrição do item ${i + 1}`}
                 />
@@ -778,11 +784,11 @@ export default function EventoForm({
                         : rows,
                     )
                   }
-                  className="grid size-9 shrink-0 place-items-center rounded-lg border border-black/10 text-texto-suave transition hover:border-red-300 hover:text-red-600 disabled:opacity-40"
+                  className="grid size-9 place-items-center rounded-lg border border-black/10 text-texto-suave transition hover:border-red-300 hover:text-red-600 disabled:opacity-40"
                   disabled={programacao.length <= 1}
                   aria-label={`Remover item ${i + 1}`}
                 >
-                  ×
+                  <i className="bi bi-trash" aria-hidden />
                 </button>
               </div>
             ))}
@@ -795,9 +801,9 @@ export default function EventoForm({
                 makeRow({ hora: "", titulo: "" }),
               ])
             }
-            className="mt-3 text-sm font-medium text-violeta hover:underline"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violeta hover:underline"
           >
-            + Adicionar horario
+            <i className="bi bi-plus-lg" aria-hidden /> Adicionar horário
           </button>
         </section>
 
@@ -869,14 +875,14 @@ export default function EventoForm({
                 key={row._id}
                 className="rounded-xl border border-black/10 bg-white p-3"
               >
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-[1fr_5.5rem_2.25rem] items-center gap-2">
                   <input
                     name="gift_titulo"
                     type="text"
                     value={row.titulo}
                     onChange={(e) => setPresenteRow(row._id, "titulo", e.target.value)}
-                    className={inputClass}
-                    placeholder="Título do presente (ex.: Cota da festa)"
+                    className={`${inputClass} min-w-0`}
+                    placeholder="Título (ex.: Cota da festa)"
                     aria-label={`Título do presente ${i + 1}`}
                   />
                   <input
@@ -885,7 +891,7 @@ export default function EventoForm({
                     inputMode="decimal"
                     value={row.valor}
                     onChange={(e) => setPresenteRow(row._id, "valor", e.target.value)}
-                    className={`${inputClass} w-28 shrink-0`}
+                    className={`${inputClass} min-w-0 px-2.5`}
                     placeholder="150,00"
                     aria-label={`Valor do presente ${i + 1}`}
                   />
@@ -898,11 +904,11 @@ export default function EventoForm({
                           : rows,
                       )
                     }
-                    className="grid size-9 shrink-0 place-items-center rounded-lg border border-black/10 text-texto-suave transition hover:border-red-300 hover:text-red-600 disabled:opacity-40"
+                    className="grid size-9 place-items-center rounded-lg border border-black/10 text-texto-suave transition hover:border-red-300 hover:text-red-600 disabled:opacity-40"
                     disabled={presentes.length <= 1}
                     aria-label={`Remover presente ${i + 1}`}
                   >
-                    ×
+                    <i className="bi bi-trash" aria-hidden />
                   </button>
                 </div>
                 <input
@@ -925,9 +931,9 @@ export default function EventoForm({
                 makeRow({ titulo: "", descricao: "", valor: "" }),
               ])
             }
-            className="mt-3 text-sm font-medium text-violeta hover:underline"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violeta hover:underline"
           >
-            + Adicionar presente
+            <i className="bi bi-plus-lg" aria-hidden /> Adicionar presente
           </button>
         </section>
 
@@ -1005,7 +1011,7 @@ export default function EventoForm({
 
           {/* Aviso do modelo: nasce como prévia com marca d'água. */}
           <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <span aria-hidden>💧</span>
+            <i className="bi bi-droplet mt-0.5" aria-hidden />
             <span>
               O site é criado como <strong>prévia</strong>, com marca d&apos;água.
               É publicado de verdade (sem marca) ao pagar o valor único.

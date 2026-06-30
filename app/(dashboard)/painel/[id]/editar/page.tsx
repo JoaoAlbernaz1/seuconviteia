@@ -83,7 +83,7 @@ export default async function EditarEventoPage({
 
         <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50/60 p-6">
           <p className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
-            <span aria-hidden>🔒</span> Este site está publicado
+            <i className="bi bi-lock-fill text-amber-600" aria-hidden /> Este site está publicado
           </p>
           <p className="mt-2 text-sm text-texto-suave">
             <span className="font-medium text-ink">{event.title}</span> já foi
