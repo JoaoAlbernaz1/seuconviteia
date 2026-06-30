@@ -535,6 +535,86 @@ export async function liberarEdicao(formData: FormData) {
   redirect(`/painel/${id}/editar`);
 }
 
+// ----------------------------------------------------------------------------
+// Perfil do profissional
+// ----------------------------------------------------------------------------
+
+const perfilSchema = z.object({
+  name: z.string().trim().min(2, "Informe seu nome.").max(120),
+  brandName: z.string().trim().max(140).optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .refine(
+      (v) => !v || v.startsWith("/") || /^https?:\/\//i.test(v),
+      "URL de imagem inválida.",
+    ),
+  // Se preenchida, troca a senha (>= 8). Vazia = mantem a atual.
+  novaSenha: z
+    .string()
+    .min(8, "A nova senha precisa de ao menos 8 caracteres.")
+    .max(200)
+    .optional(),
+});
+
+export type PerfilState = {
+  ok?: boolean;
+  error?: string;
+  fieldErrors?: Partial<Record<"name" | "brandName" | "novaSenha", string>>;
+};
+
+export async function atualizarPerfil(
+  _prev: PerfilState,
+  formData: FormData,
+): Promise<PerfilState> {
+  const session = await auth();
+  if (!session?.user) redirect("/entrar");
+
+  const str = (k: string) => {
+    const v = formData.get(k);
+    return typeof v === "string" && v.trim() ? v : undefined;
+  };
+
+  const parsed = perfilSchema.safeParse({
+    name: formData.get("name"),
+    brandName: str("brandName"),
+    avatarUrl: str("avatarUrl"),
+    novaSenha: str("novaSenha"),
+  });
+  if (!parsed.success) {
+    const f = z.flattenError(parsed.error).fieldErrors;
+    return {
+      fieldErrors: {
+        name: f.name?.[0],
+        brandName: f.brandName?.[0],
+        novaSenha: f.novaSenha?.[0],
+      },
+    };
+  }
+
+  const { name, brandName, avatarUrl, novaSenha } = parsed.data;
+
+  const data: Prisma.ProfessionalUpdateInput = {
+    name,
+    brandName: brandName ?? null,
+    avatarUrl: avatarUrl ?? null,
+  };
+  if (novaSenha) {
+    data.passwordHash = await bcrypt.hash(novaSenha, 10);
+  }
+
+  await prisma.professional.update({
+    where: { id: session.user.id },
+    data,
+  });
+
+  revalidatePath("/painel/perfil");
+  revalidatePath("/painel");
+  return { ok: true };
+}
+
 /** Liga/desliga um upsell avulso do evento (rsvp/recados/galeria/dominio). */
 export async function alternarUpsell(formData: FormData) {
   const id = await eventoDoDono(formData.get("eventId"));

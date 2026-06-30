@@ -57,6 +57,7 @@ model Professional {
   name         String
   email        String   @unique
   passwordHash String?
+  avatarUrl    String?
   brandName    String?
   brandLogoUrl String?
   brandColors  Json?
