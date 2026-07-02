@@ -1,0 +1,52 @@
+# CI: typecheck + lint + testes + build a cada push/PR na master.
+# O build usa envs dummy — nenhuma pagina conecta no banco em build time
+# (rotas sao dinamicas por subdominio/sessao).
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/seuconviteia
+      AUTH_SECRET: ci-dummy-secret-nao-usar-em-prod
+      NEXT_PUBLIC_ROOT_DOMAIN: seuconviteia.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm db:generate
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Testes
+        run: pnpm test
+
+      - name: Build de producao
+        run: pnpm build
