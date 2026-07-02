@@ -23,19 +23,27 @@ reinterpretar.
   fontes reais (Milton One cursiva do nome, Classy Vogue, Cormorant, Jost) carregadas
   no layout aninhado `app/%5Fsites/[sub]/layout.tsx`.
 
-## Tematizacao (paletas prontas)
+## Tematizacao (paletas + duplas de fontes prontas)
 
 - 6 paletas em `lib/temas.ts` (rose = festa exata, dourado, azul, lavanda, verde,
   terracota) — viram vars `--ev-*` sob o escopo `.evt` e re-tingem o site INTEIRO.
-- Cor nova = SEMPRE via var `--ev-*`/utility `evt-*`; nunca hex solto nem cor da
-  marca do SaaS (turquesa/violeta) dentro do site do evento.
+- 5 duplas de fontes em `lib/fontes.ts` (classica = tipografia EXATA da festa =
+  default; romantica/moderna/minimalista/festiva) — viram vars `--ev-font-*` no
+  wrapper `.evt` (fontes carregadas em `app/evt-fonts.ts`; dupla `caps` ganha a
+  classe `evt-fonte-caps` = nome em versal espacada). Chave: `customization.fontes`.
+- Cor nova = SEMPRE via var `--ev-*`/utility `evt-*`; fonte nova = SEMPRE via
+  `--ev-font-*`/`font-evt-*`; nunca hex/fonte solta nem cor da marca do SaaS
+  (turquesa/violeta) dentro do site do evento.
 
 ## Conteudo por nicho e plano
 
 - Copy por nicho (casamento/15/60/bodas/aniversario) em `lib/textos.ts`
   (`textosDoNicho`) — um casamento NUNCA pode exibir texto de "15 anos".
-- Recursos (RSVP/recados/galeria/white-label/dominio) gateados por `lib/plans.ts`
-  (fonte unica): nav filtra abas, pagina bloqueada mostra `RecursoIndisponivel`.
+- Recurso ATIVO no site = plano permite ∩ toggle do evento — `lib/recursos.ts`
+  (`recursosDoSite`; toggles em `customization.recursos`, ausente = ligado).
+  `lib/plans.ts` segue sendo a fonte unica da MONETIZACAO (o que o plano permite).
+  Nav filtra abas; pagina desligada/bloqueada mostra `RecursoIndisponivel`;
+  contador/programacao/CTA-RSVP/Momentos tambem respeitam os toggles.
 
 ## Gotchas ja pagos (nao repagar)
 
