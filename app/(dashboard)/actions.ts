@@ -23,12 +23,14 @@ import { emailBoasVindas } from "@/lib/email/templates";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
+import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
 import {
   TEMA_KEYS,
   montarMapsUrls,
   parseProgramacao,
   parsePresentes,
   parseFotos,
+  parseRecursosForm,
   semUndefined,
 } from "@/lib/eventoForm";
 
@@ -194,7 +196,9 @@ type CampoEvento =
   | "pixNome"
   | "pixChave"
   | "fotoUrl"
-  | "presentesFotoUrl";
+  | "presentesFotoUrl"
+  | "fontes"
+  | "presentesTexto";
 
 const novoEventoSchema = z.object({
   type: z.enum(EVENT_TYPES, { message: "Escolha o tipo de evento." }),
@@ -202,6 +206,12 @@ const novoEventoSchema = z.object({
   tema: z
     .string()
     .refine((k) => (TEMA_KEYS as readonly string[]).includes(k), "Paleta invalida."),
+  // Dupla de fontes: chave de `lib/fontes.ts`. Ausente -> "classica" (a da festa).
+  fontes: z
+    .string()
+    .refine((k) => (FONTE_KEYS as readonly string[]).includes(k), "Estilo de letra invalido.")
+    .optional()
+    .default(FONTE_PADRAO),
   title: z.string().trim().min(2, "Informe o titulo do evento.").max(120),
   // <input type="date"> -> "yyyy-mm-dd".
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data valida."),
@@ -211,6 +221,7 @@ const novoEventoSchema = z.object({
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horario invalido.")
     .optional(),
   mensagem: z.string().trim().max(2000).optional(),
+  presentesTexto: z.string().trim().max(500).optional(),
   local: z.string().trim().max(200).optional(),
   endereco: z.string().trim().max(300).optional(),
   traje: z.string().trim().max(120).optional(),
@@ -276,10 +287,12 @@ function interpretarEvento(
   const parsed = novoEventoSchema.safeParse({
     type: formData.get("type"),
     tema: formData.get("tema"),
+    fontes: str("fontes"),
     title: formData.get("title"),
     date: formData.get("date"),
     time: str("time"),
     mensagem: str("mensagem"),
+    presentesTexto: str("presentesTexto"),
     local: str("local"),
     endereco: str("endereco"),
     traje: str("traje"),
@@ -297,10 +310,12 @@ function interpretarEvento(
         fieldErrors: {
           type: f.type?.[0],
           tema: f.tema?.[0],
+          fontes: f.fontes?.[0],
           title: f.title?.[0],
           date: f.date?.[0],
           time: f.time?.[0],
           mensagem: f.mensagem?.[0],
+          presentesTexto: f.presentesTexto?.[0],
           local: f.local?.[0],
           endereco: f.endereco?.[0],
           traje: f.traje?.[0],
@@ -316,10 +331,12 @@ function interpretarEvento(
   const {
     type,
     tema,
+    fontes,
     title,
     date,
     time,
     mensagem,
+    presentesTexto,
     local,
     endereco,
     traje,
@@ -379,12 +396,19 @@ function interpretarEvento(
 
   const { mapsUrl, mapsEmbedUrl } = montarMapsUrls(local, endereco);
 
+  // Toggles de recurso da tela "Recursos do site" (so os DESLIGADOS entram).
+  const recursos = parseRecursosForm((k) => formData.get(k));
+
   // `customization` = contrato lido pela template "festa" (lib/convite +
-  // lib/eventoFesta). Chaves vazias sao omitidas (JSON limpo).
+  // lib/eventoFesta). Chaves vazias sao omitidas (JSON limpo). A dupla padrao
+  // de fontes nao e gravada (JSON limpo; ausente = "classica").
   const customization = semUndefined({
     tema,
     accent: acentoDoTema(tema),
+    fontes: fontes === FONTE_PADRAO ? undefined : fontes,
+    recursos,
     mensagem,
+    presentesTexto,
     local,
     endereco,
     mapsUrl,

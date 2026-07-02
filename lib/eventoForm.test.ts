@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   brlParaCents,
+  parseRecursosForm,
   parseProgramacao,
   parsePresentes,
   parseFotos,
@@ -174,5 +175,26 @@ describe("TEMA_KEYS", () => {
       ]),
     );
     expect(TEMA_KEYS).toHaveLength(6);
+  });
+});
+
+describe("parseRecursosForm", () => {
+  const get = (map: Record<string, string>) => (k: string) => map[k] ?? null;
+
+  it("ausente -> undefined (tudo ligado, JSON limpo)", () => {
+    expect(parseRecursosForm(get({}))).toBeUndefined();
+  });
+
+  it('"on"/valor estranho -> ligado; so "off" desliga', () => {
+    expect(
+      parseRecursosForm(get({ rec_rsvp: "on", rec_contador: "off", rec_galeria: "x" })),
+    ).toEqual({ contador: false });
+  });
+
+  it("varios desligados", () => {
+    expect(parseRecursosForm(get({ rec_recados: "off", rec_presentes: "off" }))).toEqual({
+      presentes: false,
+      recados: false,
+    });
   });
 });

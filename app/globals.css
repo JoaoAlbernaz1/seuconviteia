@@ -1886,11 +1886,12 @@ body {
   --color-evt-framboesa-bright: var(--ev-framboesa-bright);
   --color-evt-ivory: var(--ev-ivory);
 
-  /* Fontes — apontam p/ as variaveis do next/font (setadas no wrapper .evt). */
-  --font-evt-script: var(--font-milton);
-  --font-evt-display: var(--font-vogue);
-  --font-evt-body: var(--font-cormorant);
-  --font-evt-util: var(--font-jost);
+  /* Fontes — indirecao da DUPLA do evento (`--ev-font-*`, setada no wrapper
+     .evt por lib/fontes.ts); cai na tipografia da festa (dupla "classica"). */
+  --font-evt-script: var(--ev-font-script, var(--font-milton));
+  --font-evt-display: var(--ev-font-display, var(--font-vogue));
+  --font-evt-body: var(--ev-font-body, var(--font-cormorant));
+  --font-evt-util: var(--ev-font-util, var(--font-jost));
 }
 
 /* Raio dos cards (token --radius-card do festa, restaurado no escopo .evt). */
@@ -1898,18 +1899,24 @@ body {
   --radius-card: 14px;
 }
 
-/* ── Helpers de fonte (mapeiam as vars do next/font, c/ fallback) ──────────── */
+/* ── Helpers de fonte (leem a DUPLA do evento, c/ fallback na festa) ───────── */
 .evt .font-evt-script {
-  font-family: var(--font-milton), "Pinyon Script", cursive !important;
+  font-family: var(--ev-font-script, var(--font-milton)), "Pinyon Script", cursive !important;
 }
 .evt .font-evt-display {
-  font-family: var(--font-vogue), "Cormorant Garamond", serif !important;
+  font-family: var(--ev-font-display, var(--font-vogue)), "Cormorant Garamond", serif !important;
 }
 .evt .font-evt-body {
-  font-family: var(--font-cormorant), "Cormorant Garamond", serif !important;
+  font-family: var(--ev-font-body, var(--font-cormorant)), "Cormorant Garamond", serif !important;
 }
 .evt .font-evt-util {
-  font-family: var(--font-jost), ui-sans-serif, system-ui, sans-serif !important;
+  font-family: var(--ev-font-util, var(--font-jost)), ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Duplas sem cursiva (Moderna/Minimalista): o "script" vira versal espacada. */
+.evt.evt-fonte-caps .font-evt-script {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 /* ── CTA "Confirmar presenca" — botao hero com efeitos (pedido do Joao) ────── */
@@ -1960,7 +1967,7 @@ body {
 
 /* ── Eyebrow / kicker editorial — caixa-alta, tracking largo ───────────────── */
 .evt .eyebrow {
-  font-family: var(--font-jost);
+  font-family: var(--ev-font-util, var(--font-jost));
   font-size: 0.66rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -1982,7 +1989,7 @@ body {
 
 /* ── Drop-cap — capitular na declaracao do convite ─────────────────────────── */
 .evt .drop-cap::first-letter {
-  font-family: var(--font-vogue);
+  font-family: var(--ev-font-display, var(--font-vogue));
   float: left;
   font-weight: 400;
   font-style: normal;

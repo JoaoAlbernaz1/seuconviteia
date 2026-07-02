@@ -2,15 +2,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Recurso, RecursosPlano } from "@/lib/plans";
+import type { RecursoSite, TogglesSite } from "@/lib/recursos";
 
-// Cada link da nav. `recurso` = upsell que precisa estar destravado para o link
-// aparecer; `null` = sempre visivel (base do convite).
-const LINKS: { href: string; label: string; recurso: Recurso | null }[] = [
+// Cada link da nav. `recurso` = recurso do site que precisa estar ATIVO (plano
+// permite ∩ toggle do evento — lib/recursos) para o link aparecer; `null` =
+// sempre visivel (Início/Evento).
+const LINKS: { href: string; label: string; recurso: RecursoSite | null }[] = [
   { href: "/", label: "Início", recurso: null },
   { href: "/evento", label: "Evento", recurso: null },
   { href: "/confirmar", label: "Confirmar", recurso: "rsvp" },
-  { href: "/presentes", label: "Presentes", recurso: null },
+  { href: "/presentes", label: "Presentes", recurso: "presentes" },
   { href: "/galeria", label: "Galeria", recurso: "galeria" },
   { href: "/recados", label: "Recados", recurso: "recados" },
 ];
@@ -21,16 +22,15 @@ const LINKS: { href: string; label: string; recurso: Recurso | null }[] = [
  * ao rolar pro interior claro — ou nas paginas claras — vira branca com texto ink.
  * A marca e o NOME do evento (wordmark de texto), escondido sobre a capa.
  *
- * GATING: `recursos` (upsells do evento) filtra os links — Confirmar/Galeria/
- * Recados so aparecem se o upsell esta destravado; Início/Evento/Presentes sao
- * sempre base.
+ * GATING: `recursos` (recursos ATIVOS do site) filtra os links — Confirmar/
+ * Presentes/Galeria/Recados so aparecem se o recurso esta ativo.
  */
 export function SiteNav({
   nome,
   recursos,
 }: {
   nome: string;
-  recursos: RecursosPlano;
+  recursos: TogglesSite;
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);

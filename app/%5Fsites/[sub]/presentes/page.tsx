@@ -5,7 +5,9 @@
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { recursosDoSite } from "@/lib/recursos";
 
+import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { SectionHeading } from "@/components/evt/SectionHeading";
 import { Reveal } from "@/components/evt/Reveal";
 import { PainelPresentes } from "@/components/evt/PainelPresentes";
@@ -26,6 +28,17 @@ export default async function PresentesPage({
     return <SiteIndisponivel motivo={visivel.motivo ?? "inexistente"} />;
   }
 
+  // Recurso "presentes" desligado no evento -> pagina indisponivel (o link ja
+  // some da nav; isto cobre o acesso direto pela URL).
+  if (!recursosDoSite(event.plan, event.customization).presentes) {
+    return (
+      <RecursoIndisponivel
+        titulo="Lista de presentes"
+        texto="Este convite não tem lista de presentes."
+      />
+    );
+  }
+
   const evento = lerEventoFesta(event);
 
   return (
@@ -36,8 +49,8 @@ export default async function PresentesPage({
         </Reveal>
         <Reveal delay={120}>
           <p className="mx-auto mt-6 max-w-md text-center font-evt-body text-lg leading-relaxed text-evt-ink-soft">
-            O maior presente é ter você comemorando comigo. Mas, se quiser deixar um
-            carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui.
+            {evento.presentesTexto ??
+              "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui."}
           </p>
         </Reveal>
 

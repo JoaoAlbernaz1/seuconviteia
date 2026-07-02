@@ -8,7 +8,7 @@ import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { textosDoNicho } from "@/lib/textos";
-import { recursosDoPlano } from "@/lib/plans";
+import { recursosDoSite } from "@/lib/recursos";
 
 import { Button } from "@/components/evt/Button";
 import { Reveal } from "@/components/evt/Reveal";
@@ -43,10 +43,10 @@ export default async function EventSitePage({
   const nome = evento.primeiroNome;
   const t = textosDoNicho(event.type);
 
-  // Gating por upsell: a base (capa, convite, evento, presentes, momentos, fecho)
-  // e a previa bonita que vende — sempre on. Os LINKS pra paginas de upsell
-  // (confirmar/galeria/recados) so aparecem se o upsell esta destravado.
-  const recursos = recursosDoPlano(event.plan);
+  // Gating: recurso ATIVO = plano permite ∩ toggle do evento (lib/recursos).
+  // A capa, o convite e o "relance" sao a base — sempre on; teasers, CTA de
+  // confirmar e o carrossel Momentos seguem os recursos ativos.
+  const recursos = recursosDoSite(event.plan, event.customization);
 
   const TEASERS = [
     {
@@ -54,7 +54,7 @@ export default async function EventSitePage({
       eyebrow: "Presentes",
       titulo: "Sua presença é o presente",
       texto: t.teaserPresentes,
-      visivel: true, // presentes e base — sempre visivel
+      visivel: recursos.presentes,
     },
     {
       href: "/galeria",
@@ -72,8 +72,9 @@ export default async function EventSitePage({
     },
   ].filter((teaser) => teaser.visivel);
 
-  // Momentos faz parte da previa bonita (base) — aparece sempre que ha fotos.
-  const mostrarMomentos = evento.fotos.length > 0;
+  // Momentos (carrossel do album) segue o recurso "galeria" — desligou a
+  // galeria, o carrossel da home some junto (o toggle e honesto no site todo).
+  const mostrarMomentos = recursos.galeria && evento.fotos.length > 0;
 
   return (
     <main className="bg-transparent">

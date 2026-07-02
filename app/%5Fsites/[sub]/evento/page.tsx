@@ -21,7 +21,7 @@ import { ConfirmCTA } from "@/components/evt/ConfirmCTA";
 import { MapEmbed } from "@/components/evt/MapEmbed";
 import { Flourish } from "@/components/evt/icons";
 import { textosDoNicho } from "@/lib/textos";
-import { recursosDoPlano } from "@/lib/plans";
+import { recursosDoSite } from "@/lib/recursos";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export default async function EventoPage({
   const evento = lerEventoFesta(event);
   const nome = evento.primeiroNome;
   const t = textosDoNicho(event.type);
-  const recursos = recursosDoPlano(event.plan);
+  const recursos = recursosDoSite(event.plan, event.customization);
   const local = evento.local ?? "O local";
   const temEmbed = !!evento.mapsEmbedUrl && /^https:\/\//i.test(evento.mapsEmbedUrl);
 
@@ -152,11 +152,13 @@ export default async function EventoPage({
           )
         )}
 
-        {/* ═══ CONTAGEM REGRESSIVA ═══ */}
-        <Reveal delay={180} className={`mt-14 flex flex-col items-center gap-7 text-center ${WRAP}`}>
-          <p className="eyebrow text-evt-rosa-ink">A contagem já começou</p>
-          <Countdown alvoISO={evento.dataAlvoISO} />
-        </Reveal>
+        {/* ═══ CONTAGEM REGRESSIVA — recurso "contador" ═══ */}
+        {recursos.contador && (
+          <Reveal delay={180} className={`mt-14 flex flex-col items-center gap-7 text-center ${WRAP}`}>
+            <p className="eyebrow text-evt-rosa-ink">A contagem já começou</p>
+            <Countdown alvoISO={evento.dataAlvoISO} />
+          </Reveal>
+        )}
       </section>
 
       {/* ═══ TRAJE ═══ */}
@@ -169,8 +171,8 @@ export default async function EventoPage({
         </section>
       )}
 
-      {/* ═══ PROGRAMAÇÃO (timeline) ═══ */}
-      {evento.programacao.length > 0 && (
+      {/* ═══ PROGRAMAÇÃO (timeline) — recurso "programacao" ═══ */}
+      {recursos.programacao && evento.programacao.length > 0 && (
         <section className={`${PAD} ${RHYTHM}`}>
           <div className={WRAP}>
             <Reveal>
@@ -183,7 +185,7 @@ export default async function EventoPage({
         </section>
       )}
 
-      {/* ═══ CTA confirmar presença — UPSELL (só com plano que libera RSVP) ═══ */}
+      {/* ═══ CTA confirmar presença — recurso "rsvp" ativo ═══ */}
       {recursos.rsvp && (
         <section className={`bg-evt-blush-soft/55 ${PAD} py-[clamp(4.5rem,9vw,6.5rem)]`}>
           <Reveal className={`flex flex-col items-center gap-6 text-center ${WRAP}`}>

@@ -13,9 +13,32 @@
  *  - Tudo aqui e tolerante: linhas vazias somem, valor invalido vira `undefined`.
  */
 import { TEMAS } from "./temas";
+import {
+  RECURSOS_SITE,
+  togglesParaCustomization,
+  type RecursoSite,
+  type TogglesSite,
+} from "./recursos";
 
 /** Chaves de paleta validas (para a validacao do `tema` na action). */
 export const TEMA_KEYS = Object.keys(TEMAS);
+
+/**
+ * Le os toggles de recurso do FormData (campos `rec_<key>` com "on"/"off",
+ * emitidos pela tela "Recursos do site" do editor). Ausente ou qualquer valor
+ * diferente de "off" = ligado (tolerante; o default do produto e ligado).
+ * Devolve o objeto pronto pro `customization.recursos` (so os desligados;
+ * `undefined` quando todos ligados).
+ */
+export function parseRecursosForm(
+  get: (name: string) => FormDataEntryValue | null,
+): Partial<Record<RecursoSite, false>> | undefined {
+  const toggles = {} as TogglesSite;
+  for (const def of RECURSOS_SITE) {
+    toggles[def.key] = get(`rec_${def.key}`) !== "off";
+  }
+  return togglesParaCustomization(toggles);
+}
 
 /** Uma linha da programacao do evento (`{hora, titulo}`). */
 export type ProgramacaoRow = { hora: string; titulo: string };
