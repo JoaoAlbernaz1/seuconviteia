@@ -6,6 +6,9 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { paletasSeletor, lerTemaKey } from "@/lib/temas";
+import { lerFonteKey } from "@/lib/fontes";
+import { lerToggles } from "@/lib/recursos";
+import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { eventPublicUrl } from "@/lib/tenant";
 import { lerConteudo } from "@/lib/convite";
 import { dividirDataHoraSP } from "@/lib/dates";
@@ -62,10 +65,13 @@ export default async function EditarEventoPage({
     eventId: event.id,
     type: event.type,
     tema: lerTemaKey(event.customization),
+    fontes: lerFonteKey(event.customization),
+    recursos: lerToggles(event.customization),
     title: event.title,
     date,
     time,
     mensagem: conteudo.mensagem,
+    presentesTexto: lerCustomString(event.customization, "presentesTexto"),
     local: conteudo.local,
     endereco: conteudo.endereco,
     traje: conteudo.traje,
@@ -82,16 +88,20 @@ export default async function EditarEventoPage({
     fotos: event.photos.map((p) => p.url),
   };
 
+  // O wrapper carrega TODAS as fontes das duplas (next/font) para os cards de
+  // "Estilo das letras" e o preview renderizarem com as fontes reais.
   return (
-    <EditorEvento
-      paletas={PALETAS}
-      rootDomain={ROOT_DOMAIN}
-      mode="edit"
-      plan={event.professional?.plan ?? event.plan}
-      initial={initial}
-      status={event.status}
-      publicUrl={eventPublicUrl(event.subdomain, ROOT_DOMAIN)}
-      subdomain={event.subdomain}
-    />
+    <div className={EVT_FONTS_CLASS}>
+      <EditorEvento
+        paletas={PALETAS}
+        rootDomain={ROOT_DOMAIN}
+        mode="edit"
+        plan={event.professional?.plan ?? event.plan}
+        initial={initial}
+        status={event.status}
+        publicUrl={eventPublicUrl(event.subdomain, ROOT_DOMAIN)}
+        subdomain={event.subdomain}
+      />
+    </div>
   );
 }

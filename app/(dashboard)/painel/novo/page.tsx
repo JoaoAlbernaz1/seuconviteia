@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { paletasSeletor } from "@/lib/temas";
+import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import EditorEvento, { type PaletaOpt } from "../_editor/EditorEvento";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +22,16 @@ export default async function NovoEventoPage() {
     select: { plan: true },
   });
 
+  // O wrapper carrega TODAS as fontes das duplas (next/font) para os cards de
+  // "Estilo das letras" e o preview renderizarem com as fontes reais.
   return (
-    <EditorEvento
-      paletas={PALETAS}
-      rootDomain={ROOT_DOMAIN}
-      mode="create"
-      plan={prof?.plan ?? "BASICO"}
-    />
+    <div className={EVT_FONTS_CLASS}>
+      <EditorEvento
+        paletas={PALETAS}
+        rootDomain={ROOT_DOMAIN}
+        mode="create"
+        plan={prof?.plan ?? "BASICO"}
+      />
+    </div>
   );
 }
