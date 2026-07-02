@@ -3,7 +3,46 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { eventoPublico } from "@/lib/event";
+import { enviarEmail } from "@/lib/email";
+import { montarRemetente } from "@/lib/email/remetente";
+import { emailNotificacaoRsvp } from "@/lib/email/templates";
 import { validateGuests, montarGuestRow, type GuestInput } from "@/lib/rsvpFesta";
+
+/**
+ * Notifica o profissional dono do evento sobre uma resposta de RSVP. TUDO aqui
+ * (busca do dono + envio) roda em try/catch: a notificacao e efeito colateral e
+ * jamais pode quebrar a confirmacao do convidado. A busca do dono e isolada pelo
+ * evento (o `professionalId` vem do proprio Event ja validado). O remetente
+ * respeita o white-label: plano Premium usa o nome do estudio; os demais, a marca.
+ */
+async function notificarDonoRsvp(
+  event: { professionalId: string; title: string },
+  dados: { nomeConvidado: string; compareceu: boolean; acompanhantes: number },
+): Promise<void> {
+  try {
+    const dono = await prisma.professional.findUnique({
+      where: { id: event.professionalId },
+      select: { email: true, name: true, plan: true },
+    });
+    if (!dono?.email) return;
+
+    const { subject, html } = emailNotificacaoRsvp({
+      nomeProfissional: dono.name,
+      nomeConvidado: dados.nomeConvidado,
+      tituloEvento: event.title,
+      compareceu: dados.compareceu,
+      acompanhantes: dados.acompanhantes,
+    });
+    await enviarEmail({
+      to: dono.email,
+      subject,
+      html,
+      fromName: montarRemetente(dono.plan, dono.name),
+    });
+  } catch (err) {
+    console.error("[rsvp] falha ao notificar o dono do evento:", err);
+  }
+}
 
 /**
  * Server action de RSVP do site publico do evento (Fase 6).
@@ -83,6 +122,16 @@ export async function confirmarPresenca(
     };
   }
 
+  // Avisa o dono do evento (efeito colateral seguro; nunca quebra o RSVP).
+  await notificarDonoRsvp(
+    { professionalId: event.professionalId, title: event.title },
+    {
+      nomeConvidado: nome,
+      compareceu: confirmado,
+      acompanhantes: confirmado ? acompanhantes : 0,
+    },
+  );
+
   return { status: "ok", nome, presenca };
 }
 
@@ -153,6 +202,16 @@ export async function confirmarPresencaFesta(
   } catch {
     return { ok: false, error: "Falha ao salvar. Tente de novo." };
   }
+
+  // Avisa o dono do evento (efeito colateral seguro; nunca quebra o RSVP).
+  await notificarDonoRsvp(
+    { professionalId: event.professionalId, title: event.title },
+    {
+      nomeConvidado: row.name,
+      compareceu: row.status === "CONFIRMED",
+      acompanhantes: row.companions,
+    },
+  );
 
   return { ok: true, count: v.guests.length };
 }

@@ -17,6 +17,9 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
+import { enviarEmail } from "@/lib/email";
+import { MARCA } from "@/lib/email/remetente";
+import { emailBoasVindas } from "@/lib/email/templates";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
@@ -48,6 +51,16 @@ export type SignupState = {
   error?: string;
   fieldErrors?: Partial<Record<"name" | "email" | "password" | "plan", string>>;
 };
+
+/**
+ * URL do painel no dominio de entao. O painel e servido no subdominio `app.`
+ * (reservado no middleware). Localhost usa http; qualquer outro dominio, https.
+ */
+function urlDoPainel(): string {
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "seuconviteia.com";
+  const protocolo = root.startsWith("localhost") ? "http" : "https";
+  return `${protocolo}://app.${root}/painel`;
+}
 
 export async function cadastrarProfissional(
   _prev: SignupState,
@@ -84,6 +97,12 @@ export async function cadastrarProfissional(
   await prisma.professional.create({
     data: { name, email, passwordHash, plan },
   });
+
+  // Boas-vindas (transacional). `enviarEmail` engole qualquer falha e NAO propaga:
+  // e-mail nunca pode quebrar o cadastro. O painel mora em `app.<root>` (http no
+  // localhost, https em prod). Remetente = marca (a plataforma dando as boas-vindas).
+  const { subject, html } = emailBoasVindas({ nome: name, painelUrl: urlDoPainel() });
+  await enviarEmail({ to: email, subject, html, fromName: MARCA });
 
   // Loga e redireciona para o painel. `signIn` lanca o redirect (NEXT_REDIRECT)
   // em caso de sucesso; so tratamos AuthError aqui.
