@@ -21,6 +21,25 @@ const partesDataHoraSP = new Intl.DateTimeFormat("en-CA", {
   hour12: false,
 });
 
+const partesDataSP = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Data de "hoje" no fuso America/Sao_Paulo como `"yyyy-mm-dd"`. Usado para validar
+ * (no servidor) que a data de um evento novo nao esta no passado — comparavel
+ * lexicograficamente com o valor cru do `<input type="date">` (mesmo formato ISO).
+ */
+export function dataDeHojeSP(agora: Date = new Date()): string {
+  const partes = partesDataSP.formatToParts(agora);
+  const get = (t: Intl.DateTimeFormatPartTypes) =>
+    partes.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 /**
  * Divide um `Date` nos campos do form (`<input type="date">`/`<input type="time">`),
  * no fuso America/Sao_Paulo: `{ date: "yyyy-mm-dd", time: "HH:MM" }`.

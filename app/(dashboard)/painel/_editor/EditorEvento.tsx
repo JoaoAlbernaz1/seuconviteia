@@ -84,6 +84,44 @@ const RECURSOS_SEC: { key: string; label: string; icon: string; recurso: Recurso
     { key: "dominio", label: "Domínio próprio", icon: "bi-globe2", recurso: "dominioProprio" },
   ];
 
+/**
+ * A qual seção pertence cada campo com erro de validação. Como é UM só form com
+ * todas as seções montadas (escondidas quando inativas), um erro pode cair numa
+ * seção que o usuário não está vendo — revelamos essa seção para a mensagem
+ * aparecer (senão o "Criar site" parecia não fazer nada).
+ */
+const SECAO_DO_CAMPO: Record<string, string> = {
+  title: "info",
+  type: "info",
+  date: "info",
+  time: "info",
+  mensagem: "info",
+  tema: "capa",
+  fotoUrl: "capa",
+  local: "evento",
+  endereco: "evento",
+  traje: "evento",
+  pixNome: "presentes",
+  pixChave: "presentes",
+  presentesFotoUrl: "presentes",
+};
+/** Ordem de prioridade ao revelar a seção do primeiro campo com erro. */
+const ORDEM_CAMPOS = [
+  "title",
+  "type",
+  "date",
+  "time",
+  "mensagem",
+  "tema",
+  "fotoUrl",
+  "local",
+  "endereco",
+  "traje",
+  "pixNome",
+  "pixChave",
+  "presentesFotoUrl",
+] as const;
+
 /** Plano que libera cada recurso (para o rótulo de upgrade). */
 function planoQueLibera(recurso: Recurso): Plan {
   if (recurso === "rsvp") return "BASICO";
@@ -609,7 +647,9 @@ export default function EditorEvento({
 
   const recursos = useMemo(() => recursosDoPlano(plan), [plan]);
   const temTipo = Boolean(type);
-  const canSubmit = Boolean(type && tema && title.trim());
+  // Mínimos para publicar: tipo, paleta, nome e data. Manter a data aqui evita um
+  // submit que só bateria no servidor (o browser não valida campo em seção oculta).
+  const canSubmit = Boolean(type && tema && title.trim() && date);
   const isEdit = mode === "edit";
   // Edit: o endereço é fixo (subdomínio existente). Create: deriva do nome.
   const slugHost = isEdit ? subdomain || "evento" : slugify(title) || "evento";
@@ -618,6 +658,21 @@ export default function EditorEvento({
   const publicado = status === "PUBLISHED";
 
   const fieldErr = state.fieldErrors;
+
+  // Se o servidor devolveu erro de validação, revela a seção do primeiro campo
+  // com erro para a mensagem ficar visível (evita o submit "silencioso" quando o
+  // campo está numa seção oculta). Padrão "ajustar estado durante o render" do
+  // React (sem effect) — o `state` só muda a cada resposta da action (submit).
+  const [statePrevio, setStatePrevio] = useState(state);
+  if (state !== statePrevio) {
+    setStatePrevio(state);
+    if (fieldErr) {
+      const campo = ORDEM_CAMPOS.find(
+        (k) => (fieldErr as Record<string, string | undefined>)[k],
+      );
+      if (campo) setSecao(SECAO_DO_CAMPO[campo]);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-7">
@@ -786,11 +841,13 @@ export default function EditorEvento({
             />
             <div className="flex flex-col gap-5">
               <Field label="Nome do evento" htmlFor={`${uid}-title`} hint={DICA_TITULO} error={fieldErr?.title}>
+                {/* Sem `required` nativo: o campo pode estar numa seção oculta e
+                    o browser bloquearia o submit sem foco possível (erro só no
+                    console). A validação é via Zod no servidor + botão desabilitado. */}
                 <input
                   id={`${uid}-title`}
                   name="title"
                   type="text"
-                  required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className={inputClass}
@@ -831,7 +888,6 @@ export default function EditorEvento({
                     id={`${uid}-date`}
                     name="date"
                     type="date"
-                    required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className={inputClass}

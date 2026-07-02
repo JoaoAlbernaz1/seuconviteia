@@ -21,7 +21,7 @@ import { enviarEmail } from "@/lib/email";
 import { MARCA } from "@/lib/email/remetente";
 import { emailBoasVindas } from "@/lib/email/templates";
 import { gerarSlugUnico } from "@/lib/slug";
-import { calcularExpiracao } from "@/lib/dates";
+import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
 import {
   TEMA_KEYS,
@@ -255,9 +255,16 @@ type EventoInterpretado = {
 /**
  * Valida (Zod) + monta os dados derivados de um form de evento. PURO em relacao a
  * sessao/banco (so le o FormData). Reusado por `criarEvento` e `editarEvento`.
+ *
+ * `modo` diferencia as regras de data:
+ *  - `"create"`: rejeita data no passado (erro comum = ano errado — pegamos cedo,
+ *    com mensagem clara, antes de publicar um site que ja nasceria expirado).
+ *  - `"edit"`: permite data passada (evento que ja aconteceu segue editavel na
+ *    janela de 30 dias — fotos/recados), MAS bloqueia se o site ja estaria expirado.
  */
 function interpretarEvento(
   formData: FormData,
+  modo: "create" | "edit",
 ):
   | { ok: true; data: EventoInterpretado }
   | { ok: false; state: NovoEventoState } {
@@ -300,6 +307,7 @@ function interpretarEvento(
           pixNome: f.pixNome?.[0],
           pixChave: f.pixChave?.[0],
           fotoUrl: f.fotoUrl?.[0],
+          presentesFotoUrl: f.presentesFotoUrl?.[0],
         },
       },
     };
@@ -328,6 +336,32 @@ function interpretarEvento(
   const eventDate = new Date(`${date}T${time || "20:00"}:00-03:00`);
   if (Number.isNaN(eventDate.getTime())) {
     return { ok: false, state: { fieldErrors: { date: "Data ou horario invalido." } } };
+  }
+
+  // Regras de data (evita publicar um site que ja nasceria expirado / "no ar" mas
+  // morto — armadilha silenciosa: o form redirecionava como sucesso e o site
+  // mostrava "convite expirou"). No cadastro, a causa comum e o ANO errado.
+  const agora = new Date();
+  const expiresAt = calcularExpiracao(eventDate);
+  if (modo === "create" && date < dataDeHojeSP(agora)) {
+    return {
+      ok: false,
+      state: {
+        fieldErrors: {
+          date: "A data do evento nao pode estar no passado. Confira o ano.",
+        },
+      },
+    };
+  }
+  if (expiresAt.getTime() <= agora.getTime()) {
+    return {
+      ok: false,
+      state: {
+        fieldErrors: {
+          date: "Com essa data, o site ja estaria expirado. Escolha uma data futura.",
+        },
+      },
+    };
   }
 
   // Listas repetiveis: arrays paralelos no FormData -> linhas sanitizadas.
@@ -369,7 +403,7 @@ function interpretarEvento(
       type,
       title,
       eventDate,
-      expiresAt: calcularExpiracao(eventDate),
+      expiresAt,
       customization,
       presentes,
       fotos,
@@ -410,7 +444,7 @@ export async function criarEvento(
   if (!professional) redirect("/entrar");
   const plan = professional.plan;
 
-  const result = interpretarEvento(formData);
+  const result = interpretarEvento(formData, "create");
   if (!result.ok) return result.state;
   const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
     result.data;
@@ -492,7 +526,7 @@ export async function editarEvento(
   if (!professional) redirect("/entrar");
   const plan = professional.plan;
 
-  const result = interpretarEvento(formData);
+  const result = interpretarEvento(formData, "edit");
   if (!result.ok) return result.state;
   const { type, title, eventDate, expiresAt, customization, presentes, fotos } =
     result.data;

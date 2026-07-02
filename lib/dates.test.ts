@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcularExpiracao, dividirDataHoraSP } from "./dates";
+import { calcularExpiracao, dataDeHojeSP, dividirDataHoraSP } from "./dates";
 
 const TRINTA_DIAS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -16,6 +16,24 @@ describe("calcularExpiracao", () => {
     const exp = calcularExpiracao(eventDate);
     expect(eventDate.getTime()).toBe(antes);
     expect(exp).not.toBe(eventDate);
+  });
+});
+
+describe("dataDeHojeSP", () => {
+  it("formata a data local de Sao Paulo como yyyy-mm-dd", () => {
+    // 2026-03-15T23:30Z ainda e dia 15 em SP (UTC-3).
+    expect(dataDeHojeSP(new Date("2026-03-15T23:30:00Z"))).toBe("2026-03-15");
+  });
+
+  it("usa o dia de Sao Paulo, nao o de UTC, na virada", () => {
+    // 2026-03-16T02:00Z ja e dia 16 em UTC, mas ainda 15 em SP.
+    expect(dataDeHojeSP(new Date("2026-03-16T02:00:00Z"))).toBe("2026-03-15");
+  });
+
+  it("compara lexicograficamente com o valor do <input type=date>", () => {
+    const hoje = dataDeHojeSP(new Date("2026-07-02T12:00:00Z"));
+    expect("2020-01-01" < hoje).toBe(true); // passado
+    expect("2030-01-01" < hoje).toBe(false); // futuro
   });
 });
 
