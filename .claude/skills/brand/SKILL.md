@@ -47,7 +47,18 @@ Ex.: `seuconvite<span class="text-gradient">ia</span>.com`.
 - O logo/simbolo real (SVG/PNG) vai em `public/brand/` quando existir — nao inventar
   arquivo de logo agora.
 
+## Onde a marca vale (e onde NAO vale)
+
+- **Marketing (landing) e painel**: marca turquesa+roxo. O painel usa **sidebar
+  ESCURA (`ink`) + topbar clara + card de plano em gradiente** (mockup canonico do
+  Joao — replicar, nao reinterpretar). Helpers de UI do painel em `lib/painelUi.ts`.
+- **Site do evento NAO usa a marca**: ele e tematizado pela **paleta do evento**
+  (vars `--ev-*` sob o escopo `.evt`, definidas por `lib/temas.ts`). Nunca vaze
+  turquesa/violeta da marca pra dentro do site do evento — ver skill **evt**.
+
 ## Regras
 
 - Fundo padrao `nevoa`, texto `ink`. CTA principal sempre `violeta`.
 - Não desviar para azul/ciano puro como cor de marca em texto — use os gradientes acima.
+- O Joao rejeita design com "cara de IA" e decide VENDO ao vivo; quando ele da uma
+  referencia concreta (mockup/print), **replicar fiel**, nao criar versao propria.

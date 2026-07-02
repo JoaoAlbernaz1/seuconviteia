@@ -1,41 +1,46 @@
 ---
 name: db
-description: Use ao trabalhar com Prisma, PlanetScale, schema, migrations, relacoes/indices ou qualquer acesso a banco. Garante o padrao multi-tenant e as restricoes do PlanetScale.
+description: Use ao trabalhar com Prisma, schema, seed, relacoes/indices, queries ou qualquer acesso a banco — mesmo que a tarefa nao fale "banco" (ex.: novo campo num form, nova entidade, RSVP, presentes). Garante o padrao multi-tenant e as restricoes do PlanetScale.
 ---
 
-# Banco — Prisma + PlanetScale
+# Banco — Prisma + MySQL (PlanetScale em prod)
 
-Banco MySQL no **PlanetScale**, acesso via **Prisma**. (Schema entra na Fase 1; o
-client singleton vive em `lib/db.ts`.)
+Dev: MySQL 8 no Docker (`sc-mysql`). Prod: **PlanetScale**. Client singleton em
+`lib/db.ts`. Schema em `prisma/schema.prisma` — **ja existe e esta em uso**:
+models `Professional`, `Event`, `Guest`, `GiftItem`, `Photo`, `Recado`, `Template`,
+`Transaction` + enums `Plan`, `EventType`, `EventStatus`, `GuestStatus`, `GiftMode`.
+
+## Versao (NAO mexer sem motivo)
+
+**Prisma fixado na v6.19.3.** A v7 quebra `url = env("DATABASE_URL")` no datasource —
+ja quebrou uma vez. So subir de major com migracao deliberada (existe a skill global
+`prisma-upgrade-v7` se um dia for o caso).
 
 ## Convencoes obrigatorias
 
-- **Provider** `mysql`. Connection string em `DATABASE_URL`.
-- **`relationMode = "prisma"`** no datasource: o PlanetScale **nao usa foreign keys**.
-  Consequencias:
-  - Defina as relacoes no schema normalmente (`@relation`), mas a integridade e
-    aplicada pelo Prisma, nao pelo banco.
-  - **Adicione `@@index([...])` explicito em TODA coluna de FK** (ex.: `eventId`,
-    `tenantId`), senao as queries ficam lentas (sem indice implicito de FK).
-- **Client singleton** em `lib/db.ts` (evita esgotar conexoes no hot-reload do dev):
-  cachear em `globalThis` fora de producao.
+- **`relationMode = "prisma"`**: PlanetScale nao usa FKs reais. Consequencia pratica:
+  **TODA coluna de relacao precisa de `@@index([...])` explicito** (ex.: `eventId`,
+  `professionalId`), senao a query fica lenta — nao ha indice implicito de FK.
+- Campos flexiveis do evento (paleta, textos, programacao, pix, fotos) vivem no JSON
+  **`Event.customization`** — lido/normalizado por `lib/eventoFesta.ts` e
+  `lib/convite.ts` (`lerConteudo`). Novo campo de personalizacao entra AI, nao como
+  coluna nova.
+- **Plano e da CONTA**: `Professional.plan`; o evento herda (`Event.plan` setado em
+  criar/editar). Gating de recurso le SEMPRE `lib/plans.ts` (fonte unica) — nunca
+  espalhe `if plan === ...` pelo codigo.
+- Isolamento multi-tenant: toda query de dado de cliente filtra por
+  `professionalId`/`eventId`; ownership re-validado no servidor (padrao real em
+  `app/(dashboard)/actions.ts`).
+- Unicidade de subdominio e global (`gerarSlugUnico` + RESERVED em `lib/tenant.ts`).
 
-## Migrations
+## Fluxo de alteracao de schema
 
-- Dev/iteracao rapida: `prisma db push` (sincroniza schema sem arquivo de migration).
-- Producao/historico: `prisma migrate dev` / `prisma migrate deploy`.
-- PlanetScale: mudancas de schema saem via deploy request (branch -> main). Evite
-  operacoes que o PlanetScale bloqueia (ex.: FKs reais).
+1. Editar `prisma/schema.prisma` (lembrar `@@index` nas relacoes novas).
+2. `pnpm db:push` (dev; sem arquivo de migration) + `pnpm db:generate` se preciso.
+3. Atualizar `prisma/seed.ts` se o dado demo mudar — o seed e **idempotente**, mantenha assim.
+4. Prod/PlanetScale: mudanca sai via deploy request (branch -> main), na Fase 8.
 
-## Multi-tenant (critico)
+## Tipos e validacao
 
-- Toda tabela de dado de cliente carrega `tenantId` (e/ou `eventId`).
-- **Nunca** faca query sem filtrar por tenant. Centralize helpers que ja recebem o
-  `tenantId` para reduzir risco de vazamento entre tenants.
-- Unicidade de slug/subdominio deve considerar o escopo correto (global para o
-  subdominio do evento).
-
-## Tipos
-
-- Gere/valide com `prisma generate`. Use Zod nas bordas (input de API/forms), nao
-  confie no tipo do banco para validar entrada do usuario.
+- Zod valida TODA entrada externa (forms/actions/API) — o tipo do Prisma nao protege
+  contra input malicioso, ele so descreve o banco.

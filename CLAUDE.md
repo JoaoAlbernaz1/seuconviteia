@@ -11,11 +11,22 @@ Mercado Pago (Pix), Resend, Vercel Blob, Vercel. Gerenciador: **pnpm**.
 
 Sempre **use a skill relevante antes de cada tarefa** (`.claude/skills/<nome>/SKILL.md`):
 
-- **brand** — cores, fontes (Fraunces/Sora), gradientes e regras do wordmark.
-- **tenant** — multi-tenancy por subdominio, `lib/tenant.ts`, isolamento por tenant.
-- **db** — Prisma + PlanetScale (`relationMode`, indices de FK, client singleton).
-- **run** — comandos locais (`pnpm dev/build/lint`), testar `*.localhost`.
+- **evt** — site publico do evento (template festa, paletas `--ev-*`, nichos, RSVP,
+  componentes `components/evt/*`, gotchas de fuso/reduced-motion/carrossel).
+- **brand** — marca do SaaS (turquesa+roxo, Fraunces/Sora) no marketing e painel;
+  onde a marca NAO vale (site do evento).
+- **tenant** — multi-tenancy por subdominio, `lib/tenant.ts`, matcher do middleware
+  (sem `/api`/extensao no subdominio), isolamento por tenant.
+- **db** — Prisma 6 (fixado) + MySQL/PlanetScale, `Event.customization`,
+  plano herdado da conta, indices de FK, seed idempotente.
+- **run** — banco Docker `sc-mysql`, comandos reais, login demo, gotchas de dev,
+  checklist de pronto.
 - **deploy** — Vercel, dominio + wildcard `*.seuconviteia.com`, env vars, DNS.
+
+Skills globais instaladas que valem aqui: **prisma-client-api / prisma-cli /
+prisma-database-setup** (queries e CLI), **authjs-skills** (Auth.js v5),
+**webapp-testing** (verificar no navegador), **deploy-to-vercel** (Fase 8),
+**pricing / onboarding-cro / emails** (quando o tema for negocio/CRO/e-mail).
 
 ## Convencoes de codigo
 

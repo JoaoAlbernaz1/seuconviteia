@@ -28,6 +28,15 @@ vira `-`, colapsa/apara hifens. Use ao criar o slug de um evento.
 - `(event)` — layout dos sites publicos; o conteudo real e renderizado via rewrite
   do middleware para `%5Fsites/[sub]` (segmento publico `/_sites/<slug>`).
 
+## ⚠️ Gotcha do matcher (bug real ja pago)
+
+O matcher do `middleware.ts` **exclui `/api` e qualquer path com extensao**
+(`.*\.[\w]+$`) — esses paths NUNCA sao reescritos pro site do evento. Consequencia:
+no subdominio do evento **nao existe rota `/api/*` nem path tipo `/arquivo.ics`**
+(o "Adicionar a agenda" deu 404 por isso). Solucao: paths sem extensao com route
+handler — ex.: `/agenda` serve o calendario com `Content-Type: text/calendar` e o
+nome `.ics` no `Content-Disposition`.
+
 ## Regras de ouro
 
 - **Isole TODA query por `tenantId`/`eventId`.** Nunca consulte sem filtro de tenant;
