@@ -1,102 +1,157 @@
 "use client";
 
-// Login do profissional. Form client com `useActionState` -> server action
-// `entrarComCredenciais`, que chama `signIn("credentials", { redirectTo: "/painel" })`.
-import { useActionState } from "react";
-import Link from "next/link";
-import { entrarComCredenciais, type LoginState } from "../actions";
+// Entrar / Criar conta — card central com abas (mockup DARK). As duas abas
+// usam as server actions existentes (`entrarComCredenciais` / `cadastrar-
+// Profissional`); o cadastro pede so nome+e-mail+senha (plano começa no
+// Básico; troca depois em /painel/plano).
+import { Suspense, useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  cadastrarProfissional,
+  entrarComCredenciais,
+  type LoginState,
+  type SignupState,
+} from "../actions";
+import { INPUT, BTN_PRIMARIO } from "../painel/_ui/estilos";
 
-const INITIAL: LoginState = {};
+function Erro({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <p className="mt-1 text-xs text-red-400">{msg}</p>;
+}
 
-const inputClass =
-  "w-full rounded-lg border border-black/10 bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-violeta focus:ring-2 focus:ring-violeta/20";
-
-const submitClass =
-  "mt-2 w-full rounded-lg bg-gradient-to-r from-teal to-violeta px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60";
-
-export default function EntrarPage() {
-  const [state, formAction, pending] = useActionState(
-    entrarComCredenciais,
-    INITIAL,
+function CardEntrar() {
+  const params = useSearchParams();
+  const [aba, setAba] = useState<"entrar" | "criar">(
+    params.get("criar") != null ? "criar" : "entrar",
   );
+  const [loginState, loginAction, loginPending] = useActionState<LoginState, FormData>(
+    entrarComCredenciais,
+    {},
+  );
+  const [signupState, signupAction, signupPending] = useActionState<
+    SignupState,
+    FormData
+  >(cadastrarProfissional, {});
+
+  const criar = aba === "criar";
+  const abaCls = (ativa: boolean) =>
+    `flex-1 rounded-full py-2.5 text-[13px] font-semibold transition ${
+      ativa ? "bg-scv-btn text-scv-btn-ink" : "text-scv-muted hover:text-scv-ink"
+    }`;
 
   return (
-    <main className="relative flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
-      {/* Glow decorativo da marca (turquesa + violeta). */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[22%] h-72 w-72 -translate-x-1/2 rounded-full bg-turquesa/15 blur-3xl" />
-        <div className="absolute left-[58%] top-[55%] h-72 w-72 -translate-x-1/2 rounded-full bg-violeta/10 blur-3xl" />
+    <div className="scv-fade w-full max-w-[400px] rounded-[22px] border border-scv-line bg-scv-card p-8 text-center shadow-[0_28px_60px_-34px_rgba(0,0,0,0.45)]">
+      <span
+        className="mx-auto grid size-11 place-items-center rounded-xl text-[15px] font-bold text-white"
+        style={{ background: "var(--grad-faisca)" }}
+        aria-hidden
+      >
+        sc
+      </span>
+      <h1 className="mt-3.5 font-display text-[25px] font-semibold text-scv-ink">
+        Bem-vindo(a)
+      </h1>
+      <p className="mt-2 text-[13.5px] leading-relaxed text-scv-muted">
+        Crie o site da sua festa em minutos —<br />
+        para você ou para seus clientes.
+      </p>
+
+      <div className="my-5 flex rounded-full bg-scv-soft p-1" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!criar}
+          onClick={() => setAba("entrar")}
+          className={abaCls(!criar)}
+        >
+          Entrar
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={criar}
+          onClick={() => setAba("criar")}
+          className={abaCls(criar)}
+        >
+          Criar conta
+        </button>
       </div>
 
-      <div className="relative w-full max-w-sm">
-        <p className="mb-6 text-center font-sans text-lg font-semibold tracking-tight text-ink">
-          seuconvite<span className="text-gradient">ia</span>
-          <span className="text-texto-suave">.com</span>
-        </p>
-        <div className="rounded-2xl border border-black/5 bg-white/90 p-7 shadow-[0_18px_60px_-24px_rgba(15,23,42,0.35)] backdrop-blur-sm sm:p-8">
-          <p className="mb-3 inline-flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-teal">
-            <span aria-hidden>✦</span> Painel
-          </p>
-          <h1 className="font-display text-3xl font-semibold text-ink">
-            Entrar
-          </h1>
-          <p className="mt-2 text-sm text-texto-suave">
-            Acesse o painel para gerenciar os seus eventos.
-          </p>
-
-          <form action={formAction} className="mt-8 flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-sm font-medium text-ink">
-              E-mail
-            </label>
+      {criar ? (
+        <form action={signupAction} className="flex flex-col gap-3 text-left">
+          <div>
+            <input name="name" placeholder="Seu nome" autoComplete="name" className={INPUT} />
+            <Erro msg={signupState.fieldErrors?.name} />
+          </div>
+          <div>
             <input
-              id="email"
               name="email"
               type="email"
+              placeholder="E-mail"
               autoComplete="email"
-              required
-              className={inputClass}
-              placeholder="voce@estudio.com"
+              className={INPUT}
             />
+            <Erro msg={signupState.fieldErrors?.email} />
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-ink">
-              Senha
-            </label>
+          <div>
             <input
-              id="password"
               name="password"
               type="password"
-              autoComplete="current-password"
-              required
-              className={inputClass}
-              placeholder="••••••••"
+              placeholder="Senha (mín. 8 caracteres)"
+              autoComplete="new-password"
+              className={INPUT}
             />
+            <Erro msg={signupState.fieldErrors?.password} />
           </div>
-
-          {state.error ? (
-            <p
-              role="alert"
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              {state.error}
+          {signupState.error ? (
+            <p role="alert" className="text-sm text-red-400">
+              {signupState.error}
             </p>
           ) : null}
-
-          <button type="submit" disabled={pending} className={submitClass}>
-            {pending ? "Entrando…" : "Entrar"}
+          <button type="submit" disabled={signupPending} className={`${BTN_PRIMARIO} mt-1 w-full`}>
+            {signupPending ? "Criando…" : "Criar minha conta"}
           </button>
-          </form>
-        </div>
+        </form>
+      ) : (
+        <form action={loginAction} className="flex flex-col gap-3 text-left">
+          <input
+            name="email"
+            type="email"
+            placeholder="E-mail"
+            autoComplete="email"
+            className={INPUT}
+          />
+          <input
+            name="password"
+            type="password"
+            placeholder="Senha"
+            autoComplete="current-password"
+            className={INPUT}
+          />
+          {loginState.error ? (
+            <p role="alert" className="text-sm text-red-400">
+              {loginState.error}
+            </p>
+          ) : null}
+          <button type="submit" disabled={loginPending} className={`${BTN_PRIMARIO} mt-1 w-full`}>
+            {loginPending ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
+      )}
 
-        <p className="mt-6 text-center text-sm text-texto-suave">
-          Ainda nao tem conta?{" "}
-          <Link href="/cadastrar" className="font-medium text-violeta hover:underline">
-            Criar conta
-          </Link>
-        </p>
+      <div className="mt-4 text-[11.5px] text-scv-faint">
+        Grátis para começar · sem cartão
       </div>
-    </main>
+    </div>
+  );
+}
+
+export default function EntrarPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <Suspense fallback={null}>
+        <CardEntrar />
+      </Suspense>
+    </div>
   );
 }

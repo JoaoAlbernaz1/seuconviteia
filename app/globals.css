@@ -30,6 +30,124 @@
   --grad-texto: linear-gradient(90deg, #0ea5a6, #6d28d9);
 }
 
+/*
+ * ── PAINEL (tema escuro/claro) — tokens do mockup "SaaS seuconviteia DARK" ──
+ * Escopo `.scv` (aplicado no layout do grupo dashboard). ESCURO e o padrao;
+ * `[data-theme="light"]` troca a paleta inteira (toggle na topbar; cookie
+ * `scv_theme` para o SSR ja renderizar certo, sem flash).
+ * As utilities vem do @theme inline logo abaixo: bg-scv-bg, bg-scv-card,
+ * border-scv-line, text-scv-ink, text-scv-muted, text-scv-violet, etc.
+ */
+.scv {
+  --scv-bg: #0a0a0c; /* fundo da pagina */
+  --scv-card: #141418; /* superficies/cards */
+  --scv-field: #1b1b1f; /* inputs */
+  --scv-soft: #1e1e23; /* superficies rebaixadas (chips, trilhas) */
+  --scv-line: #26262b; /* bordas */
+  --scv-topbar: rgba(10, 10, 12, 0.82);
+  --scv-ink: #f4f4f5; /* texto forte */
+  --scv-text2: #d4d4d8; /* texto normal */
+  --scv-muted: #a1a1aa; /* texto secundario */
+  --scv-faint: #71717a; /* texto apagado */
+  --scv-dash: #3f3f46; /* borda tracejada / trilho de toggle off */
+  --scv-lilac: #2a2144; /* superficie lilas (icones) */
+  --scv-violet: #a78bfa; /* violeta legivel no escuro */
+  --scv-teal: #2de2e6; /* teal vivo no escuro */
+  --scv-warn-bg: rgba(251, 191, 36, 0.15);
+  --scv-warn-ink: #fbbf24;
+  --scv-btn: #f4f4f5; /* botao "neutro forte" (inverte por tema) */
+  --scv-btn-ink: #09090b;
+  background-color: var(--scv-bg);
+  color: var(--scv-ink);
+}
+.scv[data-theme="light"] {
+  --scv-bg: #f1f5f9;
+  --scv-card: #ffffff;
+  --scv-field: #f8fafc;
+  --scv-soft: #f1f5f9;
+  --scv-line: #e2e8f0;
+  --scv-topbar: rgba(241, 245, 249, 0.88);
+  --scv-ink: #0f172a;
+  --scv-text2: #334155;
+  --scv-muted: #64748b;
+  --scv-faint: #94a3b8;
+  --scv-dash: #cbd5e1;
+  --scv-lilac: #ede9fe;
+  --scv-violet: #6d28d9;
+  --scv-teal: #0ea5a6;
+  --scv-warn-bg: #fef3c7;
+  --scv-warn-ink: #b45309;
+  --scv-btn: #0f172a;
+  --scv-btn-ink: #ffffff;
+}
+
+@theme inline {
+  --color-scv-bg: var(--scv-bg);
+  --color-scv-card: var(--scv-card);
+  --color-scv-field: var(--scv-field);
+  --color-scv-soft: var(--scv-soft);
+  --color-scv-line: var(--scv-line);
+  --color-scv-ink: var(--scv-ink);
+  --color-scv-text2: var(--scv-text2);
+  --color-scv-muted: var(--scv-muted);
+  --color-scv-faint: var(--scv-faint);
+  --color-scv-dash: var(--scv-dash);
+  --color-scv-lilac: var(--scv-lilac);
+  --color-scv-violet: var(--scv-violet);
+  --color-scv-teal: var(--scv-teal);
+  --color-scv-warn-bg: var(--scv-warn-bg);
+  --color-scv-warn-ink: var(--scv-warn-ink);
+  --color-scv-btn: var(--scv-btn);
+  --color-scv-btn-ink: var(--scv-btn-ink);
+}
+
+/* Animações do painel (entradas suaves + celebração de publicação). */
+@keyframes scvFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scvPopin {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes scvConfdrop {
+  0% {
+    transform: translateY(-4vh) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(104vh) rotate(680deg);
+    opacity: 0;
+  }
+}
+.scv .scv-fade {
+  animation: scvFade 0.4s ease both;
+}
+.scv .scv-popin {
+  animation: scvPopin 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.15) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scv .scv-fade,
+  .scv .scv-popin {
+    animation: none;
+  }
+}
+
 @layer utilities {
   /* Aplica o gradiente de texto (usar no "ia" do wordmark, destaques). */
   .text-gradient {

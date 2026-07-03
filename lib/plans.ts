@@ -90,6 +90,11 @@ export interface PlanoInfo {
   /** Itens exibidos no card do plano (cumulativos). */
   inclui: string[];
   destaque?: boolean;
+  /**
+   * Preço mensal exibido nos cards (ex.: "R$ 39"). DECISÃO DE NEGÓCIO do dono —
+   * fica `undefined` até ser definido; a UI mostra "Assinatura mensal" no lugar.
+   */
+  preco?: string;
 }
 
 /** Ordem de exibicao dos planos (do menor para o maior). */

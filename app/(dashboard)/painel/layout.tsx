@@ -1,11 +1,11 @@
-// Layout do PAINEL (envolve /painel, /painel/novo, /painel/[id]/editar,
-// /painel/perfil) no shell com sidebar (PainelShell). Protege a área: sem sessão
-// volta para /entrar. As páginas de auth (/entrar, /cadastrar) ficam FORA daqui,
-// no layout do grupo (dashboard), sem sidebar.
+// Layout do PAINEL (mockup DARK): topbar centrada + conteudo em coluna de
+// 1080px. Protege a area: sem sessao volta para /entrar. As paginas de auth
+// (/entrar) ficam FORA daqui, no layout do grupo (dashboard), sem topbar.
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { PainelShell } from "./PainelShell";
+import { TopBar } from "./TopBar";
 
 export const dynamic = "force-dynamic";
 
@@ -19,18 +19,16 @@ export default async function PainelLayout({
 
   const prof = await prisma.professional.findUnique({
     where: { id: session.user.id },
-    select: { name: true, avatarUrl: true, brandName: true, plan: true },
+    select: { name: true },
   });
   const nome = prof?.name ?? session.user.name ?? "";
+  const jar = await cookies();
+  const temaInicial = jar.get("scv_theme")?.value === "light" ? "light" : "dark";
 
   return (
-    <PainelShell
-      nome={nome}
-      avatarUrl={prof?.avatarUrl ?? undefined}
-      brandName={prof?.brandName ?? undefined}
-      plan={prof?.plan ?? "BASICO"}
-    >
-      {children}
-    </PainelShell>
+    <>
+      <TopBar nome={nome} temaInicial={temaInicial} />
+      <main className="flex-1">{children}</main>
+    </>
   );
 }

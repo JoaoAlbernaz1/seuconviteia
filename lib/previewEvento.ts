@@ -55,6 +55,68 @@ const rascunhoSchema = z
 
 export type RascunhoPreview = z.infer<typeof rascunhoSchema>;
 
+/**
+ * Inverso do `eventoDoRascunho`: serializa um Event JA SALVO (+ gifts/photos)
+ * para o shape `?s=` do preview. E como as telas do painel mostram o preview de
+ * um evento em RASCUNHO (o site publico so renderiza depois de publicar).
+ */
+export function rascunhoDoEvento(event: {
+  title: string;
+  type: string;
+  eventDate: Date;
+  customization?: unknown;
+  gifts?: { title: string; description?: string | null; priceCents?: number | null }[];
+  photos?: { url: string }[];
+}): RascunhoPreview {
+  const c =
+    event.customization && typeof event.customization === "object"
+      ? (event.customization as Record<string, unknown>)
+      : {};
+  const s = (k: string) => (typeof c[k] === "string" ? (c[k] as string) : undefined);
+
+  // Date -> "yyyy-mm-dd" + "HH:MM" no fuso de Brasilia (-03:00, sem DST).
+  const sp = new Date(event.eventDate.getTime() - 3 * 60 * 60 * 1000);
+  const date = sp.toISOString().slice(0, 10);
+  const time = sp.toISOString().slice(11, 16);
+
+  const recursos =
+    c.recursos && typeof c.recursos === "object"
+      ? (c.recursos as Record<string, unknown>)
+      : {};
+  const recursosOff = Object.entries(recursos)
+    .filter(([, v]) => v === false)
+    .map(([k]) => k);
+
+  return {
+    type: event.type,
+    tema: s("tema"),
+    fontes: s("fontes"),
+    title: event.title,
+    date,
+    time,
+    mensagem: s("mensagem"),
+    presentesTexto: s("presentesTexto"),
+    local: s("local"),
+    endereco: s("endereco"),
+    traje: s("traje"),
+    programacao: Array.isArray(c.programacao)
+      ? (c.programacao as { hora: string; titulo: string }[]).slice(0, 30)
+      : undefined,
+    presentes: (event.gifts ?? []).slice(0, 60).map((g) => ({
+      titulo: g.title,
+      descricao: g.description ?? undefined,
+      valor:
+        typeof g.priceCents === "number" && g.priceCents > 0
+          ? (g.priceCents / 100).toFixed(2).replace(".", ",")
+          : undefined,
+    })),
+    fotoUrl: s("fotoUrl"),
+    presentesFotoUrl: s("presentesFotoUrl"),
+    fotos: (event.photos ?? []).slice(0, 40).map((p) => p.url),
+    recursosOff: recursosOff.length ? recursosOff : undefined,
+  };
+}
+
 /** Parse tolerante do `?s=` (JSON). Qualquer coisa invalida vira `{}`. */
 export function lerRascunho(s: string | undefined): RascunhoPreview {
   if (!s) return {};
