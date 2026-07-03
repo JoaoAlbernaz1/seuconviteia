@@ -115,7 +115,7 @@ export function ProgramacaoCliente({
                     onChange={(e) => atualizar(l.id, { hora: e.target.value })}
                     placeholder="20h30"
                     maxLength={20}
-                    className={`${INPUT} w-[90px] text-center`}
+                    className={`${INPUT} basis-[90px] shrink-0 text-center`}
                   />
                   <input
                     name="programacao_titulo"

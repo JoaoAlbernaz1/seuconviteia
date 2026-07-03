@@ -65,6 +65,33 @@
   color: var(--scv-ink);
 }
 
+/*
+ * Mapeia os tokens do painel para utilities do Tailwind (bg-scv-card,
+ * border-scv-line, text-scv-muted, bg-scv-btn...). Sem este bloco as classes
+ * scv-* NAO existem no CSS compilado e o painel degrada em silencio
+ * (bordas viram currentColor/preto, aba ativa fica invisivel, cards
+ * transparentes) — foi exatamente a regressao de 2026-07-03.
+ */
+@theme inline {
+  --color-scv-card: var(--scv-card);
+  --color-scv-field: var(--scv-field);
+  --color-scv-soft: var(--scv-soft);
+  --color-scv-line: var(--scv-line);
+  --color-scv-ink: var(--scv-ink);
+  --color-scv-text2: var(--scv-text2);
+  --color-scv-muted: var(--scv-muted);
+  --color-scv-faint: var(--scv-faint);
+  --color-scv-dash: var(--scv-dash);
+  --color-scv-lilac: var(--scv-lilac);
+  --color-scv-violet: var(--scv-violet);
+  --color-scv-teal: var(--scv-teal);
+  --color-scv-warn-bg: var(--scv-warn-bg);
+  --color-scv-warn-ink: var(--scv-warn-ink);
+  --color-scv-btn: var(--scv-btn);
+  --color-scv-btn-ink: var(--scv-btn-ink);
+}
+
+
 /* Animações do painel (entradas suaves + celebração de publicação). */
 @keyframes scvFade {
   from {

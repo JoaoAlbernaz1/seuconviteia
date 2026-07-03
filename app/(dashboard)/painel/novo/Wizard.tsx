@@ -213,7 +213,9 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
               Conte os detalhes
             </h1>
             <p className="mt-2.5 text-[15px] text-scv-muted">
-              A mensagem já vem pronta pra ocasião — é só ajustar. Veja o site ao lado.
+              A mensagem já vem pronta pra ocasião — é só ajustar. Veja o site{" "}
+              <span className="lg:hidden">logo abaixo</span>
+              <span className="hidden lg:inline">ao lado</span>.
             </p>
           </div>
 
@@ -333,6 +335,17 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                   {pending ? "Salvando…" : "Continuar"}
                 </button>
               </div>
+              {!pending && (!title.trim() || !date) ? (
+                <p className="text-center text-xs text-scv-faint">
+                  Pra continuar, preencha{" "}
+                  {!title.trim() && !date
+                    ? "o nome e a data da festa"
+                    : !title.trim()
+                      ? "o nome"
+                      : "a data da festa"}
+                  .
+                </p>
+              ) : null}
             </form>
 
             <div className="lg:sticky lg:top-[86px]">

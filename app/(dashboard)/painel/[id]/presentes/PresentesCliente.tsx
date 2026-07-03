@@ -259,7 +259,7 @@ export function PresentesCliente({
                     onChange={(e) => atualizar(l.id, { valor: e.target.value })}
                     placeholder="150,00"
                     inputMode="decimal"
-                    className={`${INPUT} w-[100px] text-center`}
+                    className={`${INPUT} basis-[100px] shrink-0 text-center`}
                   />
                   <input type="hidden" name="gift_descricao" value="" />
                   <button
