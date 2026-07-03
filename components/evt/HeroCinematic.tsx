@@ -22,10 +22,16 @@ export function HeroCinematic({
 }) {
   const fotoMobile = fotoUrl ?? "";
   const fotoDesktop = fotoDesktopUrl ?? fotoUrl ?? "";
+  // Tem foto PAISAGEM dedicada pro desktop? (no data layer, fotoDesktopUrl cai
+  // pra fotoUrl quando o profissional nao subiu uma paisagem — ai sao iguais.)
+  // Sem paisagem, esticar o retrato num hero largo corta feio; entao no desktop
+  // usamos FUNDO BORRADO da propria foto + a foto INTEIRA (contain) a direita —
+  // qualquer retrato aparece bem, como no celular.
+  const temPaisagem = !!fotoDesktopUrl && fotoDesktopUrl !== fotoUrl;
 
   return (
     <section className="relative min-h-[100svh] w-full overflow-hidden bg-[#160C12] text-evt-ivory">
-      {/* ── FOTO (fade + Ken Burns por CSS) ── */}
+      {/* ── FOTO (fade + Ken Burns por CSS) — full-bleed como na maria ── */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="hero-photo absolute inset-[-4%]" aria-hidden />
       </div>
@@ -105,7 +111,12 @@ export function HeroCinematic({
           animation: heroFade 1.6s cubic-bezier(0.16,1,0.3,1) both, heroKen 30s ease-in-out 1.6s infinite alternate;
         }
         @media (min-width: 768px) {
-          .hero-photo { background-image: url('${fotoDesktop}'); background-position: 64% 22%; }
+          /* Com foto PAISAGEM dedicada: enquadramento canônico da festa.
+             Sem ela (retrato full-bleed): foca na PESSOA, não no topo. */
+          .hero-photo {
+            background-image: url('${temPaisagem ? fotoDesktop : fotoMobile}');
+            background-position: ${temPaisagem ? "64% 22%" : "50% 62%"};
+          }
         }
         @keyframes heroFade { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: scale(1); } }
         @keyframes heroKen {
