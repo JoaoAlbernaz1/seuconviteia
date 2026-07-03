@@ -139,7 +139,7 @@ export function FotosCliente({
                   <button
                     type="button"
                     onClick={() => setFotoUrl("")}
-                    className="text-[12.5px] font-medium text-scv-faint transition hover:text-red-400"
+                    className="text-[12.5px] font-medium text-scv-faint transition hover:text-red-600"
                   >
                     Remover
                   </button>
@@ -222,7 +222,7 @@ export function FotosCliente({
                   <button
                     type="button"
                     onClick={() => setPresentesFotoUrl("")}
-                    className="text-[12.5px] font-medium text-scv-faint transition hover:text-red-400"
+                    className="text-[12.5px] font-medium text-scv-faint transition hover:text-red-600"
                   >
                     Remover
                   </button>
@@ -236,12 +236,12 @@ export function FotosCliente({
           </div>
 
           {erro ? (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600">
               {erro}
             </p>
           ) : null}
           {state.error ? (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600">
               {state.error}
             </p>
           ) : null}

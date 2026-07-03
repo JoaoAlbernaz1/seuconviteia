@@ -48,7 +48,7 @@ export function CapaEvento({
       style={{ height: altura, ...fundo }}
     >
       {kicker ? (
-        <span className="relative text-[8.5px] font-semibold uppercase tracking-[0.22em] text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.4)]">
+        <span className="relative text-[8.5px] font-semibold uppercase tracking-[0.22em] text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]">
           {kicker}
         </span>
       ) : null}

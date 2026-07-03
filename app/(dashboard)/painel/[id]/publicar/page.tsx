@@ -2,6 +2,7 @@
 // blocos opcionais (presentes/fotos/convidados), os recursos do site e a caixa
 // de publicar (ou o estado "publicado"), com a prévia real do site ao lado.
 import Link from "next/link";
+import { ExcluirEvento } from "../ExcluirEvento";
 import { prisma } from "@/lib/db";
 import { publicarEComemorar } from "@/app/(dashboard)/painel/acoes";
 import {
@@ -227,6 +228,9 @@ export default async function PublicarPage({
           >
             Trocar o estilo do site
           </Link>
+          <div className="mt-3">
+            <ExcluirEvento eventId={event.id} titulo={event.title} />
+          </div>
         </div>
       </div>
     </div>

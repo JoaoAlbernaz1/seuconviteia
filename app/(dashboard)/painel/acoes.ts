@@ -21,6 +21,7 @@ import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
 import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
+import { limiteEventos, rotuloPlano } from "@/lib/plans";
 import {
   TEMA_KEYS,
   montarMapsUrls,
@@ -160,6 +161,17 @@ export async function criarRascunho(
     select: { plan: true },
   });
   if (!professional) redirect("/entrar");
+
+  // Limite de eventos do plano (Basico e limitado; Classico+ ilimitado).
+  const limite = limiteEventos(professional.plan);
+  if (limite !== null) {
+    const existentes = await prisma.event.count({ where: { professionalId } });
+    if (existentes >= limite) {
+      return {
+        error: `O plano ${rotuloPlano(professional.plan)} inclui até ${limite} eventos. Exclua um site que não usa mais ou faça upgrade em Plano.`,
+      };
+    }
+  }
 
   const parsed = rascunhoSchema.safeParse({
     type: formData.get("type"),
@@ -477,6 +489,23 @@ export async function publicarEComemorar(formData: FormData): Promise<void> {
   });
   revalidatePath("/painel");
   redirect(`/painel/${event.id}/publicado`);
+}
+
+// ----------------------------------------------------------------------------
+// Excluir evento (site) — remove tudo do evento, de vez
+// ----------------------------------------------------------------------------
+
+export async function excluirEvento(formData: FormData): Promise<void> {
+  const event = await eventoDoDono(formData.get("eventId"));
+  if (!event) redirect("/painel");
+  // Filhos primeiro (nem todas as relacoes tem onDelete: Cascade).
+  await prisma.guest.deleteMany({ where: { eventId: event.id } });
+  await prisma.giftItem.deleteMany({ where: { eventId: event.id } });
+  await prisma.photo.deleteMany({ where: { eventId: event.id } });
+  await prisma.recado.deleteMany({ where: { eventId: event.id } });
+  await prisma.event.delete({ where: { id: event.id } });
+  revalidatePath("/painel");
+  redirect("/painel");
 }
 
 // ----------------------------------------------------------------------------

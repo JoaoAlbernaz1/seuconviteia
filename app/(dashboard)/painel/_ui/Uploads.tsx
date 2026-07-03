@@ -85,12 +85,12 @@ export function FotoComRemover({
         alt={alt}
         fill
         unoptimized
-        className="rounded-xl object-cover ring-1 ring-white/10"
+        className="rounded-xl object-cover ring-1 ring-black/10"
       />
       <button
         type="button"
         onClick={onRemove}
-        className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-scv-card text-xs text-red-400 shadow ring-1 ring-scv-line hover:text-red-300"
+        className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-scv-card text-xs text-red-600 shadow ring-1 ring-scv-line hover:text-red-500"
         aria-label={`Remover ${alt}`}
       >
         <i className="bi bi-x" aria-hidden />

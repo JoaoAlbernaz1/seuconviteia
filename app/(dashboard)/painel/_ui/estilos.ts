@@ -11,7 +11,8 @@ export const COLUNA = "mx-auto w-full max-w-[1080px] px-4 sm:px-7";
 export const COLUNA_ESTREITA = "mx-auto w-full max-w-[640px] px-4 sm:px-7";
 
 /** Card de superficie padrao. */
-export const CARD = "rounded-2xl border border-scv-line bg-scv-card";
+export const CARD =
+  "rounded-2xl border border-black/5 bg-scv-card shadow-[0_18px_44px_-32px_rgba(15,23,42,0.22)]";
 
 /** Input padrao. */
 export const INPUT =
@@ -22,19 +23,19 @@ export const LABEL = "mb-1.5 block text-[13px] font-semibold text-scv-ink";
 
 /** Botao primario (violeta cheio, como no mockup). */
 export const BTN_PRIMARIO =
-  "rounded-xl bg-violeta px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_12px_26px_-10px_rgba(109,40,217,0.55)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+  "cursor-pointer rounded-xl bg-violeta px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(109,40,217,0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-110 hover:shadow-[0_14px_30px_-12px_rgba(109,40,217,0.5)] disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Botao secundario (card com borda). */
 export const BTN_GHOST =
-  "rounded-xl border border-scv-line bg-scv-card px-5 py-3 text-[13.5px] font-semibold text-scv-ink transition hover:border-scv-dash";
+  "cursor-pointer rounded-xl border border-scv-line bg-scv-card px-5 py-3 text-[13.5px] font-semibold text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field";
 
 /** Botao neutro forte (inverte com o tema — claro no escuro / escuro no claro). */
 export const BTN_FORTE =
-  "rounded-[10px] bg-scv-btn px-4 py-2.5 text-[12.5px] font-semibold text-scv-btn-ink transition hover:opacity-90";
+  "cursor-pointer rounded-[10px] bg-scv-btn px-4 py-2.5 text-[12.5px] font-semibold text-scv-btn-ink transition-opacity duration-200 hover:opacity-90";
 
 /** Botao pequeno de card. */
 export const BTN_CARD =
-  "rounded-[10px] border border-scv-line bg-scv-card px-4 py-2.5 text-[13px] font-semibold text-scv-ink transition hover:border-scv-dash";
+  "cursor-pointer rounded-[10px] border border-scv-line bg-scv-card px-4 py-2.5 text-[13px] font-semibold text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field";
 
 /** Titulo de pagina (Fraunces). */
 export const TITULO = "font-display text-[28px] font-semibold tracking-tight text-scv-ink";
@@ -52,4 +53,4 @@ export const PILL_PREPARO =
 
 /** Botao de voltar (quadrado com chevron). */
 export const BTN_VOLTAR =
-  "grid size-9 shrink-0 place-items-center rounded-[11px] border border-scv-line bg-scv-card text-scv-ink transition hover:border-scv-dash";
+  "grid size-9 shrink-0 cursor-pointer place-items-center rounded-[11px] border border-scv-line bg-scv-card text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field";

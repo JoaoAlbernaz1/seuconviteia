@@ -9,6 +9,7 @@ import { lerTemaKey } from "@/lib/temas";
 import { lerFonteKey } from "@/lib/fontes";
 import { textosDoNicho } from "@/lib/textos";
 import { despublicarEvento } from "@/app/(dashboard)/actions";
+import { ExcluirEvento } from "./ExcluirEvento";
 import {
   carregarEventoDono,
   hostDoEvento,
@@ -197,6 +198,9 @@ export default async function AcompanharEventoPage({
               Tirar do ar
             </button>
           </form>
+          <div className="pt-1">
+            <ExcluirEvento eventId={event.id} titulo={event.title} />
+          </div>
         </div>
       </div>
     </div>

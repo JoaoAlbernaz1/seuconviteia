@@ -41,7 +41,7 @@ function iniciais(nome: string): string {
 
 function Erro({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <p className="mt-1 text-xs text-red-400">{msg}</p>;
+  return <p className="mt-1 text-xs text-red-600">{msg}</p>;
 }
 
 export function PerfilForm({ initial }: { initial: PerfilInitial }) {
@@ -82,14 +82,14 @@ export function PerfilForm({ initial }: { initial: PerfilInitial }) {
               <button
                 type="button"
                 onClick={() => setAvatarUrl("")}
-                className="text-[12.5px] font-semibold text-red-400 hover:underline"
+                className="text-[12.5px] font-semibold text-red-600 hover:underline"
               >
                 Remover
               </button>
             ) : null}
           </div>
         </div>
-        {erro ? <p className="text-xs text-red-400">{erro}</p> : null}
+        {erro ? <p className="text-xs text-red-600">{erro}</p> : null}
 
         <label className="block" htmlFor={`${uid}-name`}>
           <span className={LABEL}>Seu nome</span>
@@ -156,7 +156,7 @@ export function PerfilForm({ initial }: { initial: PerfilInitial }) {
         </label>
 
         {state.error ? (
-          <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">
             {state.error}
           </p>
         ) : null}

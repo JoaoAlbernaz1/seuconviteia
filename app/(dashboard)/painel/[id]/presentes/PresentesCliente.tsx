@@ -187,7 +187,7 @@ export function PresentesCliente({
                   <button
                     type="button"
                     onClick={() => setPixQrUrl("")}
-                    className="self-start text-[12.5px] font-medium text-scv-faint transition hover:text-red-400"
+                    className="self-start text-[12.5px] font-medium text-scv-faint transition hover:text-red-600"
                   >
                     Remover
                   </button>
@@ -267,7 +267,7 @@ export function PresentesCliente({
                     onClick={() => remover(l.id)}
                     disabled={linhas.length <= 1}
                     aria-label="Remover presente"
-                    className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-400 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
+                    className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-600 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
                   >
                     <i className="bi bi-trash" aria-hidden />
                   </button>
@@ -285,12 +285,12 @@ export function PresentesCliente({
           </div>
 
           {erro ? (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600">
               {erro}
             </p>
           ) : null}
           {state.error ? (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600">
               {state.error}
             </p>
           ) : null}

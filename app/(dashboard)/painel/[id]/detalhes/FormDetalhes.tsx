@@ -28,7 +28,7 @@ type Inicial = {
 
 function Erro({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <span className="mt-1 block text-xs text-red-400">{msg}</span>;
+  return <span className="mt-1 block text-xs text-red-600">{msg}</span>;
 }
 
 export function FormDetalhes({
@@ -168,7 +168,7 @@ export function FormDetalhes({
         </label>
 
         {state.error ? (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-red-600">
             {state.error}
           </p>
         ) : null}

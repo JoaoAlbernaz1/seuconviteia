@@ -109,7 +109,7 @@ export default async function ConvidadosPage({
                     <button
                       type="submit"
                       aria-label={`Remover ${g.name}`}
-                      className="grid size-7 place-items-center rounded-full text-scv-faint transition hover:text-red-400"
+                      className="grid size-7 place-items-center rounded-full text-scv-faint transition hover:text-red-600"
                     >
                       <i className="bi bi-x text-lg" aria-hidden />
                     </button>

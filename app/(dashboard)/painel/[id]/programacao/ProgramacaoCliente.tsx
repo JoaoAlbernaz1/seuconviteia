@@ -130,7 +130,7 @@ export function ProgramacaoCliente({
                     onClick={() => remover(l.id)}
                     disabled={linhas.length <= 1}
                     aria-label="Remover horário"
-                    className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-400 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
+                    className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-600 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
                   >
                     <i className="bi bi-trash" aria-hidden />
                   </button>

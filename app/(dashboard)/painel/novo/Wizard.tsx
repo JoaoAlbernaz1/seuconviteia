@@ -123,7 +123,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                 key={t}
                 type="button"
                 onClick={() => escolherOcasiao(t)}
-                className="flex w-[150px] flex-col items-center gap-3 rounded-[18px] border border-scv-line bg-scv-card px-3.5 pb-5 pt-6 shadow-[0_10px_30px_-26px_rgba(0,0,0,0.5)] transition hover:-translate-y-0.5 hover:border-violeta hover:shadow-[0_18px_36px_-22px_rgba(109,40,217,0.45)]"
+                className="flex w-[150px] flex-col items-center gap-3 rounded-[18px] border border-scv-line bg-scv-card px-3.5 pb-5 pt-6 shadow-[0_10px_30px_-26px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:border-violeta hover:shadow-[0_18px_36px_-22px_rgba(109,40,217,0.45)]"
               >
                 <span className="grid size-[50px] place-items-center rounded-[14px] bg-scv-lilac text-scv-violet">
                   <i className={`bi ${TIPO_ICON[t]} text-xl`} aria-hidden />
@@ -160,7 +160,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                   className={`overflow-hidden rounded-[18px] text-left transition ${
                     sel
                       ? "border-2 border-violeta shadow-[0_18px_40px_-24px_rgba(109,40,217,0.5)]"
-                      : "border border-scv-line shadow-[0_12px_32px_-28px_rgba(0,0,0,0.5)] hover:border-scv-dash"
+                      : "border border-scv-line shadow-[0_12px_32px_-28px_rgba(15,23,42,0.12)] hover:border-scv-dash"
                   } bg-scv-card`}
                 >
                   <CapaEvento
@@ -234,7 +234,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                   className={INPUT}
                 />
                 {state.fieldErrors?.title ? (
-                  <span className="mt-1 block text-xs text-red-400">
+                  <span className="mt-1 block text-xs text-red-600">
                     {state.fieldErrors.title}
                   </span>
                 ) : null}
@@ -251,7 +251,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                     className={INPUT}
                   />
                   {state.fieldErrors?.date ? (
-                    <span className="mt-1 block text-xs text-red-400">
+                    <span className="mt-1 block text-xs text-red-600">
                       {state.fieldErrors.date}
                     </span>
                   ) : null}
@@ -316,7 +316,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
               </label>
 
               {state.error ? (
-                <p role="alert" className="text-sm text-red-400">
+                <p role="alert" className="text-sm text-red-600">
                   {state.error}
                 </p>
               ) : null}

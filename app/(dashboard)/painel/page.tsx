@@ -108,7 +108,7 @@ export default async function MeusEventosPage() {
           return (
             <div
               key={e.id}
-              className="flex flex-col overflow-hidden rounded-[20px] border border-scv-line bg-scv-card shadow-[0_16px_40px_-32px_rgba(0,0,0,0.5)]"
+              className="flex flex-col overflow-hidden rounded-[20px] border border-scv-line bg-scv-card shadow-[0_16px_40px_-32px_rgba(15,23,42,0.12)]"
             >
               <CapaEvento
                 tema={tema}

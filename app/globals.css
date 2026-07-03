@@ -31,74 +31,38 @@
 }
 
 /*
- * ── PAINEL (tema escuro/claro) — tokens do mockup "SaaS seuconviteia DARK" ──
- * Escopo `.scv` (aplicado no layout do grupo dashboard). ESCURO e o padrao;
- * `[data-theme="light"]` troca a paleta inteira (toggle na topbar; cookie
- * `scv_theme` para o SSR ja renderizar certo, sem flash).
- * As utilities vem do @theme inline logo abaixo: bg-scv-bg, bg-scv-card,
- * border-scv-line, text-scv-ink, text-scv-muted, text-scv-violet, etc.
+ * ── PAINEL (tema CLARO) — tokens do painel remodelado ──────────────────────
+ * Escopo `.scv` (aplicado no layout do grupo dashboard). Painel e claro por
+ * decisao do dono (o modo escuro foi removido). O fundo leva dois "washes"
+ * radiais sutis (teal + violeta) para dar atmosfera sem pesar o carregamento.
+ * As utilities vem do @theme inline abaixo: bg-scv-card, border-scv-line,
+ * text-scv-ink, text-scv-muted, text-scv-violet, etc.
  */
 .scv {
-  --scv-bg: #0a0a0c; /* fundo da pagina */
-  --scv-card: #141418; /* superficies/cards */
-  --scv-field: #1b1b1f; /* inputs */
-  --scv-soft: #1e1e23; /* superficies rebaixadas (chips, trilhas) */
-  --scv-line: #26262b; /* bordas */
-  --scv-topbar: rgba(10, 10, 12, 0.82);
-  --scv-ink: #f4f4f5; /* texto forte */
-  --scv-text2: #d4d4d8; /* texto normal */
-  --scv-muted: #a1a1aa; /* texto secundario */
-  --scv-faint: #71717a; /* texto apagado */
-  --scv-dash: #3f3f46; /* borda tracejada / trilho de toggle off */
-  --scv-lilac: #2a2144; /* superficie lilas (icones) */
-  --scv-violet: #a78bfa; /* violeta legivel no escuro */
-  --scv-teal: #2de2e6; /* teal vivo no escuro */
-  --scv-warn-bg: rgba(251, 191, 36, 0.15);
-  --scv-warn-ink: #fbbf24;
-  --scv-btn: #f4f4f5; /* botao "neutro forte" (inverte por tema) */
-  --scv-btn-ink: #09090b;
-  background-color: var(--scv-bg);
-  color: var(--scv-ink);
-}
-.scv[data-theme="light"] {
-  --scv-bg: #f1f5f9;
-  --scv-card: #ffffff;
-  --scv-field: #f8fafc;
-  --scv-soft: #f1f5f9;
-  --scv-line: #e2e8f0;
-  --scv-topbar: rgba(241, 245, 249, 0.88);
-  --scv-ink: #0f172a;
-  --scv-text2: #334155;
-  --scv-muted: #64748b;
-  --scv-faint: #94a3b8;
-  --scv-dash: #cbd5e1;
-  --scv-lilac: #ede9fe;
-  --scv-violet: #6d28d9;
-  --scv-teal: #0ea5a6;
+  --scv-bg: #f3f5f9; /* fundo da pagina */
+  --scv-card: #ffffff; /* superficies/cards */
+  --scv-field: #f8fafc; /* inputs */
+  --scv-soft: #eef1f6; /* superficies rebaixadas (chips, trilhas) */
+  --scv-line: #e4e8ef; /* bordas */
+  --scv-topbar: rgba(255, 255, 255, 0.82);
+  --scv-ink: #0f172a; /* texto forte */
+  --scv-text2: #334155; /* texto normal */
+  --scv-muted: #64748b; /* texto secundario */
+  --scv-faint: #94a3b8; /* texto apagado (so dicas) */
+  --scv-dash: #cbd5e1; /* borda tracejada / trilho de toggle off */
+  --scv-lilac: #ede9fe; /* superficie lilas (icones) */
+  --scv-violet: #6d28d9; /* violeta (CTA/acentos) */
+  --scv-teal: #0ea5a6; /* teal de apoio */
   --scv-warn-bg: #fef3c7;
   --scv-warn-ink: #b45309;
-  --scv-btn: #0f172a;
+  --scv-btn: #0f172a; /* botao "neutro forte" (tinta) */
   --scv-btn-ink: #ffffff;
-}
-
-@theme inline {
-  --color-scv-bg: var(--scv-bg);
-  --color-scv-card: var(--scv-card);
-  --color-scv-field: var(--scv-field);
-  --color-scv-soft: var(--scv-soft);
-  --color-scv-line: var(--scv-line);
-  --color-scv-ink: var(--scv-ink);
-  --color-scv-text2: var(--scv-text2);
-  --color-scv-muted: var(--scv-muted);
-  --color-scv-faint: var(--scv-faint);
-  --color-scv-dash: var(--scv-dash);
-  --color-scv-lilac: var(--scv-lilac);
-  --color-scv-violet: var(--scv-violet);
-  --color-scv-teal: var(--scv-teal);
-  --color-scv-warn-bg: var(--scv-warn-bg);
-  --color-scv-warn-ink: var(--scv-warn-ink);
-  --color-scv-btn: var(--scv-btn);
-  --color-scv-btn-ink: var(--scv-btn-ink);
+  background-color: var(--scv-bg);
+  background-image:
+    radial-gradient(52rem 30rem at 8% -6%, rgba(14, 165, 166, 0.06), transparent 60%),
+    radial-gradient(56rem 32rem at 96% -10%, rgba(109, 40, 217, 0.055), transparent 62%);
+  background-repeat: no-repeat;
+  color: var(--scv-ink);
 }
 
 /* Animações do painel (entradas suaves + celebração de publicação). */

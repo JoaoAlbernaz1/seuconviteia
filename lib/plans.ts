@@ -79,6 +79,15 @@ export function planoPermite(plan: Plan, recurso: Recurso): boolean {
   return recursosDoPlano(plan)[recurso];
 }
 
+/**
+ * Limite de EVENTOS por plano (`null` = ilimitado). O numero do Basico e um
+ * PLACEHOLDER de negocio (decisao do dono — ajustar aqui quando ele definir);
+ * Classico/Premium sao ilimitados, como anunciado em PLANOS_INFO.
+ */
+export function limiteEventos(plan: Plan): number | null {
+  return plan === "BASICO" ? 3 : null;
+}
+
 // ----------------------------------------------------------------------------
 // Metadados para UI (seletor de plano no cadastro + "Gerenciar plano" no painel)
 // ----------------------------------------------------------------------------
@@ -107,6 +116,7 @@ export const PLANOS_INFO: PlanoInfo[] = [
     label: "Básico",
     descricaoCurta: "O essencial para começar: convite, RSVP e presentes.",
     inclui: [
+      "Até 3 eventos",
       "Templates essenciais",
       "Convite digital",
       "Confirmação de presença (RSVP)",

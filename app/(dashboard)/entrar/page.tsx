@@ -16,7 +16,7 @@ import { INPUT, BTN_PRIMARIO } from "../painel/_ui/estilos";
 
 function Erro({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <p className="mt-1 text-xs text-red-400">{msg}</p>;
+  return <p className="mt-1 text-xs text-red-600">{msg}</p>;
 }
 
 function CardEntrar() {
@@ -40,7 +40,7 @@ function CardEntrar() {
     }`;
 
   return (
-    <div className="scv-fade w-full max-w-[400px] rounded-[22px] border border-scv-line bg-scv-card p-8 text-center shadow-[0_28px_60px_-34px_rgba(0,0,0,0.45)]">
+    <div className="scv-fade w-full max-w-[400px] rounded-[22px] border border-scv-line bg-scv-card p-8 text-center shadow-[0_28px_60px_-34px_rgba(15,23,42,0.14)]">
       <span
         className="mx-auto grid size-11 place-items-center rounded-xl text-[15px] font-bold text-white"
         style={{ background: "var(--grad-faisca)" }}
@@ -104,7 +104,7 @@ function CardEntrar() {
             <Erro msg={signupState.fieldErrors?.password} />
           </div>
           {signupState.error ? (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600">
               {signupState.error}
             </p>
           ) : null}
@@ -129,7 +129,7 @@ function CardEntrar() {
             className={INPUT}
           />
           {loginState.error ? (
-            <p role="alert" className="text-sm text-red-400">
+            <p role="alert" className="text-sm text-red-600">
               {loginState.error}
             </p>
           ) : null}

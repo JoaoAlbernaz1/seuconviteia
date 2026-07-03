@@ -1,9 +1,8 @@
 "use client";
 
-// TopBar do painel (mockup DARK): wordmark · abas centrais (Meus eventos /
-// Perfil / Plano) · toggle de tema · Sair · pill do profissional. Substitui a
-// sidebar antiga — o painel inteiro vive em colunas centradas de 1080px.
-import { useState } from "react";
+// TopBar do painel: wordmark · abas centrais (Meus eventos / Perfil / Plano) ·
+// Sair · pill do profissional. Substitui a sidebar antiga — o painel inteiro
+// vive em colunas centradas de 1080px, em tema claro.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sair } from "../actions";
@@ -24,15 +23,8 @@ function tabAtiva(pathname: string, tab: { href: string; raiz?: boolean }): bool
   );
 }
 
-export function TopBar({
-  nome,
-  temaInicial,
-}: {
-  nome: string;
-  temaInicial: "dark" | "light";
-}) {
+export function TopBar({ nome }: { nome: string }) {
   const pathname = usePathname();
-  const [tema, setTema] = useState(temaInicial);
   const primeiro = nome.split(" ")[0] || "Você";
   const iniciais = nome
     .split(" ")
@@ -41,18 +33,8 @@ export function TopBar({
     .map((p) => p[0]?.toUpperCase())
     .join("");
 
-  function alternarTema() {
-    const novo = tema === "light" ? "dark" : "light";
-    setTema(novo);
-    document.cookie = `scv_theme=${novo}; path=/; max-age=31536000; samesite=lax`;
-    const raiz = document.querySelector<HTMLElement>(".scv");
-    if (!raiz) return;
-    if (novo === "light") raiz.setAttribute("data-theme", "light");
-    else raiz.removeAttribute("data-theme");
-  }
-
   return (
-    <div className="sticky top-0 z-40 border-b border-scv-line bg-[var(--scv-topbar)] backdrop-blur-md">
+    <div className="sticky top-0 z-40 border-b border-black/5 bg-[var(--scv-topbar)] backdrop-blur-md">
       <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-3 px-4 py-3 sm:gap-5 sm:px-7">
         <Link href="/painel" className="flex shrink-0 items-center gap-2.5">
           <span
@@ -75,7 +57,7 @@ export function TopBar({
               <Link
                 key={t.href}
                 href={t.href}
-                className={`whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition sm:px-3.5 ${
+                className={`whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition-colors duration-200 sm:px-3.5 ${
                   ativa
                     ? "bg-scv-btn text-scv-btn-ink"
                     : "text-scv-muted hover:text-scv-ink"
@@ -88,26 +70,17 @@ export function TopBar({
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={alternarTema}
-            title="Mudar tema"
-            aria-label={tema === "light" ? "Usar tema escuro" : "Usar tema claro"}
-            className="grid size-[34px] place-items-center rounded-full border border-scv-line bg-scv-card text-scv-muted transition hover:text-scv-ink"
-          >
-            <i className={`bi ${tema === "light" ? "bi-moon" : "bi-sun"} text-sm`} aria-hidden />
-          </button>
           <form action={sair}>
             <button
               type="submit"
-              className="hidden text-[13px] font-medium text-scv-muted transition hover:text-scv-ink sm:inline"
+              className="hidden cursor-pointer text-[13px] font-medium text-scv-muted transition-colors duration-200 hover:text-scv-ink sm:inline"
             >
               Sair
             </button>
           </form>
           <Link
             href="/painel/perfil"
-            className="flex items-center gap-2 rounded-full border border-scv-line bg-scv-card py-[5px] pl-[5px] pr-3"
+            className="flex items-center gap-2 rounded-full border border-scv-line bg-scv-card py-[5px] pl-[5px] pr-3 transition-colors duration-200 hover:border-scv-dash"
           >
             <span
               className="grid size-7 place-items-center rounded-full text-[11.5px] font-bold text-white"
