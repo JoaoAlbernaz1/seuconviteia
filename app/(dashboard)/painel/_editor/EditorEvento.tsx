@@ -13,7 +13,7 @@
 // para que TODOS os campos sejam submetidos juntos. Reusado por criar e editar
 // (mode), postando para criarEvento/editarEvento. Os campos que alimentam o
 // preview são controlados; o resto pode ser não-controlado.
-import { useActionState, useId, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { EventStatus } from "@prisma/client";
@@ -36,7 +36,6 @@ import {
   type RecursoSite,
   type TogglesSite,
 } from "@/lib/recursos";
-import { tempoRestante } from "@/lib/countdown";
 import { TIPO_LABEL } from "@/lib/painelUi";
 
 export type PaletaOpt = { key: string; label: string; dots: string[] };
@@ -353,322 +352,177 @@ function dataPontilhada(date: string): string {
   return d && m && a ? `${d} . ${m} . ${a}` : "Data a definir";
 }
 
-function PreviewSite({
-  host,
-  device,
-  type,
-  tema,
-  fontes,
-  title,
-  mensagem,
-  presentesTexto,
-  date,
-  time,
-  fotoUrl,
-  programacao,
-  ativos,
+/** Debounce simples de valor (para nao recarregar o preview a cada tecla). */
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
+/**
+ * Iframe com DOUBLE-BUFFER: a troca de `src` carrega num iframe invisivel e so
+ * vira a frente quando termina — o preview nunca pisca em branco enquanto o
+ * profissional digita. O conteudo e o SITE DE VERDADE (`/preview-evento`).
+ */
+function PreviewIframe({
+  src,
+  width,
+  height,
+  scale,
 }: {
-  host: string;
-  device: "phone" | "desktop";
-  type: string;
-  tema: string;
-  fontes: string;
-  title: string;
-  mensagem: string;
-  presentesTexto: string;
-  date: string;
-  time: string;
-  fotoUrl: string;
-  programacao: { hora: string; titulo: string }[];
-  ativos: TogglesSite;
+  src: string;
+  width: number;
+  height: number;
+  scale: number;
 }) {
-  const isPhone = device === "phone";
-  const dupla = FONTES[fontes] ?? FONTES[FONTE_PADRAO];
-  const caps = dupla.caps
-    ? { textTransform: "uppercase" as const, letterSpacing: "0.12em" }
-    : undefined;
+  const [front, setFront] = useState<"a" | "b">("a");
+  const [srcA, setSrcA] = useState(src);
+  const [srcB, setSrcB] = useState<string | null>(null);
 
-  const nome = title.trim() || "Nome do evento";
-  const nicho = (type && TIPO_LABEL[type as keyof typeof TIPO_LABEL]) || "Evento";
-  const msg =
-    mensagem.trim() ||
-    (type ? textosDoNicho(type).mensagemPadrao : "") ||
-    "Sua mensagem de boas-vindas aparece aqui.";
-  const msgPresentes =
-    presentesTexto.trim() ||
-    "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias.";
+  const frontSrc = front === "a" ? srcA : srcB;
+  const backIs: "a" | "b" = front === "a" ? "b" : "a";
+  const backSrc = backIs === "a" ? srcA : srcB;
 
-  // Contagem calculada da data real (parse no fuso de Brasília, como o site).
-  const restante = useMemo(() => {
-    if (!date) return null;
-    const alvo = new Date(`${date}T${time || "20:00"}:00-03:00`);
-    if (Number.isNaN(alvo.getTime())) return null;
-    return tempoRestante(alvo, new Date());
-  }, [date, time]);
+  // Padrao "ajustar estado durante o render": o src desejado mudou -> carrega
+  // no slot de tras (o da frente continua visivel ate o novo terminar).
+  if (src !== frontSrc && src !== backSrc) {
+    if (backIs === "a") setSrcA(src);
+    else setSrcB(src);
+  }
 
-  const capaStyle: React.CSSProperties = fotoUrl
-    ? {
-        backgroundImage: `linear-gradient(180deg, rgba(15,23,42,0.35), rgba(15,23,42,0.2) 40%, rgba(15,23,42,0.5)), url(${fotoUrl})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-      }
-    : {
-        backgroundImage:
-          "radial-gradient(130% 90% at 50% 0%, color-mix(in srgb, var(--ev-rosa) 38%, transparent), transparent 62%), linear-gradient(180deg, var(--ev-ink) 0%, var(--ev-framboesa-deep) 70%, var(--ev-ink) 100%)",
-      };
+  function aoCarregarTras() {
+    const atras = backIs === "a" ? srcA : srcB;
+    if (atras === src) setFront(backIs);
+  }
 
-  const progItens = programacao.filter((p) => p.hora.trim() || p.titulo.trim());
+  const style: React.CSSProperties = {
+    width,
+    height,
+    transform: `scale(${scale})`,
+    transformOrigin: "top left",
+    border: 0,
+  };
 
-  // Miniatura do site — tematizada pelas MESMAS vars do site real (paleta +
-  // dupla de fontes), num wrapper próprio para o preview.
-  const site = (
+  return (
     <div
-      style={{
-        ...varsDoTema(tema),
-        ...varsDaFonte(fontes),
-        background: "var(--ev-ivory)",
-        fontFamily: "var(--ev-font-body)",
-        ...(isPhone ? null : { width: "161%", transform: "scale(0.62)", transformOrigin: "top left" }),
-      }}
+      className="relative overflow-hidden bg-white"
+      style={{ width: Math.round(width * scale), height: Math.round(height * scale) }}
     >
-      {/* capa */}
-      <div
-        className="relative flex min-h-[250px] flex-col items-center justify-center gap-1 px-4 py-7 text-center"
-        style={capaStyle}
-      >
-        <span
-          className="relative text-[10px] tracking-[0.3em] text-white/85"
-          style={{ fontFamily: "var(--ev-font-util)" }}
-        >
-          {date ? dataPontilhada(date) : "Data a definir"}
-        </span>
-        <span
-          className="relative leading-[1.05] text-white [text-shadow:0_4px_22px_rgba(0,0,0,0.35)]"
-          style={{
-            fontFamily: "var(--ev-font-script)",
-            fontSize: `${Math.round(42 * dupla.scriptScale + 10)}px`,
-            ...caps,
-          }}
-        >
-          {nome}
-        </span>
-        <span
-          className="relative mt-1 text-[11px] uppercase tracking-[0.42em]"
-          style={{ fontFamily: "var(--ev-font-display)", color: "var(--ev-rose)" }}
-        >
-          {nicho}
-        </span>
-        {ativos.contador && restante && !restante.chegou ? (
-          <div className="relative mt-3.5 flex gap-2">
-            {(
-              [
-                [restante.dias, "dias"],
-                [restante.horas, "horas"],
-                [restante.minutos, "min"],
-              ] as const
-            ).map(([n, lbl]) => (
-              <span
-                key={lbl}
-                className="min-w-11 rounded-[9px] border border-white/25 bg-white/10 px-1.5 py-1.5 text-center text-sm leading-tight text-white"
-                style={{ fontFamily: "var(--ev-font-util)" }}
-              >
-                {String(n).padStart(2, "0")}
-                <br />
-                <b className="text-[8.5px] font-medium uppercase tracking-[0.12em] text-white/75">
-                  {lbl}
-                </b>
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {/* boas-vindas */}
-      <div className="px-5 py-6 text-center">
-        <span
-          className="text-[10px] font-semibold uppercase tracking-[0.26em]"
-          style={{ fontFamily: "var(--ev-font-util)", color: "var(--ev-rosa-ink)" }}
-        >
-          Bem-vindos
-        </span>
-        <p
-          className="mx-auto mt-2 max-w-60 text-[13px] italic leading-relaxed"
-          style={{ color: "var(--ev-ink-soft)" }}
-        >
-          {msg}
-        </p>
-      </div>
-
-      {/* programação */}
-      {ativos.programacao && progItens.length > 0 ? (
-        <div
-          className="border-y px-5 py-6 text-center"
-          style={{ background: "#fff", borderColor: "var(--line)" }}
-        >
-          <span
-            className="text-[10px] font-semibold uppercase tracking-[0.26em]"
-            style={{ fontFamily: "var(--ev-font-util)", color: "var(--ev-rosa-ink)" }}
-          >
-            Programação
-          </span>
-          <div className="mx-auto mt-3.5 flex max-w-[250px] flex-col gap-2 text-left">
-            {progItens.map((p, i) => (
-              <div
-                key={i}
-                className="flex items-baseline gap-3 rounded-[9px] px-3 py-1.5 text-[13px]"
-                style={{ background: "var(--ev-blush-soft)", color: "var(--ev-ink-soft)" }}
-              >
-                <b
-                  className="min-w-11 shrink-0 font-semibold"
-                  style={{ color: "var(--ev-rosa-ink)" }}
-                >
-                  {p.hora || "—"}
-                </b>
-                <span>{p.titulo}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      {srcA ? (
+        <iframe
+          title="Prévia do site do evento"
+          src={srcA}
+          style={style}
+          className={`absolute left-0 top-0 ${front === "a" ? "" : "invisible"}`}
+          onLoad={front !== "a" ? aoCarregarTras : undefined}
+        />
       ) : null}
-
-      {/* presentes */}
-      {ativos.presentes ? (
-        <div className="px-5 py-6 text-center">
-          <span
-            className="text-[10px] font-semibold uppercase tracking-[0.26em]"
-            style={{ fontFamily: "var(--ev-font-util)", color: "var(--ev-rosa-ink)" }}
-          >
-            Lista de presentes
-          </span>
-          <p
-            className="mx-auto mt-2 max-w-60 text-[13px] italic leading-relaxed"
-            style={{ color: "var(--ev-ink-soft)" }}
-          >
-            {msgPresentes}
-          </p>
-          <span
-            className="mt-3 inline-block rounded-full px-5 py-2 text-[11px] font-semibold text-white"
-            style={{ background: "var(--ev-framboesa-deep)", fontFamily: "var(--ev-font-util)" }}
-          >
-            Presentear via Pix
-          </span>
-        </div>
+      {srcB ? (
+        <iframe
+          title="Prévia do site do evento (carregando)"
+          src={srcB}
+          style={style}
+          className={`absolute left-0 top-0 ${front === "b" ? "" : "invisible"}`}
+          onLoad={front !== "b" ? aoCarregarTras : undefined}
+        />
       ) : null}
-
-      {/* rsvp */}
-      {ativos.rsvp ? (
-        <div
-          className="mx-5 mb-6 rounded-2xl p-5 text-center"
-          style={{
-            backgroundImage:
-              "linear-gradient(180deg, var(--ev-ink), var(--ev-framboesa-deep))",
-          }}
-        >
-          <span
-            className="block text-white"
-            style={{
-              fontFamily: "var(--ev-font-script)",
-              fontSize: `${Math.round(20 * dupla.scriptScale + 7)}px`,
-              ...caps,
-            }}
-          >
-            Você vem?
-          </span>
-          <span
-            className="mt-2.5 inline-block rounded-full bg-white px-5 py-2 text-[11px] font-bold"
-            style={{ color: "var(--ev-framboesa-deep)", fontFamily: "var(--ev-font-util)" }}
-          >
-            Confirmar presença
-          </span>
-        </div>
-      ) : null}
-
-      {/* rodapé */}
-      <div
-        className="border-t px-4 py-3.5 text-center text-[10px] tracking-[0.14em]"
-        style={{ borderColor: "var(--line)", color: "var(--ev-ink-soft)" }}
-      >
-        {nome}
-        {date ? ` · ${dataPontilhada(date)}` : ""}
-      </div>
     </div>
   );
+}
 
-  if (isPhone) {
-    return (
+// Viewports reais do preview (o site responde as media queries do iframe).
+const FONE = { width: 390, height: 844, scale: 0.615 };
+const NOTE = { width: 1280, height: 800, scale: 0.235 };
+
+/** Moldura de iPhone compacta (double-bezel) em volta do site real. */
+function MolduraFone({ src }: { src: string }) {
+  return (
+    <div className="mx-auto w-fit rounded-[2.6rem] bg-black/5 p-1.5 ring-1 ring-black/5">
       <div
-        className="relative rounded-[46px] p-2.5"
-        style={{
-          background: "linear-gradient(145deg,#4a4a52,#1c1c21)",
-          boxShadow:
-            "inset 0 0 0 2px #6b6b74, inset 0 0 0 3.5px #26262c, 0 28px 56px -24px rgba(15,23,42,0.6)",
-        }}
+        className="rounded-[2.2rem] p-[7px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.16),0_26px_50px_-24px_rgba(15,23,42,0.55)]"
+        style={{ background: "linear-gradient(160deg,#3d3d45,#141418)" }}
       >
-        <div className="relative overflow-hidden rounded-[37px] bg-black">
-          {/* status bar */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[6] flex items-center justify-between px-6 pt-3 text-[11px] font-semibold text-white">
+        <div className="relative overflow-hidden rounded-[1.75rem] bg-black">
+          {/* status bar + ilha dinamica (chrome do aparelho, por cima do site) */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[6] flex items-center justify-between px-5 pt-2 text-[9px] font-semibold text-white">
             <span>9:41</span>
-            <span className="flex items-center gap-1">
-              <svg width="17" height="11" viewBox="0 0 18 11" fill="#fff" aria-hidden>
+            <span className="flex items-center gap-1" aria-hidden>
+              <svg width="13" height="9" viewBox="0 0 18 11" fill="#fff">
                 <rect x="0" y="7" width="3" height="4" rx="1" />
                 <rect x="5" y="5" width="3" height="6" rx="1" />
                 <rect x="10" y="2.5" width="3" height="8.5" rx="1" />
                 <rect x="15" y="0" width="3" height="11" rx="1" />
               </svg>
-              <svg width="15" height="11" viewBox="0 0 16 12" fill="#fff" aria-hidden>
-                <path d="M1.4 4.4a9.3 9.3 0 0 1 13.2 0l-1.6 1.6a7 7 0 0 0-10 0z" />
-                <path d="M4.2 7.2a5.4 5.4 0 0 1 7.6 0L10.2 8.8a3.1 3.1 0 0 0-4.4 0z" />
-                <circle cx="8" cy="10.4" r="1.3" />
-              </svg>
-              <svg width="24" height="11" viewBox="0 0 25 11" aria-hidden>
+              <svg width="18" height="8" viewBox="0 0 25 11">
                 <rect x="0.5" y="0.5" width="20" height="10" rx="3" fill="none" stroke="#fff" strokeOpacity=".45" />
                 <rect x="2" y="2" width="14" height="7" rx="1.5" fill="#fff" />
                 <rect x="22" y="3.5" width="1.6" height="4" rx=".8" fill="#fff" opacity=".45" />
               </svg>
             </span>
           </div>
-          {/* dynamic island */}
-          <div className="absolute left-1/2 top-[9px] z-[7] h-[26px] w-[88px] -translate-x-1/2 rounded-2xl bg-black shadow-[inset_0_0_4px_rgba(255,255,255,0.07)]" />
-          <div className="h-[560px] overflow-auto [scrollbar-width:none]">{site}</div>
-          {/* home indicator */}
-          <div className="pointer-events-none absolute bottom-[7px] left-1/2 z-[7] h-1 w-24 -translate-x-1/2 rounded-full bg-white/90" />
+          <div className="absolute left-1/2 top-[7px] z-[7] h-[19px] w-[68px] -translate-x-1/2 rounded-[12px] bg-black shadow-[inset_0_0_3px_rgba(255,255,255,0.08)]" />
+          <PreviewIframe src={src} {...FONE} />
+          <div className="pointer-events-none absolute bottom-[5px] left-1/2 z-[7] h-[3px] w-16 -translate-x-1/2 rounded-full bg-white/90" />
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div
-        className="relative rounded-t-[18px] rounded-b-[4px] p-3 pb-[18px]"
-        style={{
-          background: "linear-gradient(180deg,#17181c,#0c0d10)",
-          boxShadow: "inset 0 0 0 1.5px #2e2f36",
-        }}
-      >
-        <div className="relative overflow-hidden rounded-[5px] bg-white">
-          {/* barra do navegador */}
-          <div className="flex items-center gap-2 border-b border-[#d7dde6] bg-[#e9edf3] px-2.5 py-1.5">
-            <span className="flex shrink-0 gap-[5px]" aria-hidden>
-              <span className="block size-2.5 rounded-full bg-[#ff5f57]" />
-              <span className="block size-2.5 rounded-full bg-[#febc2e]" />
-              <span className="block size-2.5 rounded-full bg-[#28c840]" />
-            </span>
-            <span className="flex flex-1 items-center justify-center gap-1 truncate rounded-[7px] border border-[#d7dde6] bg-white px-2.5 py-1 text-[9.5px] text-texto-suave">
-              <i className="bi bi-lock-fill text-[8px]" aria-hidden /> {host}
-            </span>
-            <span className="w-6 shrink-0" />
-          </div>
-          <div className="h-[330px] overflow-hidden">{site}</div>
-        </div>
-      </div>
-      {/* base do notebook */}
-      <div className="relative -mx-5 h-4 rounded-b-2xl rounded-t-[2px] bg-gradient-to-b from-[#eceef1] to-[#9ca3af] shadow-[0_20px_36px_-16px_rgba(15,23,42,0.55)]">
-        <div className="absolute left-1/2 top-0 h-[7px] w-24 -translate-x-1/2 rounded-b-[10px] bg-[#c3c9d2]" />
       </div>
     </div>
   );
 }
+
+/** Moldura de MacBook compacta (tampa + barra do navegador + base) — o site
+ *  real numa viewport de 1280px, escalada. */
+function MolduraNotebook({ src, host }: { src: string; host: string }) {
+  return (
+    <div className="mx-auto w-fit">
+      <div className="rounded-t-[12px] rounded-b-[3px] bg-black/5 p-1 ring-1 ring-black/5">
+        <div
+          className="rounded-t-[9px] rounded-b-[2px] p-[5px] pb-2 shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),0_22px_44px_-24px_rgba(15,23,42,0.5)]"
+          style={{ background: "linear-gradient(180deg,#2e2f35,#101114)" }}
+        >
+          <div className="overflow-hidden rounded-[5px] bg-white">
+            <div className="flex items-center gap-1.5 border-b border-[#dde2ea] bg-[#eef1f6] px-2 py-1">
+              <span className="flex shrink-0 gap-1" aria-hidden>
+                <span className="block size-[7px] rounded-full bg-[#ff5f57]" />
+                <span className="block size-[7px] rounded-full bg-[#febc2e]" />
+                <span className="block size-[7px] rounded-full bg-[#28c840]" />
+              </span>
+              <span className="flex flex-1 items-center justify-center gap-1 truncate rounded-[5px] border border-[#dde2ea] bg-white px-2 py-[2px] text-[8px] text-texto-suave">
+                <i className="bi bi-lock-fill text-[7px]" aria-hidden /> {host}
+              </span>
+              <span className="w-4 shrink-0" />
+            </div>
+            <PreviewIframe src={src} {...NOTE} />
+          </div>
+        </div>
+      </div>
+      <div className="relative mx-[-14px] h-[9px] rounded-b-[10px] bg-gradient-to-b from-[#e8eaee] to-[#a6adb8] shadow-[0_14px_26px_-14px_rgba(15,23,42,0.5)]">
+        <div className="absolute left-1/2 top-0 h-[4px] w-14 -translate-x-1/2 rounded-b-[6px] bg-[#c6ccd6]" />
+      </div>
+    </div>
+  );
+}
+
+/** Paginas do site disponiveis no preview. */
+const PAGINAS_PREVIEW = [
+  { key: "inicio", label: "Início" },
+  { key: "evento", label: "Evento" },
+  { key: "presentes", label: "Presentes" },
+  { key: "galeria", label: "Galeria" },
+] as const;
+type PaginaPreview = (typeof PAGINAS_PREVIEW)[number]["key"];
+
+/** Pagina do preview que melhor mostra cada seção do editor. */
+const PAGINA_DA_SECAO: Record<string, PaginaPreview> = {
+  info: "inicio",
+  estilo: "inicio",
+  textos: "evento",
+  fotos: "inicio",
+  recursos: "inicio",
+  presentes: "presentes",
+};
 
 // ── Modais ────────────────────────────────────────────────────────────────────
 
@@ -874,10 +728,19 @@ export default function EditorEvento({
 
   // "presentes" é a tela de configuração da lista (fora da nav; abre pelo
   // "Configurar" do card na tela Recursos do site).
-  const [secao, setSecao] = useState<string>("info");
+  const [secao, setSecaoRaw] = useState<string>("info");
   const [device, setDevice] = useState<"phone" | "desktop">("phone");
+  const [pagina, setPagina] = useState<PaginaPreview>("inicio");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState<RecursoSite | null>(null);
+
+  // Trocar de seção também aponta o preview pra página que mostra o que se
+  // está editando (o profissional pode trocar manualmente nas pílulas).
+  function setSecao(k: string) {
+    setSecaoRaw(k);
+    const alvo = PAGINA_DA_SECAO[k];
+    if (alvo) setPagina(alvo);
+  }
 
   const [type, setType] = useState(initial?.type ?? "");
   const [tema, setTema] = useState(initial?.tema ?? paletas[0]?.key ?? "rose");
@@ -892,6 +755,11 @@ export default function EditorEvento({
   const [mensagem, setMensagem] = useState(initial?.mensagem ?? "");
   const [mensagemTocada, setMensagemTocada] = useState(Boolean(initial?.mensagem));
   const [presentesTexto, setPresentesTexto] = useState(initial?.presentesTexto ?? "");
+  const [local, setLocal] = useState(initial?.local ?? "");
+  const [endereco, setEndereco] = useState(initial?.endereco ?? "");
+  const [traje, setTraje] = useState(initial?.traje ?? "");
+  const [pixNome, setPixNome] = useState(initial?.pixNome ?? "");
+  const [pixChave, setPixChave] = useState(initial?.pixChave ?? "");
   const [fotoUrl, setFotoUrl] = useState(initial?.fotoUrl ?? "");
   const [presentesFotoUrl, setPresentesFotoUrl] = useState(
     initial?.presentesFotoUrl ?? "",
@@ -995,14 +863,6 @@ export default function EditorEvento({
     const def = RECURSOS_SITE.find((d) => d.key === r);
     return !def?.gate || planoPermite(plan, def.gate);
   };
-  const ativos = useMemo(() => {
-    const out = { ...toggles };
-    for (const def of RECURSOS_SITE) {
-      out[def.key] = toggles[def.key] && (!def.gate || planoPermite(plan, def.gate));
-    }
-    return out;
-  }, [toggles, plan]);
-
   const bloqueados = RECURSOS_SITE.filter((d) => d.gate && !planoPermite(plan, d.gate));
 
   const fieldErr = state.fieldErrors;
@@ -1025,6 +885,36 @@ export default function EditorEvento({
   const dupla = FONTES[fontes] ?? FONTES[FONTE_PADRAO];
   const nomePreview = title.trim() || "Nome do evento";
   const dataLabel = date ? dataPontilhada(date) : "O grande dia";
+
+  // ── Preview ao vivo: o rascunho vira `?s=` e o iframe renderiza o SITE REAL
+  // (`/preview-evento`, mesmos componentes do site publicado). Debounce para
+  // não recarregar a cada tecla; double-buffer para nunca piscar.
+  const rascunhoJson = JSON.stringify({
+    type,
+    tema,
+    fontes,
+    title,
+    date,
+    time,
+    mensagem,
+    presentesTexto,
+    local,
+    endereco,
+    traje,
+    programacao: programacao.map(({ hora, titulo }) => ({ hora, titulo })),
+    presentes: presentes.map(({ titulo, descricao, valor }) => ({
+      titulo,
+      descricao: descricao || undefined,
+      valor: valor || undefined,
+    })),
+    fotoUrl: fotoUrl || undefined,
+    presentesFotoUrl: presentesFotoUrl || undefined,
+    fotos,
+    recursosOff: RECURSOS_SITE.filter((d) => !toggles[d.key]).map((d) => d.key),
+  });
+  const rascunhoEstavel = useDebounced(rascunhoJson, 500);
+  const previewSrc = `/preview-evento?p=${pagina}&s=${encodeURIComponent(rascunhoEstavel)}`;
+  const atualizando = rascunhoEstavel !== rascunhoJson;
 
   return (
     <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-7">
@@ -1257,7 +1147,8 @@ export default function EditorEvento({
                       id={`${uid}-local`}
                       name="local"
                       type="text"
-                      defaultValue={initial?.local}
+                      value={local}
+                      onChange={(e) => setLocal(e.target.value)}
                       className={inputClass}
                       placeholder="Ex.: Buffet Jardim das Flores"
                     />
@@ -1267,7 +1158,8 @@ export default function EditorEvento({
                       id={`${uid}-traje`}
                       name="traje"
                       type="text"
-                      defaultValue={initial?.traje}
+                      value={traje}
+                      onChange={(e) => setTraje(e.target.value)}
                       className={inputClass}
                       placeholder="Ex.: Esporte fino"
                     />
@@ -1285,7 +1177,8 @@ export default function EditorEvento({
                     id={`${uid}-endereco`}
                     name="endereco"
                     type="text"
-                    defaultValue={initial?.endereco}
+                    value={endereco}
+                    onChange={(e) => setEndereco(e.target.value)}
                     className={inputClass}
                     placeholder="Ex.: Av. das Palmeiras, 900 — Campinas, SP"
                   />
@@ -1483,6 +1376,7 @@ export default function EditorEvento({
                 rows={3}
                 maxLength={2000}
                 value={mensagem}
+                onFocus={() => setPagina("evento")}
                 onChange={(e) => {
                   setMensagem(e.target.value);
                   setMensagemTocada(true);
@@ -1556,6 +1450,7 @@ export default function EditorEvento({
                 rows={2}
                 maxLength={500}
                 value={presentesTexto}
+                onFocus={() => setPagina("presentes")}
                 onChange={(e) => setPresentesTexto(e.target.value)}
                 className={`${inputClass} resize-y leading-relaxed`}
                 placeholder="Ex.: Sua presença é o meu presente — mas se quiser me mimar, escolha um carinho da lista."
@@ -1871,7 +1766,8 @@ export default function EditorEvento({
                       id={`${uid}-pixNome`}
                       name="pixNome"
                       type="text"
-                      defaultValue={initial?.pixNome}
+                      value={pixNome}
+                      onChange={(e) => setPixNome(e.target.value)}
                       className={inputClass}
                       placeholder="Ex.: Maria Clara"
                     />
@@ -1887,7 +1783,8 @@ export default function EditorEvento({
                       id={`${uid}-pixChave`}
                       name="pixChave"
                       type="text"
-                      defaultValue={initial?.pixChave}
+                      value={pixChave}
+                      onChange={(e) => setPixChave(e.target.value)}
                       className={inputClass}
                       placeholder="chave@exemplo.com"
                     />
@@ -1963,15 +1860,19 @@ export default function EditorEvento({
           </div>
         </form>
 
-        {/* Preview ao vivo */}
+        {/* Preview ao vivo — o SITE DE VERDADE dentro da moldura */}
         <div className="lg:sticky lg:top-20">
-          <div className="mb-2.5 flex items-center justify-between gap-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[11.5px] font-semibold text-texto-suave">
               <span
-                className="size-[7px] rounded-full bg-teal shadow-[0_0_0_3px_rgba(14,165,166,0.16)]"
+                className={`size-[7px] rounded-full transition-colors ${
+                  atualizando
+                    ? "animate-pulse bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,0.2)]"
+                    : "bg-teal shadow-[0_0_0_3px_rgba(14,165,166,0.16)]"
+                }`}
                 aria-hidden
               />
-              O que você vê é o que publica
+              {atualizando ? "Atualizando…" : "O que você vê é o que publica"}
             </div>
             <div className="flex rounded-full border border-black/10 bg-white p-[3px]">
               {(
@@ -1993,21 +1894,30 @@ export default function EditorEvento({
               ))}
             </div>
           </div>
-          <PreviewSite
-            host={host}
-            device={device}
-            type={type}
-            tema={tema}
-            fontes={fontes}
-            title={title}
-            mensagem={mensagem}
-            presentesTexto={presentesTexto}
-            date={date}
-            time={time}
-            fotoUrl={fotoUrl}
-            programacao={programacao}
-            ativos={ativos}
-          />
+
+          {/* páginas do site — a prévia acompanha a seção, mas dá pra folhear */}
+          <div className="mb-3 flex flex-wrap gap-1">
+            {PAGINAS_PREVIEW.map((pg) => (
+              <button
+                key={pg.key}
+                type="button"
+                onClick={() => setPagina(pg.key)}
+                className={`rounded-full px-2.5 py-1 text-[10.5px] font-semibold transition ${
+                  pagina === pg.key
+                    ? "bg-ink/90 text-white"
+                    : "bg-white text-texto-suave ring-1 ring-black/5 hover:text-ink"
+                }`}
+              >
+                {pg.label}
+              </button>
+            ))}
+          </div>
+
+          {device === "phone" ? (
+            <MolduraFone src={previewSrc} />
+          ) : (
+            <MolduraNotebook src={previewSrc} host={host} />
+          )}
         </div>
       </div>
 
