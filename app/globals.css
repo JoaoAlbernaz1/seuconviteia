@@ -1213,7 +1213,7 @@ body {
  * DESIGN SYSTEM do PAINEL/SaaS — tokens `ui-*` (claro/premium).
  * Ateliê digital de eventos: off-white, champagne, rosé, grafite, bege.
  * Substitui o painel escuro (`scv-*`). Utilities: bg-ui-surface,
- * text-ui-ink, border-ui-line, rounded-ui-lg, + classes .ui-shadow*/.ui-ring.
+ * text-ui-ink, border-ui-line, rounded-ui-lg, e as classes ui-shadow / ui-ring.
  * ============================================================ */
 :root {
   --ui-bg: #faf7f1; /* off-white quente (fundo base) */
