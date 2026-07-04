@@ -12,8 +12,10 @@ import { TEMAS } from "@/lib/temas";
 import { textosDoNicho } from "@/lib/textos";
 import { slugify } from "@/lib/tenant";
 import { TIPO_ICON, TIPO_LABEL } from "@/lib/painelUi";
-import { CapaEvento } from "../_ui/CapaEvento";
-import { ESTILOS_SITE, EXEMPLO_NOME, NOME_LABEL } from "../_ui/estilosDoSite";
+import { templatesPorOcasiao, ocasiaoDoNicho, type TemplateDefinition } from "@/lib/templates";
+import { capaDemo } from "@/lib/demoFotos";
+import { EXEMPLO_NOME, NOME_LABEL } from "../_ui/estilosDoSite";
+import { CardTemplate } from "../_ui/CardTemplate";
 import { PreviewSite } from "../_ui/PreviewSite";
 import { Stepper, type PassoStepper } from "../_ui/Stepper";
 import {
@@ -36,7 +38,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
   const router = useRouter();
   const [passo, setPasso] = useState<1 | 2 | 3>(1);
   const [tipo, setTipo] = useState("");
-  const [estiloId, setEstiloId] = useState<string | null>(null);
+  const [template, setTemplate] = useState<string | null>(null);
   const [tema, setTema] = useState("rose");
   const [fontes, setFontes] = useState("classica");
   const [title, setTitle] = useState("");
@@ -53,19 +55,19 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
   );
 
   const exemplo = EXEMPLO_NOME[tipo] ?? "Maria Clara";
-  const kicker = tipo ? textosDoNicho(tipo).conviteTitulo : "";
   const slugFinal = slugTocado && slug ? slugify(slug) : slugify(title) || "sua-festa";
   const hostRaiz = rootDomain.replace(/:\d+$/, "");
 
   function escolherOcasiao(t: string) {
     setTipo(t);
+    setTemplate(null); // limpa o template (os templates mudam por ocasião)
     setMensagem(textosDoNicho(t).mensagemPadrao);
     setPasso(2);
   }
-  function escolherEstilo(e: (typeof ESTILOS_SITE)[number]) {
-    setEstiloId(e.id);
-    setTema(e.tema);
-    setFontes(e.fontes);
+  function escolherTemplate(tpl: TemplateDefinition) {
+    setTemplate(tpl.id);
+    setTema(tpl.paletaPadrao);
+    setFontes(tpl.fontesPadrao);
   }
 
   const passos: PassoStepper[] = [
@@ -83,6 +85,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
     type: tipo || "QUINZE_ANOS",
     tema,
     fontes,
+    template: template ?? undefined,
     title: title.trim() || exemplo,
     date,
     time,
@@ -135,57 +138,30 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
         </div>
       ) : null}
 
-      {/* PASSO 2 · ESTILO */}
+      {/* PASSO 2 · MODELO (template) */}
       {passo === 2 ? (
         <div className="scv-fade mt-10">
           <div className="text-center">
             <h1 className="font-display text-[32px] font-semibold tracking-tight text-scv-ink">
-              Escolha o estilo
+              Escolha o modelo
             </h1>
             <p className="mt-2.5 text-[15px] text-scv-muted">
-              Cores e letras combinadas, prontas. A cor você ainda ajusta no próximo passo — e
-              pode trocar tudo depois.
+              Cada modelo é um site diferente. A cor e as letras você ajusta depois —
+              e pode trocar tudo quando quiser.
             </p>
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {ESTILOS_SITE.map((e) => {
-              const sel = estiloId === e.id;
-              return (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => escolherEstilo(e)}
-                  className={`overflow-hidden rounded-[18px] text-left transition ${
-                    sel
-                      ? "border-2 border-violeta shadow-[0_18px_40px_-24px_rgba(109,40,217,0.5)]"
-                      : "border border-scv-line shadow-[0_12px_32px_-28px_rgba(15,23,42,0.12)] hover:border-scv-dash"
-                  } bg-scv-card`}
-                >
-                  <CapaEvento
-                    tema={e.tema}
-                    fontes={e.fontes}
-                    nome={title.trim() || exemplo}
-                    kicker={kicker}
-                    altura={140}
-                  />
-                  <span className="flex w-full items-center justify-between px-4 py-3">
-                    <span>
-                      <span className="block font-display text-base font-semibold text-scv-ink">
-                        {e.nome}
-                      </span>
-                      <span className="mt-0.5 block text-[11.5px] text-scv-muted">{e.tag}</span>
-                    </span>
-                    <span
-                      className={`grid size-6 shrink-0 place-items-center rounded-full ${
-                        sel ? "bg-violeta text-white" : "bg-scv-soft text-transparent"
-                      }`}
-                    >
-                      <i className="bi bi-check-lg text-[13px]" aria-hidden />
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+            {templatesPorOcasiao(tipo).map((tpl) => (
+              <CardTemplate
+                key={tpl.id}
+                tpl={tpl}
+                nome={title.trim() || exemplo}
+                fotoUrl={capaDemo(ocasiaoDoNicho(tipo))}
+                altura={150}
+                selecionado={template === tpl.id}
+                onSelect={() => escolherTemplate(tpl)}
+              />
+            ))}
           </div>
           <div className="mt-8 flex justify-center gap-2.5">
             <button type="button" onClick={() => setPasso(1)} className={BTN_GHOST}>
@@ -193,7 +169,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
             </button>
             <button
               type="button"
-              disabled={!estiloId}
+              disabled={!template}
               onClick={() => setPasso(3)}
               className={`${BTN_PRIMARIO} px-11`}
             >
@@ -222,6 +198,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
               <input type="hidden" name="type" value={tipo} />
               <input type="hidden" name="tema" value={tema} />
               <input type="hidden" name="fontes" value={fontes} />
+              <input type="hidden" name="template" value={template ?? ""} />
               <input type="hidden" name="slug" value={slugFinal} />
 
               <label className="block">

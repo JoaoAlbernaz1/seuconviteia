@@ -28,9 +28,11 @@ const LINKS: { href: string; label: string; recurso: RecursoSite | null }[] = [
 export function SiteNav({
   nome,
   recursos,
+  dark = false,
 }: {
   nome: string;
   recursos: TogglesSite;
+  dark?: boolean;
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);
@@ -59,20 +61,23 @@ export function SiteNav({
   const solid = scrolled || open;
   // Sobre a capa escura (home, antes de rolar) -> texto claro/transparente.
   const overHero = pathname === "/" && !solid;
+  // Template escuro (noite): texto claro em TODAS as paginas (o corpo e escuro).
+  const claro = overHero || dark;
 
-  const wordmark = overHero ? "text-white" : "text-evt-ink";
-  const linkIdle = overHero ? "text-white/90" : "text-evt-ink-soft";
-  const linkActive = overHero ? "text-white" : "text-evt-rosa-ink";
-  const linkHover = overHero ? "hover:text-white" : "hover:text-evt-rosa-ink";
-  const ringClr = overHero ? "focus-visible:ring-white" : "focus-visible:ring-evt-rosa-ink";
-  const ringOff = overHero ? "focus-visible:ring-offset-[#160C12]" : "focus-visible:ring-offset-white";
+  const wordmark = claro ? "text-white" : "text-evt-ink";
+  const linkIdle = claro ? "text-white/85" : "text-evt-ink-soft";
+  const linkActive = claro ? "text-white" : "text-evt-rosa-ink";
+  const linkHover = claro ? "hover:text-white" : "hover:text-evt-rosa-ink";
+  const ringClr = claro ? "focus-visible:ring-white" : "focus-visible:ring-evt-rosa-ink";
+  const ringOff = claro ? "focus-visible:ring-offset-[#160C12]" : "focus-visible:ring-offset-white";
+  const solidBg = dark
+    ? "border-b border-white/10 bg-[#0C0906]/90 backdrop-blur-md"
+    : "border-b border-[var(--line)] bg-white/90 backdrop-blur-md";
 
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
-        solid
-          ? "border-b border-[var(--line)] bg-white/90 backdrop-blur-md"
-          : "border-b border-transparent bg-transparent"
+        solid ? solidBg : "border-b border-transparent bg-transparent"
       }`}
     >
       <nav
@@ -126,9 +131,12 @@ export function SiteNav({
         </button>
       </nav>
 
-      {/* Drawer mobile — sempre claro */}
+      {/* Drawer mobile */}
       {open && (
-        <div id="mobile-drawer" className="border-t border-[var(--line)] bg-white md:hidden">
+        <div
+          id="mobile-drawer"
+          className={dark ? "border-t border-white/10 bg-[#0C0906] md:hidden" : "border-t border-[var(--line)] bg-white md:hidden"}
+        >
           <ul className="mx-auto flex max-w-[1100px] flex-col px-[clamp(1.25rem,5vw,2rem)] py-3">
             {links.map((l) => {
               const active = pathname === l.href;
@@ -138,8 +146,10 @@ export function SiteNav({
                     href={l.href}
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-3 rounded-md px-1 py-3.5 font-evt-util text-[0.72rem] uppercase tracking-[0.24em] transition-colors hover:text-evt-rosa-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evt-rosa-ink ${
-                      active ? "text-evt-rosa-ink" : "text-evt-ink-soft"
+                    className={`flex items-center gap-3 rounded-md px-1 py-3.5 font-evt-util text-[0.72rem] uppercase tracking-[0.24em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evt-rosa-ink ${
+                      dark
+                        ? active ? "text-white" : "text-white/70 hover:text-white"
+                        : active ? "text-evt-rosa-ink" : "text-evt-ink-soft hover:text-evt-rosa-ink"
                     }`}
                   >
                     {active && <span className="text-evt-rosa text-[0.6rem]" aria-hidden>◆</span>}

@@ -1,0 +1,156 @@
+// Corpo BASE da pagina /evento — fallback quando um template nao tem Evento
+// proprio (ex.: id legado/invalido). Os 9 templates trazem o SEU proprio Evento;
+// isto e so a rede de seguranca. Data-driven + gate por recursos.
+import { textosDoNicho } from "@/lib/textos";
+import type { PaginaTemplateProps } from "@/components/templates/registro";
+
+import { SectionHeading } from "@/components/evt/SectionHeading";
+import { Button } from "@/components/evt/Button";
+import { Card } from "@/components/evt/Card";
+import { Reveal } from "@/components/evt/Reveal";
+import { Timeline } from "@/components/evt/Timeline";
+import { Countdown } from "@/components/evt/Countdown";
+import { ConfirmCTA } from "@/components/evt/ConfirmCTA";
+import { MapEmbed } from "@/components/evt/MapEmbed";
+import { Flourish } from "@/components/evt/icons";
+
+const PAD = "px-[clamp(1.25rem,5vw,2rem)]";
+const RHYTHM = "py-[clamp(4rem,9vw,7rem)]";
+const WRAP = "mx-auto max-w-[1100px]";
+
+export function EventoBase({ evento, nicho, recursos }: PaginaTemplateProps) {
+  const nome = evento.primeiroNome;
+  const t = textosDoNicho(nicho);
+  const local = evento.local ?? "O local";
+  const temEmbed = !!evento.mapsEmbedUrl && /^https:\/\//i.test(evento.mapsEmbedUrl);
+
+  return (
+    <main className="bg-transparent">
+      <section className={`bg-evt-blush-soft/55 ${PAD} pb-[clamp(4rem,9vw,7rem)] pt-32`}>
+        <div className="mx-auto max-w-[680px] text-center">
+          <Reveal>
+            <SectionHeading eyebrow="O convite" title={t.conviteTitulo} />
+          </Reveal>
+          <Reveal delay={120}>
+            <p className="drop-cap mt-10 text-left font-evt-body text-[1.2rem] leading-relaxed text-evt-ink">
+              {evento.mensagemBoasVindas ?? t.mensagemPadrao}
+            </p>
+          </Reveal>
+          <Reveal delay={200}>
+            <p className="mt-8 font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-rosa-ink">
+              {t.assinaturaPrefixo} {nome}
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className={`${PAD} ${RHYTHM}`}>
+        <div className={`grid gap-6 md:grid-cols-2 ${WRAP}`}>
+          <Reveal className="h-full">
+            <Card className="flex h-full flex-col p-[clamp(1.75rem,5vw,2.5rem)] text-center md:text-left">
+              <p className="eyebrow text-evt-rosa-ink">Quando</p>
+              <p className="mt-4 font-evt-script text-[clamp(1.9rem,5vw,2.4rem)] leading-tight text-evt-ink">
+                {evento.data}
+              </p>
+              <p className="mt-1 font-evt-display text-[clamp(1.8rem,6vw,2.4rem)] tracking-[0.04em] text-evt-rosa-ink">
+                {evento.horario}
+              </p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row md:items-start">
+                <Button href="/agenda" variant="ghost" prefetch={false}>
+                  Adicionar à agenda
+                </Button>
+              </div>
+            </Card>
+          </Reveal>
+
+          <Reveal delay={100} className="h-full">
+            <Card className="flex h-full flex-col p-[clamp(1.75rem,5vw,2.5rem)] text-center md:text-left">
+              <p className="eyebrow text-evt-rosa-ink">Onde</p>
+              <p className="mt-4 font-evt-script text-[clamp(1.9rem,5vw,2.4rem)] leading-tight text-evt-ink">
+                {local}
+              </p>
+              {evento.endereco && (
+                <p className="mt-2 font-evt-body text-base text-evt-ink-soft">{evento.endereco}</p>
+              )}
+              {evento.mapsLinkUrl && (
+                <div className="mt-7 flex justify-center md:justify-start">
+                  <Button href={evento.mapsLinkUrl} variant="ghost" target="_blank" rel="noreferrer">
+                    Abrir no Maps
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </Reveal>
+        </div>
+
+        {temEmbed ? (
+          <Reveal delay={140} className={`mt-6 ${WRAP}`}>
+            <MapEmbed src={evento.mapsEmbedUrl!} local={local} linkUrl={evento.mapsLinkUrl} />
+          </Reveal>
+        ) : (
+          evento.mapsLinkUrl && (
+            <Reveal delay={140} className={`mt-6 ${WRAP}`}>
+              <a
+                href={evento.mapsLinkUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Abrir ${local} no Google Maps`}
+                className="group relative block overflow-hidden rounded-[var(--radius-card)] border border-[var(--line)] shadow-[0_22px_50px_-40px_rgba(46,26,32,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evt-rosa-ink focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              >
+                <div className="relative flex h-[300px] w-full flex-col items-center justify-center gap-3 overflow-hidden [background:linear-gradient(150deg,var(--ev-blush-soft),var(--ev-blush))] transition-transform duration-500 group-hover:scale-[1.03] sm:h-[380px]">
+                  <Flourish className="h-5 w-28 text-evt-rosa" />
+                  <span className="font-evt-util text-[0.58rem] uppercase tracking-[0.28em] text-evt-ink-soft/80">
+                    Ver localização
+                  </span>
+                </div>
+                <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-5 py-2 font-evt-util text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-evt-rosa-ink shadow-[0_8px_24px_-8px_rgba(46,26,32,0.4)]">
+                  Abrir no Google Maps →
+                </span>
+              </a>
+            </Reveal>
+          )
+        )}
+
+        {recursos.contador && (
+          <Reveal delay={180} className={`mt-14 flex flex-col items-center gap-7 text-center ${WRAP}`}>
+            <p className="eyebrow text-evt-rosa-ink">A contagem já começou</p>
+            <Countdown alvoISO={evento.dataAlvoISO} />
+          </Reveal>
+        )}
+      </section>
+
+      {evento.traje && (
+        <section className={`bg-evt-blush-soft/55 ${PAD} py-[clamp(3.5rem,7vw,5rem)]`}>
+          <Reveal className={`flex flex-col items-center gap-3 text-center ${WRAP}`}>
+            <p className="eyebrow text-evt-rosa-ink">Traje</p>
+            <p className="font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-ink">{evento.traje}</p>
+          </Reveal>
+        </section>
+      )}
+
+      {recursos.programacao && evento.programacao.length > 0 && (
+        <section className={`${PAD} ${RHYTHM}`}>
+          <div className={WRAP}>
+            <Reveal>
+              <SectionHeading eyebrow="A noite" title="Programação" />
+            </Reveal>
+            <div className="mt-12">
+              <Timeline itens={evento.programacao} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {recursos.rsvp && (
+        <section className={`bg-evt-blush-soft/55 ${PAD} py-[clamp(4.5rem,9vw,6.5rem)]`}>
+          <Reveal className={`flex flex-col items-center gap-6 text-center ${WRAP}`}>
+            <h2 className="font-evt-script text-[clamp(2.2rem,7vw,3.2rem)] leading-tight text-evt-ink">
+              Você vem?
+            </h2>
+            <ConfirmCTA />
+          </Reveal>
+        </section>
+      )}
+    </main>
+  );
+}

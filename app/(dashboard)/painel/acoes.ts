@@ -21,6 +21,7 @@ import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
 import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
+import { TEMPLATES, TEMPLATE_PADRAO } from "@/lib/templates";
 import { limiteEventos, rotuloPlano } from "@/lib/plans";
 import {
   TEMA_KEYS,
@@ -132,6 +133,10 @@ const rascunhoSchema = z.object({
     .refine((k) => (FONTE_KEYS as readonly string[]).includes(k), "Estilo inválido.")
     .optional()
     .default(FONTE_PADRAO),
+  template: z
+    .string()
+    .refine((k) => k in TEMPLATES, "Modelo inválido.")
+    .optional(),
   title: z.string().trim().min(2, "Informe o nome.").max(120),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida."),
   time: z
@@ -177,6 +182,7 @@ export async function criarRascunho(
     type: formData.get("type"),
     tema: formData.get("tema"),
     fontes: str(formData, "fontes"),
+    template: str(formData, "template"),
     title: formData.get("title"),
     date: formData.get("date"),
     time: str(formData, "time"),
@@ -192,7 +198,7 @@ export async function criarRascunho(
       ),
     };
   }
-  const { type, tema, fontes, title, date, time, local, mensagem, slug } =
+  const { type, tema, fontes, template: templateSite, title, date, time, local, mensagem, slug } =
     parsed.data;
 
   const dh = parseDataHora(date, time, "create");
@@ -202,7 +208,7 @@ export async function criarRascunho(
     Boolean(await prisma.event.findUnique({ where: { subdomain: s } })),
   );
 
-  const template = await prisma.template.findFirst({
+  const templateDb = await prisma.template.findFirst({
     where: { nicho: type },
     orderBy: { createdAt: "asc" },
   });
@@ -214,6 +220,7 @@ export async function criarRascunho(
       tema,
       accent: acentoDoTema(tema),
       fontes: fontes === FONTE_PADRAO ? undefined : fontes,
+      template: templateSite,
       mensagem,
       local,
       mapsUrl,
@@ -225,7 +232,7 @@ export async function criarRascunho(
     data: {
       professionalId,
       type,
-      templateId: template?.id ?? null,
+      templateId: templateDb?.id ?? null,
       title,
       subdomain,
       eventDate: dh.eventDate,
@@ -325,6 +332,10 @@ export async function salvarEstilo(formData: FormData): Promise<void> {
   }
   if (typeof fontes === "string" && FONTE_KEYS.includes(fontes)) {
     patch.fontes = fontes === FONTE_PADRAO ? undefined : fontes;
+  }
+  const template = formData.get("template");
+  if (typeof template === "string" && template in TEMPLATES) {
+    patch.template = template === TEMPLATE_PADRAO ? undefined : template;
   }
   await prisma.event.update({
     where: { id: event.id },

@@ -13,6 +13,8 @@ import { prisma } from "@/lib/db";
 import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { lerRascunho, eventoDoRascunho } from "@/lib/previewEvento";
 import { lerEventoFesta } from "@/lib/eventoFesta";
+import { preencherFotosDemo } from "@/lib/demoFotos";
+import { ocasiaoDoNicho, templatePorId } from "@/lib/templates";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey } from "@/lib/temas";
 import { fonteDupla, lerFonteKey, varsDaFonte } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
@@ -48,7 +50,12 @@ export default async function PreviewEventoPage({
   const { s, p } = await searchParams;
   const rascunho = lerRascunho(typeof s === "string" ? s : undefined);
   const sintetico = eventoDoRascunho(rascunho);
-  const evento = lerEventoFesta(sintetico);
+  // No preview, capa/álbum vazios são preenchidos com fotos de exemplo — o
+  // profissional vê o template POVOADO (nunca capa vazia). Só no preview.
+  const evento = preencherFotosDemo(
+    lerEventoFesta(sintetico),
+    ocasiaoDoNicho(sintetico.type),
+  );
 
   const tema = lerTemaKey(sintetico.customization);
   const particleColors =
@@ -69,7 +76,7 @@ export default async function PreviewEventoPage({
     );
   } else if (pagina === "presentes") {
     corpo = recursos.presentes ? (
-      <PaginaPresentes evento={evento} />
+      <PaginaPresentes evento={evento} nicho={sintetico.type} recursos={recursos} />
     ) : (
       <RecursoIndisponivel
         titulo="Lista de presentes"
@@ -78,7 +85,7 @@ export default async function PreviewEventoPage({
     );
   } else if (pagina === "galeria") {
     corpo = recursos.galeria ? (
-      <PaginaGaleria evento={evento} />
+      <PaginaGaleria evento={evento} nicho={sintetico.type} recursos={recursos} />
     ) : (
       <RecursoIndisponivel
         titulo="Galeria indisponível"
@@ -91,19 +98,22 @@ export default async function PreviewEventoPage({
     );
   }
 
+  const escuro = templatePorId(evento.templateId).clima === "escuro";
+
   return (
     <div
-      className={`evt${fonteCaps} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none`}
+      className={`evt${fonteCaps} font-evt-body ${escuro ? "text-[#F3E4C4]" : "text-evt-ink"} flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none`}
       style={{ ...varsDoTema(tema), ...varsDaFonte(fonteKey) }}
     >
-      <SiteAtmosphere fotoUrl={evento.fotoUrl} particleColors={particleColors} />
-      <SiteNav nome={evento.primeiroNome} recursos={recursos} />
+      <SiteAtmosphere fotoUrl={evento.fotoUrl} particleColors={particleColors} dark={escuro} />
+      <SiteNav nome={evento.primeiroNome} recursos={recursos} dark={escuro} />
       {corpo}
       <SiteFooter
         nome={evento.primeiroNome}
         linhaInfo={evento.footerInfo}
         whiteLabel={whiteLabel}
         brandName={prof.brandName ?? prof.name}
+        dark={escuro}
       />
     </div>
   );
