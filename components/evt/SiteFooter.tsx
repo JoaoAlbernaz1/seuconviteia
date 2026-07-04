@@ -17,26 +17,18 @@ export function SiteFooter({
   linhaInfo,
   whiteLabel = false,
   brandName,
-  dark = false,
 }: {
   nome: string;
   linhaInfo: string;
   whiteLabel?: boolean;
   brandName?: string;
-  dark?: boolean;
 }) {
-  const nomeCor = dark ? "text-[#F3E4C4]" : "text-evt-ink";
-  const infoCor = dark ? "text-[#F3E4C4]/60" : "text-evt-ink-soft";
-  const italicCor = dark ? "text-[#F3E4C4]/70" : "text-evt-ink-soft";
-  const creditCor = dark ? "text-[#F3E4C4]/50" : "text-evt-ink-soft/70";
+  const nomeCor = "text-evt-ink";
+  const infoCor = "text-evt-ink-soft";
+  const italicCor = "text-evt-ink-soft";
+  const creditCor = "text-evt-ink-soft/70";
   return (
-    <footer
-      className={
-        dark
-          ? "border-t border-white/10 bg-[#0C0906] text-[#F3E4C4]"
-          : "border-t border-[var(--line)] bg-evt-ivory text-evt-ink"
-      }
-    >
+    <footer className="border-t border-[var(--line)] bg-evt-ivory text-evt-ink">
       <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-6 px-[clamp(1.25rem,5vw,2rem)] py-[clamp(4rem,9vw,5.5rem)] text-center">
         <p className={`font-evt-script text-[clamp(3rem,9vw,4.2rem)] leading-none ${nomeCor}`}>
           {nome}

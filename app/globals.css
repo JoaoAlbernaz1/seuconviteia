@@ -1208,3 +1208,72 @@ body {
     transform: none !important;
   }
 }
+
+/* ============================================================
+ * DESIGN SYSTEM do PAINEL/SaaS — tokens `ui-*` (claro/premium).
+ * Ateliê digital de eventos: off-white, champagne, rosé, grafite, bege.
+ * Substitui o painel escuro (`scv-*`). Utilities: bg-ui-surface,
+ * text-ui-ink, border-ui-line, rounded-ui-lg, + classes .ui-shadow*/.ui-ring.
+ * ============================================================ */
+:root {
+  --ui-bg: #faf7f1; /* off-white quente (fundo base) */
+  --ui-bg-warm: #f2eadf; /* bege claro (seções) */
+  --ui-surface: #ffffff; /* card */
+  --ui-surface-2: #fbf6ee; /* champagne bem clara (card secundário) */
+  --ui-ink: #2b2926; /* grafite (texto forte) */
+  --ui-ink-soft: #6e6860; /* texto secundário */
+  --ui-ink-faint: #a69e93; /* texto sutil / placeholder */
+  --ui-line: rgba(43, 41, 38, 0.1); /* borda suave */
+  --ui-line-strong: rgba(43, 41, 38, 0.18);
+  --ui-rose: #c77e88; /* acento rosé */
+  --ui-rose-ink: #a85562; /* rosé profundo (texto/hover) */
+  --ui-rose-soft: #f5e7e8; /* wash rosé */
+  --ui-champagne: #c9b08a; /* acento champagne/ouro */
+  --ui-champagne-soft: #f3ead8;
+  --ui-danger: #be4b3b;
+  --ui-danger-soft: #f7e4e0;
+  --ui-success: #5b8768;
+  --ui-success-soft: #e7efe9;
+  --ui-r-sm: 10px;
+  --ui-r: 14px;
+  --ui-r-lg: 20px;
+  --ui-r-xl: 28px;
+  --ui-shadow-sm: 0 1px 2px rgba(43, 41, 38, 0.04), 0 2px 8px -4px rgba(43, 41, 38, 0.06);
+  --ui-shadow: 0 6px 24px -12px rgba(43, 41, 38, 0.14);
+  --ui-shadow-lg: 0 24px 60px -28px rgba(43, 41, 38, 0.2);
+  --ui-shadow-rose: 0 14px 34px -18px rgba(168, 85, 98, 0.4);
+}
+
+@theme inline {
+  --color-ui-bg: var(--ui-bg);
+  --color-ui-bg-warm: var(--ui-bg-warm);
+  --color-ui-surface: var(--ui-surface);
+  --color-ui-surface-2: var(--ui-surface-2);
+  --color-ui-ink: var(--ui-ink);
+  --color-ui-ink-soft: var(--ui-ink-soft);
+  --color-ui-ink-faint: var(--ui-ink-faint);
+  --color-ui-line: var(--ui-line);
+  --color-ui-line-strong: var(--ui-line-strong);
+  --color-ui-rose: var(--ui-rose);
+  --color-ui-rose-ink: var(--ui-rose-ink);
+  --color-ui-rose-soft: var(--ui-rose-soft);
+  --color-ui-champagne: var(--ui-champagne);
+  --color-ui-champagne-soft: var(--ui-champagne-soft);
+  --color-ui-danger: var(--ui-danger);
+  --color-ui-danger-soft: var(--ui-danger-soft);
+  --color-ui-success: var(--ui-success);
+  --color-ui-success-soft: var(--ui-success-soft);
+  --radius-ui-sm: var(--ui-r-sm);
+  --radius-ui: var(--ui-r);
+  --radius-ui-lg: var(--ui-r-lg);
+  --radius-ui-xl: var(--ui-r-xl);
+}
+
+.ui-shadow-sm { box-shadow: var(--ui-shadow-sm); }
+.ui-shadow { box-shadow: var(--ui-shadow); }
+.ui-shadow-lg { box-shadow: var(--ui-shadow-lg); }
+.ui-shadow-rose { box-shadow: var(--ui-shadow-rose); }
+.ui-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ui-surface), 0 0 0 4px var(--ui-rose);
+}

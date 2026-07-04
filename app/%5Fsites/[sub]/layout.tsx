@@ -10,7 +10,6 @@ import { SiteFooter } from "@/components/evt/SiteFooter";
 import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
-import { templatePorId } from "@/lib/templates";
 import { fonteDupla, lerFonteKey, varsDaFonte } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoPermite } from "@/lib/plans";
@@ -53,23 +52,20 @@ export default async function EventSiteLayout({
   const recursos = recursosDoSite(event.plan, event.customization);
   const whiteLabel = planoPermite(event.plan, "whiteLabel");
   const brandName = event.professional?.brandName ?? event.professional?.name;
-  // Clima do template: "escuro" (noite) -> chrome (atmosfera/nav/rodape) escuro.
-  const escuro = templatePorId(dados.templateId).clima === "escuro";
 
   return (
     <div
-      className={`evt${fonteCaps} font-evt-body ${escuro ? "text-[#F3E4C4]" : "text-evt-ink"} flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
+      className={`evt${fonteCaps} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
       style={{ ...varsDoTema(tema), ...varsDaFonte(fonteKey) }}
     >
-      <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} dark={escuro} />
-      <SiteNav nome={dados.primeiroNome} recursos={recursos} dark={escuro} />
+      <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />
+      <SiteNav nome={dados.primeiroNome} recursos={recursos} />
       {children}
       <SiteFooter
         nome={dados.primeiroNome}
         linhaInfo={dados.footerInfo}
         whiteLabel={whiteLabel}
         brandName={brandName}
-        dark={escuro}
       />
     </div>
   );
