@@ -6,7 +6,7 @@ import { PLANOS_INFO, PLAN_ORDER } from "@/lib/plans";
 export const metadata: Metadata = {
   title: "SeuConvite IA — sites de evento lindos para os seus clientes",
   description:
-    "A plataforma para cerimonialistas e profissionais de eventos. Assine um plano e crie eventos ilimitados (casamento, 15 anos, bodas e mais), com recursos liberados por nível de plano. Publicar é incluído — sem marca d'água, sem mensalidade por site, sem programar.",
+    "A plataforma para cerimonialistas e profissionais de eventos. Assine um plano e crie eventos ilimitados (casamento, 15 anos, aniversário e mais), com recursos liberados por nível de plano. Publicar é incluído — sem marca d'água, sem mensalidade por site, sem programar.",
 };
 
 // Links do painel vivem no subdominio `app.` — a partir do marketing (dominio
@@ -66,7 +66,7 @@ const STEPS: { n: string; t: string; d: ReactNode }[] = [
 ];
 
 const FEATURES: { icon: string; t: string; d: string }[] = [
-  { icon: "❖", t: "Multi-nicho", d: "casamento, 15 anos, 60 anos, bodas, aniversário." },
+  { icon: "❖", t: "Multi-nicho", d: "casamento, 15 anos, aniversário e mais." },
   {
     icon: "↗",
     t: "Endereço próprio",
@@ -149,7 +149,7 @@ export default function MarketingHome() {
 
               <p className="mkt-lede mkt-rise" style={delay(0.16)}>
                 <strong>Assine um plano</strong> e crie quantos eventos quiser —
-                casamento, 15 anos, bodas e mais, cada festa no seu endereço
+                casamento, 15 anos e mais, cada festa no seu endereço
                 próprio. Os recursos liberam <strong>por nível de plano</strong>.{" "}
                 <strong>Publicar é incluído no plano.</strong> Sem programar.
               </p>

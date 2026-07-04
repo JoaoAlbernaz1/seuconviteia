@@ -29,8 +29,6 @@ import {
 const OCASIOES = [
   "CASAMENTO",
   "QUINZE_ANOS",
-  "BODAS",
-  "SESSENTA_ANOS",
   "ANIVERSARIO",
 ] as const;
 
