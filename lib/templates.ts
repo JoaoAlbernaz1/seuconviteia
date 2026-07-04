@@ -116,40 +116,10 @@ const TODOS_RECURSOS: RecursoSite[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// O REGISTRO — 9 templates reais (3 por ocasiao) + legados
+// O REGISTRO — 4 templates do MVP (casamento 1 · 15 anos 1 · aniversario 2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TEMPLATES: Record<string, TemplateDefinition> = {
-  // ═══ LEGADO — designs ja existentes (renderizam; fora do seletor novo) ═══
-  classico: {
-    id: "classico",
-    nome: "Cinematográfico",
-    ocasiao: "quinze-anos",
-    categoria: "cinematografico",
-    descricao: "Capa cinematográfica escura com a foto em tela cheia.",
-    planoRecomendado: "BASICO",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "rose",
-    fontesPadrao: "classica",
-    clima: "escuro",
-    disponivel: true,
-    legado: true,
-  },
-  editorial: {
-    id: "editorial",
-    nome: "Editorial (legado)",
-    ocasiao: "casamento",
-    categoria: "editorial",
-    descricao: "Capa dividida foto | papel serifado, estilo revista.",
-    planoRecomendado: "BASICO",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "rose",
-    fontesPadrao: "classica",
-    clima: "claro",
-    disponivel: true,
-    legado: true,
-  },
-
   // ═══ CASAMENTO ═══
   "casamento-classico-elegante": {
     id: "casamento-classico-elegante",
@@ -164,32 +134,6 @@ export const TEMPLATES: Record<string, TemplateDefinition> = {
     clima: "claro",
     disponivel: true,
   },
-  "casamento-editorial-moderno": {
-    id: "casamento-editorial-moderno",
-    nome: "Editorial Moderno",
-    ocasiao: "casamento",
-    categoria: "editorial",
-    descricao: "Revista de casamento: fotos grandes, muito respiro e tipografia forte.",
-    planoRecomendado: "CLASSICO",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "verde",
-    fontesPadrao: "moderna",
-    clima: "claro",
-    disponivel: true,
-  },
-  "casamento-noite-luxo": {
-    id: "casamento-noite-luxo",
-    nome: "Noite Luxo",
-    ocasiao: "casamento",
-    categoria: "noite",
-    descricao: "Capa cinematográfica escura com dourado — clima de gala black tie.",
-    planoRecomendado: "PREMIUM",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "dourado",
-    fontesPadrao: "moderna",
-    clima: "escuro",
-    disponivel: true,
-  },
 
   // ═══ 15 ANOS ═══
   "quinze-anos-glamour-rose": {
@@ -201,32 +145,6 @@ export const TEMPLATES: Record<string, TemplateDefinition> = {
     planoRecomendado: "BASICO",
     recursosSuportados: TODOS_RECURSOS,
     paletaPadrao: "rose",
-    fontesPadrao: "romantica",
-    clima: "claro",
-    disponivel: true,
-  },
-  "quinze-anos-fashion-editorial": {
-    id: "quinze-anos-fashion-editorial",
-    nome: "Fashion Editorial",
-    ocasiao: "quinze-anos",
-    categoria: "editorial",
-    descricao: "Ensaio de revista: foto em destaque e tipografia marcante.",
-    planoRecomendado: "CLASSICO",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "azul",
-    fontesPadrao: "moderna",
-    clima: "claro",
-    disponivel: true,
-  },
-  "quinze-anos-princesa-delicado": {
-    id: "quinze-anos-princesa-delicado",
-    nome: "Princesa Delicado",
-    ocasiao: "quinze-anos",
-    categoria: "princesa",
-    descricao: "Tons claros, floral e brilho leve — romântico e delicado.",
-    planoRecomendado: "BASICO",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "lavanda",
     fontesPadrao: "romantica",
     clima: "claro",
     disponivel: true,
@@ -255,19 +173,6 @@ export const TEMPLATES: Record<string, TemplateDefinition> = {
     planoRecomendado: "BASICO",
     recursosSuportados: TODOS_RECURSOS,
     paletaPadrao: "rose",
-    fontesPadrao: "festiva",
-    clima: "claro",
-    disponivel: true,
-  },
-  "aniversario-tropical-festa": {
-    id: "aniversario-tropical-festa",
-    nome: "Tropical Festa",
-    ocasiao: "aniversario",
-    categoria: "tropical",
-    descricao: "Cores vivas e clima de comemoração — descontraído e festivo.",
-    planoRecomendado: "CLASSICO",
-    recursosSuportados: TODOS_RECURSOS,
-    paletaPadrao: "terracota",
     fontesPadrao: "festiva",
     clima: "claro",
     disponivel: true,
@@ -330,14 +235,9 @@ export function ocasiaoDoNicho(nicho: string): TemplateOccasion {
 /** Tags de estilo por template (para filtros e chips no card). */
 const TAGS_POR_TEMPLATE: Record<string, TemplateTag[]> = {
   "casamento-classico-elegante": ["classico", "romantico", "elegante", "dourado"],
-  "casamento-editorial-moderno": ["moderno", "editorial", "minimalista"],
-  "casamento-noite-luxo": ["luxo", "moderno", "dourado", "noturno"],
   "quinze-anos-glamour-rose": ["glamour", "romantico", "elegante", "rose"],
-  "quinze-anos-fashion-editorial": ["fashion", "editorial", "moderno"],
-  "quinze-anos-princesa-delicado": ["romantico", "delicado", "floral"],
   "aniversario-adulto-elegante": ["moderno", "minimalista", "elegante", "neutro"],
   "aniversario-infantil-ludico": ["infantil", "divertido", "colorido"],
-  "aniversario-tropical-festa": ["tropical", "vibrante", "festivo"],
 };
 
 /** Tags de um template (do campo `tags` ou do mapa). */

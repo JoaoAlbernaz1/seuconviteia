@@ -18,11 +18,14 @@ describe("lerTemplateId", () => {
     expect(lerTemplateId({ template: 123 })).toBe(TEMPLATE_PADRAO_ID);
   });
 
-  it("respeita um id válido (inclui legados)", () => {
+  it("respeita um id válido do MVP", () => {
     expect(lerTemplateId({ template: "quinze-anos-glamour-rose" })).toBe("quinze-anos-glamour-rose");
-    expect(lerTemplateId({ template: "casamento-noite-luxo" })).toBe("casamento-noite-luxo");
-    expect(lerTemplateId({ template: "classico" })).toBe("classico");
-    expect(lerTemplateId({ template: "editorial" })).toBe("editorial");
+    expect(lerTemplateId({ template: "aniversario-infantil-ludico" })).toBe("aniversario-infantil-ludico");
+  });
+
+  it("ids removidos (legado/fora do MVP) caem no padrão", () => {
+    expect(lerTemplateId({ template: "classico" })).toBe(TEMPLATE_PADRAO_ID);
+    expect(lerTemplateId({ template: "casamento-noite-luxo" })).toBe(TEMPLATE_PADRAO_ID);
   });
 });
 
@@ -83,17 +86,12 @@ describe("integridade do registro", () => {
     }
   });
 
-  it("os 9 templates reais existem e estão disponíveis", () => {
+  it("os 4 templates do MVP existem e estão disponíveis", () => {
     const ids = [
       "casamento-classico-elegante",
-      "casamento-editorial-moderno",
-      "casamento-noite-luxo",
       "quinze-anos-glamour-rose",
-      "quinze-anos-fashion-editorial",
-      "quinze-anos-princesa-delicado",
       "aniversario-adulto-elegante",
       "aniversario-infantil-ludico",
-      "aniversario-tropical-festa",
     ];
     for (const id of ids) {
       expect(TEMPLATES[id], id).toBeTruthy();
@@ -102,9 +100,9 @@ describe("integridade do registro", () => {
     }
   });
 
-  it("cada ocasião oferece exatamente 3 templates no seletor", () => {
-    expect(templatesPorOcasiao("casamento").length).toBe(3);
-    expect(templatesPorOcasiao("quinze-anos").length).toBe(3);
-    expect(templatesPorOcasiao("aniversario").length).toBe(3);
+  it("cada ocasião oferece o número esperado de templates no seletor", () => {
+    expect(templatesPorOcasiao("casamento").length).toBe(1);
+    expect(templatesPorOcasiao("quinze-anos").length).toBe(1);
+    expect(templatesPorOcasiao("aniversario").length).toBe(2);
   });
 });
