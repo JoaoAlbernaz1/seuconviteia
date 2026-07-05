@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Fraunces, Sora } from "next/font/google";
+import { Cormorant_Garamond, Fraunces, Sora, Space_Grotesk } from "next/font/google";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
 
@@ -17,6 +17,15 @@ const sora = Sora({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-sora",
+  display: "swap",
+});
+
+// Space Grotesk — display TECH da landing (titulos fortes, cara de SaaS/IA).
+// Substitui a serifa Fraunces no escopo `.mkt` (marketing), nao no evento/painel.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-space",
   display: "swap",
 });
 
@@ -45,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${fraunces.variable} ${sora.variable} ${cormorant.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${sora.variable} ${spaceGrotesk.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-nevoa font-sans text-ink">
         {children}
