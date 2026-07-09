@@ -2,7 +2,49 @@
 
 > **Para agentes:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para implementar tarefa a tarefa. Os passos usam checkbox (`- [ ]`) para acompanhamento.
 
-**Spec:** `docs/superpowers/specs/2026-07-09-producao-de-pe-design.md` (commit `3a71ece`)
+**Spec:** `docs/superpowers/specs/2026-07-09-producao-de-pe-design.md` (commit `3a71ece`) — **leia a §0 do spec: três premissas deste plano foram refutadas em execução.**
+
+## Estado da execução (2026-07-09)
+
+| Tarefa | Estado | Nota |
+|---|---|---|
+| 1 — Inspecionar banco de produção | **Resolvida sem trabalho** | `DATABASE_URL` de prod aponta para `127.0.0.1`. `TEM_DADO_REAL = não`. Nada a migrar. |
+| 2 — `AUTH_SECRET` | **Provavelmente já feito** em 03/07. Os erros lidos eram históricos. Confirmar no painel. |
+| 3 — Projetos Supabase | **Parcial** | Limite de 2 ativos confirmado. `Zinc` pausado (autorizado). Criado só `seuconviteia-prod` = `lhmezkzdaspwltgmlwyk`. Dev foi para Postgres local `sc-postgres` na porta **5433**. |
+| 4 — Schema Postgres | **Feita** | `0e3b1b3`. 147 testes verdes, `tsc` limpo. |
+| 5 — Primeira migration | **Feita** | `5b75efb`. 7 FKs reais, 8 tabelas. |
+| 6 — Provar independência da máquina | **Não se aplica ao dev** | O dev agora roda contra Docker local. A independência vale para a **produção**, e se prova quando ela subir contra o Supabase. |
+| 7 — Build aplica migrations | **Feita, com correção** | `1217a4f`. Virou `vercel-build`, não `build`: o CI roda `pnpm build` sem banco e quebraria. |
+| 8 — Repontar produção | **Bloqueada** | Falta a senha do Postgres do Supabase (só o dono obtém) e as env vars na Vercel. |
+| 9 — Promover a landing | **Bloqueada** | Deploys via git estão `BLOCKED` pela proteção de git author. Ver Tarefa 11. |
+| 10 — Documentação | **Feita** | `1217a4f`. `CLAUDE.md` e skills `db`/`run`/`deploy` diziam PlanetScale/MySQL. Novo `.env.example`. |
+| 11 — Deploys `BLOCKED` | **Causa encontrada** | Não é uma causa, são duas. Ver abaixo. |
+
+### Correções factuais ao que este plano afirmava
+
+- **`templateId` não vira `RESTRICT`.** A migration gerada traz `ON DELETE SET NULL`
+  (`confdeltype = 'n'`), porque a relação é opcional (`Template?`) e o padrão do
+  Prisma para relação opcional é `SetNull`. O passo 5 da Tarefa 5 esperava `r`.
+  Comportamento continua seguro: apagar um template zera a referência, não deixa órfão.
+- **O Prisma CLI não lê `.env.local`.** Só `.env`. As conexões de dev tiveram que
+  migrar para o `.env`, senão `migrate` falha com `Environment variable not found:
+  DIRECT_URL`.
+- **A porta 5432 já está ocupada** nesta máquina por um PostgreSQL nativo do Windows
+  (`postgresql-x64-17`). O container precisou ir para a **5433**; sem isso o Prisma
+  conecta no serviço nativo e falha com `P1000`.
+- **`prisma generate` falha com `EPERM`** no `query_engine-windows.dll.node` se o dev
+  server estiver rodando. Matar o processo do Next antes.
+
+### As duas travas da Tarefa 11 (só o dono resolve)
+
+1. **Git author.** Conta Vercel = `joaovictoralbernaz77@gmail.com`; commits assinados
+   como `joaovictoralbernaz95@gmail.com`. O time Pro exige que o autor tenha acesso →
+   `seatBlock: TEAM_ACCESS_REQUIRED`, deploy barrado antes do build. Corrigir
+   adicionando o e-mail `95` à conta Vercel, ou desligando a proteção de git author.
+2. **Vercel Authentication.** `ssoProtection: all_except_custom_domains` põe
+   `seuconviteia.vercel.app` atrás do login da Vercel. **O site não é público.**
+   Desligar Deployment Protection, ou apontar um domínio próprio. Sem isso, tráfego
+   pago é dinheiro jogado fora.
 
 **Goal:** A produção do `seuconvite.ia` funciona sozinha — login operante, banco na nuvem, landing aprovada no ar — sem depender de nenhuma máquina do dono estar ligada.
 

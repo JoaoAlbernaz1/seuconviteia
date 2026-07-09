@@ -2,7 +2,43 @@
 
 **Data:** 2026-07-09
 **Repo:** `JoaoAlbernaz1/seuconviteia` · branch `reset-mvp-convites` · HEAD `d393a9e`
-**Status:** aguardando revisão do dono
+**Status:** em execução — ver correções abaixo
+
+---
+
+## 0. Correções (2026-07-09, pós-execução parcial)
+
+Três afirmações deste spec estavam **erradas** e ficam registradas para não serem
+repetidas:
+
+1. **"`AUTH_SECRET` não está configurado"** — provavelmente falso. O erro
+   `MissingSecret` que eu li estava atribuído ao deploy `dpl_AxJuG…`, de 30 de junho,
+   e a última ocorrência é de 04/07. Uma nota de sessão anterior registra que
+   `AUTH_SECRET` e `NEXT_PUBLIC_ROOT_DOMAIN` **foram setados em produção em 03/07**.
+   Os erros são históricos. Conclusão tirada de log antigo.
+
+2. **O risco de §6 não se materializa.** O `DATABASE_URL` de produção aponta para
+   `127.0.0.1` (o MySQL do Docker), inalcançável pela Vercel. Logo **`TEM_DADO_REAL =
+   não`**: nunca houve banco de produção, e portanto não há dado a preservar. Os "4
+   usuários" dos logs são tentativas contra um banco inexistente.
+
+3. **A causa dos deploys `BLOCKED` é conhecida** e são, na verdade, **duas travas de
+   segurança** que este spec não mencionava:
+   - A conta Vercel é `joaovictoralbernaz77@gmail.com`; os commits são assinados como
+     `joaovictoralbernaz95@gmail.com`. O time Pro exige que o autor do commit tenha
+     acesso ao time → `seatBlock: TEAM_ACCESS_REQUIRED` → todo deploy via git é
+     barrado antes do build.
+   - O projeto tem `ssoProtection: all_except_custom_domains` (Vercel Authentication
+     ligada) → `seuconviteia.vercel.app` redireciona para o login da Vercel. **O site
+     não é público hoje.** Não adianta promover a landing nem comprar tráfego antes
+     de desligar isso ou apontar um domínio próprio.
+
+Também ficou provado, em execução, que o plano gratuito do Supabase permite **2
+projetos ativos por organização** (erro explícito da API). Só um projeto novo coube:
+`seuconviteia-prod` (`lhmezkzdaspwltgmlwyk`, `sa-east-1`). O `Zinc` foi pausado com
+autorização do dono, que confirmou não haver pagamento real em curso. O banco de
+**dev** ficou num Postgres local (`sc-postgres`, porta 5433); o dev compartilhado entre
+as duas máquinas depende do plano Pro.
 
 ---
 
