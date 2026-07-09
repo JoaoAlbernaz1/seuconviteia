@@ -1,12 +1,13 @@
 ---
 name: db
-description: Use ao trabalhar com Prisma, schema, seed, relacoes/indices, queries ou qualquer acesso a banco — mesmo que a tarefa nao fale "banco" (ex.: novo campo num form, nova entidade, RSVP, presentes). Garante o padrao multi-tenant e as restricoes do PlanetScale.
+description: Use ao trabalhar com Prisma, schema, seed, relacoes/indices, queries ou qualquer acesso a banco — mesmo que a tarefa nao fale "banco" (ex.: novo campo num form, nova entidade, RSVP, presentes). Garante o padrao multi-tenant e as convencoes de migration.
 ---
 
-# Banco — Prisma + MySQL (PlanetScale em prod)
+# Banco — Prisma + Postgres (Supabase em prod)
 
-Dev: MySQL 8 no Docker (`sc-mysql`). Prod: **PlanetScale**. Client singleton em
-`lib/db.ts`. Schema em `prisma/schema.prisma` — **ja existe e esta em uso**:
+Dev: Postgres 17 no Docker (`sc-postgres`, **porta 5433**). Prod: projeto Supabase
+`seuconviteia-prod`. Client singleton em `lib/db.ts`.
+Schema em `prisma/schema.prisma` — **ja existe e esta em uso**:
 models `Professional`, `Event`, `Guest`, `GiftItem`, `Photo`, `Recado`, `Template`,
 `Transaction` + enums `Plan`, `EventType`, `EventStatus`, `GuestStatus`, `GiftMode`.
 
@@ -18,9 +19,16 @@ ja quebrou uma vez. So subir de major com migracao deliberada (existe a skill gl
 
 ## Convencoes obrigatorias
 
-- **`relationMode = "prisma"`**: PlanetScale nao usa FKs reais. Consequencia pratica:
-  **TODA coluna de relacao precisa de `@@index([...])` explicito** (ex.: `eventId`,
-  `professionalId`), senao a query fica lenta — nao ha indice implicito de FK.
+- **FKs sao reais** (o `relationMode = "prisma"` do PlanetScale foi removido em
+  `0e3b1b3`): o banco aplica integridade e `onDelete: Cascade`.
+- **TODA coluna de relacao precisa de `@@index([...])` explicito** (ex.: `eventId`,
+  `professionalId`). Postgres **nao** indexa coluna de FK automaticamente — so a
+  chave primaria referenciada. Sem o indice, a query por relacao fica lenta.
+- **Duas conexoes**: `DATABASE_URL` e o pooler (transaction mode) e leva
+  `?pgbouncer=true&connection_limit=1`; `DIRECT_URL` e a conexao direta e serve
+  apenas as migrations. Trocar isso derruba producao por esgotamento de conexao.
+- **O Prisma CLI le apenas `.env`**, nunca `.env.local` (isso e convencao do
+  Next.js). Conexao de dev mora no `.env`.
 - Campos flexiveis do evento (paleta, textos, programacao, pix, fotos) vivem no JSON
   **`Event.customization`** — lido/normalizado por `lib/eventoFesta.ts` e
   `lib/convite.ts` (`lerConteudo`). Novo campo de personalizacao entra AI, nao como
@@ -36,9 +44,12 @@ ja quebrou uma vez. So subir de major com migracao deliberada (existe a skill gl
 ## Fluxo de alteracao de schema
 
 1. Editar `prisma/schema.prisma` (lembrar `@@index` nas relacoes novas).
-2. `pnpm db:push` (dev; sem arquivo de migration) + `pnpm db:generate` se preciso.
+2. `pnpm db:migrate --name <descricao>` — cria o arquivo em `prisma/migrations/` e
+   aplica no dev. **Commitar a migration.** Nao use `db:push`: o banco e
+   compartilhado, e `push` sem historico sobrescreve o schema do outro sem registro.
 3. Atualizar `prisma/seed.ts` se o dado demo mudar — o seed e **idempotente**, mantenha assim.
-4. Prod/PlanetScale: mudanca sai via deploy request (branch -> main), na Fase 8.
+4. Prod: o `vercel-build` roda `prisma migrate deploy` a cada deploy. O CI roda
+   `pnpm build` (sem migrate) contra envs dummy — nunca toca banco.
 
 ## Tipos e validacao
 

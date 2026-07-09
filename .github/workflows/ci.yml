@@ -18,7 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DATABASE_URL: mysql://root:root@127.0.0.1:3306/seuconviteia
+      # Dummies: nenhuma pagina conecta no banco em build time. O CI roda
+      # `pnpm build` (= next build), NAO o `vercel-build` — migrations sao
+      # aplicadas so no deploy, contra o banco de verdade.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/seuconviteia
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/seuconviteia
       AUTH_SECRET: ci-dummy-secret-nao-usar-em-prod
       NEXT_PUBLIC_ROOT_DOMAIN: seuconviteia.com
     steps:
