@@ -1,7 +1,24 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Fraunces, Sora, Space_Grotesk } from "next/font/google";
+import { Cormorant_Garamond, Fraunces, Hanken_Grotesk, Inter, Sora, Space_Grotesk } from "next/font/google";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
+
+// Inter — corpo da landing clara (escopo `.mkt`). Igual à referência do dono.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+// Hanken Grotesk — display PESADO da landing clara (substituto grátis do TWK
+// Lausanne, que é licenciado). Só no escopo `.mkt`; não toca painel/evento.
+const hanken = Hanken_Grotesk({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-mktdisplay",
+  display: "swap",
+});
 
 // Fraunces — display / titulos (com italico).
 const fraunces = Fraunces({
