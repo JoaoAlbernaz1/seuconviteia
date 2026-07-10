@@ -79,11 +79,20 @@ export function HomeQuinzeGlamour({ evento, nicho, recursos }: PaginaTemplatePro
           </Reveal>
           <Reveal delay={120} className="mt-10">
             <QgrPanel autoSheen className="p-[clamp(1.9rem,6vw,3.25rem)]">
+              {evento.pais && (
+                <p className="mb-6 text-center font-evt-body text-[1.15rem] font-medium leading-relaxed text-evt-rosa-ink">
+                  Os pais de {nome} convidam você para celebrar os {evento.idade} anos
+                  de sua filha.
+                </p>
+              )}
               <p className="drop-cap font-evt-body text-[1.22rem] leading-relaxed text-evt-ink">
                 {mensagem}
               </p>
-              <p className="mt-9 text-center font-evt-script text-[clamp(2rem,6vw,2.9rem)] leading-tight text-evt-rosa-ink">
-                {t.assinaturaPrefixo} {nome}
+              <p className="mt-9 text-center font-evt-script text-[clamp(1.6rem,4.5vw,2.2rem)] leading-tight text-evt-ink-soft">
+                {t.assinaturaPrefixo}
+              </p>
+              <p className="mt-1 text-center font-evt-script text-[clamp(2rem,6vw,2.9rem)] leading-tight text-evt-rosa-ink">
+                {evento.pais ? `${evento.pais} e ${nome}` : nome}
               </p>
             </QgrPanel>
           </Reveal>
