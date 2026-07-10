@@ -121,8 +121,10 @@ As skills **do projeto** (`brand`, `db`, `deploy`, `evt`, `run`, `tenant`,
 ## Stack & convenções
 
 Next.js 16 (App Router, React 19, React Compiler) · TypeScript strict · Tailwind v4 ·
-Prisma + PlanetScale (MySQL, `relationMode="prisma"`) · Auth.js · Mercado Pago (Pix) ·
-Resend · Vercel Blob · Vercel. Gerenciador **pnpm**. Multi-tenant por subdomínio
+Prisma + Supabase (Postgres, FKs reais) · Auth.js · Mercado Pago (Pix) ·
+Resend · Vercel Blob · Vercel. Gerenciador **pnpm**. ⚠️ Mercado Pago, Resend e Vercel
+Blob **não estão instalados** no `package.json` — são fases futuras, não código atual.
+Multi-tenant por subdomínio
 (`<cliente>.seuconviteia.com`, rewrite → `app/_sites/[sub]`). `lib/plans.ts` = fonte
 única do gating; `lib/templates.ts` = 4 templates do MVP. `CLAUDE.md` tem as regras.
 
