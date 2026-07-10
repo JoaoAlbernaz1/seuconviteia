@@ -34,6 +34,7 @@ export default async function DetalhesPage({
     local: conteudo.local ?? "",
     endereco: conteudo.endereco ?? "",
     traje: conteudo.traje ?? "",
+    pais: conteudo.pais ?? "",
     mensagem: conteudo.mensagem ?? "",
   };
 

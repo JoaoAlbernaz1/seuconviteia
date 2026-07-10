@@ -37,6 +37,20 @@ describe("lerConteudo", () => {
     expect(rotulo("ANIVERSARIO")).toBe("Aniversário");
   });
 
+  it("le o campo pais quando presente e omite quando vazio", () => {
+    const comPais = lerConteudo({
+      ...baseEvent,
+      customization: { pais: "  Adalberto e Ivânia  " },
+    });
+    expect(comPais.pais).toBe("Adalberto e Ivânia");
+
+    const semPais = lerConteudo({
+      ...baseEvent,
+      customization: { pais: "" },
+    });
+    expect(semPais.pais).toBeUndefined();
+  });
+
   it("le e limpa os campos de customization (vazio -> omitido)", () => {
     const c = lerConteudo({
       ...baseEvent,

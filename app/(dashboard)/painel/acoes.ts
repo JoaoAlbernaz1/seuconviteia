@@ -263,6 +263,7 @@ const detalhesSchema = z.object({
   local: z.string().trim().max(200).optional(),
   endereco: z.string().trim().max(300).optional(),
   traje: z.string().trim().max(120).optional(),
+  pais: z.string().trim().max(160).optional(),
   mensagem: z.string().trim().max(2000).optional(),
 });
 
@@ -280,6 +281,7 @@ export async function atualizarDetalhes(
     local: str(formData, "local"),
     endereco: str(formData, "endereco"),
     traje: str(formData, "traje"),
+    pais: str(formData, "pais"),
     mensagem: str(formData, "mensagem"),
   });
   if (!parsed.success) {
@@ -290,7 +292,7 @@ export async function atualizarDetalhes(
       ),
     };
   }
-  const { title, date, time, local, endereco, traje, mensagem } = parsed.data;
+  const { title, date, time, local, endereco, traje, pais, mensagem } = parsed.data;
 
   const dh = parseDataHora(date, time, "edit");
   if (!dh.ok) return { fieldErrors: { date: dh.erro } };
@@ -304,6 +306,7 @@ export async function atualizarDetalhes(
       expiresAt: dh.expiresAt,
       customization: mesclar(event.customization, {
         mensagem,
+        pais,
         local,
         endereco,
         traje,

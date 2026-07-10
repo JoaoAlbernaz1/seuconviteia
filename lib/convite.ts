@@ -42,6 +42,8 @@ export type ConviteConteudo = {
   endereco?: string;
   mapsUrl?: string;
   traje?: string;
+  /** Nomes dos pais/organizadores — linha do convite ("Os pais de X convidam…") e assinatura. */
+  pais?: string;
   programacao: ProgramacaoItem[];
   fotoUrl?: string;
   fotos: string[];
@@ -90,6 +92,7 @@ const customizationSchema = z
     endereco: z.string(),
     mapsUrl: z.string(),
     traje: z.string(),
+    pais: z.string(),
     programacao: z.array(programacaoItemSchema),
     fotoUrl: z.string(),
     fotos: z.array(z.string()),
@@ -159,6 +162,7 @@ export function lerConteudo(event: EventoParaConteudo): ConviteConteudo {
     endereco: texto(custom.endereco),
     mapsUrl: texto(custom.mapsUrl),
     traje: texto(custom.traje),
+    pais: texto(custom.pais),
     programacao,
     fotoUrl: texto(custom.fotoUrl),
     fotos,
