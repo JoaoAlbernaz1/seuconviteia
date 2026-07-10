@@ -104,52 +104,56 @@ export function HomeQuinzeGlamour({ evento, nicho, recursos }: PaginaTemplatePro
         </div>
       </section>
 
-      {/* ── Quando & Onde (delicado) ──────────────────────────────────────── */}
+      {/* ── Quando & Onde (card único, duas colunas — fiel à festa) ────────── */}
       <section className={`bg-transparent ${PAD} ${RHYTHM}`}>
-        <div className={WRAP}>
+        <div className="mx-auto max-w-[820px]">
           <Reveal>
-            <QgrHeading eyebrow="A celebração" titulo="Quando & Onde" />
-          </Reveal>
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <Reveal className="h-full">
-              <QgrCard className="flex h-full flex-col items-center p-[clamp(1.75rem,5vw,2.75rem)] text-center">
-                <QgrSparkle className="qgr-twinkle h-5 w-5 text-evt-rosa" />
-                <p className="mt-4 font-evt-util text-[0.62rem] uppercase tracking-[0.32em] text-evt-rosa-ink">
+            <QgrCard className="grid gap-8 p-[clamp(1.9rem,5vw,3rem)] sm:grid-cols-2 sm:gap-0">
+              <div className="flex flex-col sm:pr-8">
+                <p className="font-evt-util text-[0.62rem] uppercase tracking-[0.34em] text-evt-rosa-ink">
                   Quando
                 </p>
-                <p className="mt-4 font-evt-body text-[1.35rem] text-evt-ink">{evento.data}</p>
-                <p className="qgr-foil mt-1 font-evt-display text-[clamp(2.4rem,8vw,3.2rem)] tracking-[0.03em]">
-                  {evento.horario}
-                </p>
-              </QgrCard>
-            </Reveal>
-            <Reveal delay={100} className="h-full">
-              <QgrCard className="flex h-full flex-col items-center p-[clamp(1.75rem,5vw,2.75rem)] text-center">
-                <QgrSparkle className="qgr-twinkle h-5 w-5 text-evt-rosa" />
-                <p className="mt-4 font-evt-util text-[0.62rem] uppercase tracking-[0.32em] text-evt-rosa-ink">
+                <p className="mt-4 font-evt-body text-[1.3rem] text-evt-ink">{evento.data}</p>
+                {evento.horario && (
+                  <p className="qgr-foil mt-1 font-evt-display text-[clamp(2.2rem,7vw,3rem)] tracking-[0.03em]">
+                    {evento.horario}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col sm:border-l sm:border-[var(--line-rosa)] sm:pl-8">
+                <p className="font-evt-util text-[0.62rem] uppercase tracking-[0.34em] text-evt-rosa-ink">
                   Onde
                 </p>
-                <p className="mt-4 font-evt-script text-[clamp(2rem,6vw,2.6rem)] leading-tight text-evt-ink">
+                <p className="mt-4 font-evt-script text-[clamp(1.9rem,5.5vw,2.4rem)] leading-tight text-evt-ink">
                   {evento.local ?? "O local"}
                 </p>
                 {evento.endereco && (
-                  <p className="mt-2 font-evt-body text-[1.02rem] text-evt-ink-soft">{evento.endereco}</p>
-                )}
-                {evento.traje && (
-                  <p className="mt-4 font-evt-util text-[0.6rem] uppercase tracking-[0.26em] text-evt-ink-soft">
-                    Traje · {evento.traje}
+                  <p className="mt-2 font-evt-body text-[1rem] leading-relaxed text-evt-ink-soft">
+                    {evento.endereco}
                   </p>
                 )}
-              </QgrCard>
-            </Reveal>
-          </div>
-          <Reveal delay={160} className="mt-10 flex justify-center">
+              </div>
+            </QgrCard>
+          </Reveal>
+          <Reveal delay={140} className="mt-10 flex justify-center">
             <QgrLink href="/evento">
               Ver mapa e programação <ArrowRight className="h-4 w-4" />
             </QgrLink>
           </Reveal>
         </div>
       </section>
+
+      {/* ── Traje (seção própria — fiel à festa) ──────────────────────────── */}
+      {evento.traje && (
+        <section className={`bg-transparent ${PAD}`}>
+          <Reveal className="flex flex-col items-center text-center">
+            <QgrEyebrow>Traje</QgrEyebrow>
+            <p className="mt-4 font-evt-script text-[clamp(2.2rem,7vw,3.2rem)] leading-tight text-evt-ink">
+              {evento.traje}
+            </p>
+          </Reveal>
+        </section>
+      )}
 
       {/* ── Contador (recurso) ────────────────────────────────────────────── */}
       {recursos.contador && (
