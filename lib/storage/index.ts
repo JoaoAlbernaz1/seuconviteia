@@ -81,15 +81,23 @@ class LocalDiskStorage implements StorageProvider {
 }
 
 /**
- * TODO(Fase Blob): implementar com `@vercel/blob`:
- *   const { url } = await put(`${dir}/${nome}`, file, { access: "public" });
- * Selecionado quando `BLOB_READ_WRITE_TOKEN` estiver presente.
+ * Storage em produção — Vercel Blob. Selecionado quando `BLOB_READ_WRITE_TOKEN`
+ * está presente (setado pela Vercel quando um Blob store é conectado ao projeto).
+ * O disco da Vercel é efêmero, então em produção a foto PRECISA ir para cá.
  */
 class VercelBlobStorage implements StorageProvider {
-  async salvar(): Promise<SalvarResult> {
-    throw new Error(
-      "Vercel Blob ainda nao implementado — rode sem BLOB_READ_WRITE_TOKEN (storage local) em dev.",
-    );
+  async salvar(file: File, dir: string): Promise<SalvarResult> {
+    const { put } = await import("@vercel/blob");
+    const safe = dirSeguro(dir);
+    const nome = `${randomUUID()}.${extDeImagem(file.type, file.name)}`;
+    const caminho = safe ? `${safe}/${nome}` : nome;
+    // `addRandomSuffix: false` — o nome já é um UUID, não precisa de sufixo extra.
+    const { url } = await put(caminho, file, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: file.type || undefined,
+    });
+    return { url };
   }
 }
 
