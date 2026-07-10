@@ -11,8 +11,15 @@
  * fica em `carregarEventoFesta` (cacheada por request).
  */
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { tagEvento } from "@/lib/cacheTags";
+import {
+  reviverEventoFesta,
+  type EventoCru,
+  type EventoFestaRow,
+} from "@/lib/eventoCru";
 import {
   lerConteudo,
   type EventoParaConteudo,
@@ -161,13 +168,47 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
   };
 }
 
+// ----------------------------------------------------------------------------
+// Carregamento + Data Cache
+// ----------------------------------------------------------------------------
+
 /**
- * Carrega o Event do subdominio (+ relacoes usadas pela home). Cacheado por
- * request (React `cache`) para o layout e a page compartilharem a mesma query.
+ * Query crua do evento, no Data Cache do Next.
+ *
+ * `revalidate: 300` NAO e redundante com a tag: e a rede de seguranca para o dia
+ * em que alguem adicionar um ponto de escrita e esquecer de invalidar. Com ele, o
+ * custo do esquecimento cai de "stale para sempre" para "ate 5 minutos".
+ *
+ * Nao afeta a exatidao da expiracao: as paginas seguem `force-dynamic` e chamam
+ * `eventoPublico(event, new Date())` a cada visita. O que envelhece e a LINHA do
+ * banco, e o `expiresAt` dela nao muda com o tempo.
  */
-export const carregarEventoFesta = cache(async (sub: string) => {
-  return prisma.event.findUnique({
-    where: { subdomain: sub },
-    include: { professional: true, template: true, gifts: true, photos: true },
-  });
-});
+const carregarEventoCru = (sub: string) =>
+  unstable_cache(
+    async () =>
+      prisma.event.findUnique({
+        where: { subdomain: sub },
+        include: {
+          professional: true,
+          template: true,
+          gifts: true,
+          photos: true,
+        },
+      }),
+    ["evento-festa", sub],
+    { tags: [tagEvento(sub)], revalidate: 300 },
+  )();
+
+/**
+ * Carrega o Event do subdominio (+ relacoes usadas pela home).
+ *
+ * Duas camadas, de fora para dentro:
+ *  - `cache()` do React: memoiza por REQUISICAO (layout e page compartilham).
+ *  - `unstable_cache`: persiste ENTRE requisicoes, invalidado por `tagEvento(sub)`.
+ *
+ * O revival no meio existe porque o `unstable_cache` serializa.
+ */
+export const carregarEventoFesta = cache(
+  async (sub: string): Promise<EventoFestaRow | null> =>
+    reviverEventoFesta((await carregarEventoCru(sub)) as EventoCru | null),
+);
