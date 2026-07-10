@@ -36,5 +36,11 @@ export default async function GaleriaPage({
     );
   }
 
-  return <PaginaGaleria evento={lerEventoFesta(event)} />;
+  return (
+    <PaginaGaleria
+      evento={lerEventoFesta(event)}
+      nicho={event.type}
+      recursos={recursosDoSite(event.plan, event.customization)}
+    />
+  );
 }

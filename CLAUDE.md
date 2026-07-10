@@ -4,7 +4,7 @@ SaaS **B2B multi-tenant** ("iCasei multi-nicho"): profissionais criam sites de c
 para clientes, cada um em seu subdominio (`<cliente>.seuconviteia.com`). Marca turquesa+roxo.
 
 **Stack:** Next.js 16 (App Router, React 19, React Compiler), TypeScript strict,
-Tailwind v4, Prisma + PlanetScale (MySQL, `relationMode="prisma"`), Auth.js,
+Tailwind v4, Prisma + Supabase (Postgres, FKs reais), Auth.js,
 Mercado Pago (Pix), Resend, Vercel Blob, Vercel. Gerenciador: **pnpm**.
 
 ## Skills do projeto
@@ -17,9 +17,9 @@ Sempre **use a skill relevante antes de cada tarefa** (`.claude/skills/<nome>/SK
   onde a marca NAO vale (site do evento).
 - **tenant** — multi-tenancy por subdominio, `lib/tenant.ts`, matcher do middleware
   (sem `/api`/extensao no subdominio), isolamento por tenant.
-- **db** — Prisma 6 (fixado) + MySQL/PlanetScale, `Event.customization`,
+- **db** — Prisma 6 (fixado) + Postgres/Supabase, `Event.customization`,
   plano herdado da conta, indices de FK, seed idempotente.
-- **run** — banco Docker `sc-mysql`, comandos reais, login demo, gotchas de dev,
+- **run** — banco Docker `sc-postgres` (porta 5433), comandos reais, login demo, gotchas de dev,
   checklist de pronto.
 - **deploy** — Vercel, dominio + wildcard `*.seuconviteia.com`, env vars, DNS.
 

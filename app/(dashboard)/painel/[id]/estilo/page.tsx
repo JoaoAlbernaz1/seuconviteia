@@ -5,7 +5,7 @@ import Link from "next/link";
 import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { lerTemaKey } from "@/lib/temas";
 import { lerFonteKey } from "@/lib/fontes";
-import { textosDoNicho } from "@/lib/textos";
+import { lerTemplateId } from "@/lib/templates";
 import { rascunhoDoEvento } from "@/lib/previewEvento";
 import { BTN_VOLTAR, COLUNA, SUB, TITULO } from "../../_ui/estilos";
 import { carregarEventoDono, hostDoEvento, voltarDe } from "../_carregar";
@@ -43,10 +43,11 @@ export default async function EstiloPage({
         eventId={event.id}
         voltar={voltar}
         host={hostDoEvento(event.subdomain)}
+        nicho={event.type}
         nome={event.title}
-        kicker={textosDoNicho(event.type).conviteTitulo}
         temaAtual={lerTemaKey(event.customization)}
         fonteAtual={lerFonteKey(event.customization)}
+        templateAtual={lerTemplateId(event.customization)}
         rascunhoBase={rascunhoDoEvento(event)}
       />
     </div>

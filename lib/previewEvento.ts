@@ -26,6 +26,7 @@ const rascunhoSchema = z
     type: z.string().max(40),
     tema: z.string().max(40),
     fontes: z.string().max(40),
+    template: z.string().max(40),
     title: z.string().max(140),
     date: z.string().max(10),
     time: z.string().max(5),
@@ -91,6 +92,7 @@ export function rascunhoDoEvento(event: {
     type: event.type,
     tema: s("tema"),
     fontes: s("fontes"),
+    template: s("template"),
     title: event.title,
     date,
     time,
@@ -160,6 +162,7 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
   const customization = semUndefined({
     tema: texto(r.tema),
     fontes: texto(r.fontes),
+    template: texto(r.template),
     recursos,
     mensagem: texto(r.mensagem),
     presentesTexto: texto(r.presentesTexto),

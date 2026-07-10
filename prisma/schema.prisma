@@ -1,17 +1,13 @@
-// SeuConvite IA — schema Prisma (PlanetScale / MySQL).
+// SeuConvite IA — schema Prisma (Supabase / Postgres).
 //
-// PlanetScale NAO usa foreign keys no banco: `relationMode = "prisma"` faz o
-// Prisma emular a integridade referencial na camada de aplicacao.
-// Consequencias seguidas aqui:
-//   - Toda coluna escalar de relacao (FK) tem um `@@index` explicito, senao as
-//     queries por relacao ficam lentas (nao ha indice implicito de FK).
-//   - `onDelete: Cascade` e mantido como EMULACAO no nivel do Prisma; o banco NAO
-//     aplica cascade. Cascades reais sao responsabilidade da aplicacao.
+// Foreign keys e `onDelete: Cascade` sao REAIS, aplicados pelo banco.
+// Os `@@index` nas colunas de FK sao obrigatorios: Postgres nao indexa
+// coluna de FK automaticamente, apenas a chave primaria referenciada.
 
 datasource db {
-  provider     = "mysql"
-  url          = env("DATABASE_URL")
-  relationMode = "prisma" // PlanetScale: sem FKs no banco
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooler (runtime)
+  directUrl = env("DIRECT_URL")   // conexao direta (migrations)
 }
 
 generator client {

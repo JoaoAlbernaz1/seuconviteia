@@ -46,7 +46,9 @@ export default async function DetalhesPage({
         <div>
           <h1 className={TITULO}>Editar o site</h1>
           <p className={`${SUB} mt-1`}>
-            O essencial do convite — o site ao lado reage na hora.
+            O essencial do convite — o site{" "}
+            <span className="lg:hidden">logo abaixo</span>
+            <span className="hidden lg:inline">ao lado</span> reage na hora.
           </p>
         </div>
       </div>

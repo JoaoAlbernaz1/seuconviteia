@@ -37,5 +37,11 @@ export default async function PresentesPage({
     );
   }
 
-  return <PaginaPresentes evento={lerEventoFesta(event)} />;
+  return (
+    <PaginaPresentes
+      evento={lerEventoFesta(event)}
+      nicho={event.type}
+      recursos={recursosDoSite(event.plan, event.customization)}
+    />
+  );
 }

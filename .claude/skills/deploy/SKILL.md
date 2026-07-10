@@ -27,7 +27,11 @@ Sem o wildcard, novos subdominios de evento nao resolvem.
 
 Configure na Vercel todas as chaves de `.env.example`:
 
-- `DATABASE_URL` — connection string do **PlanetScale** (banco de producao).
+- `DATABASE_URL` — pooler do projeto Supabase **`seuconviteia-prod`** (porta `6543`),
+  com `?pgbouncer=true&connection_limit=1`. Sem esse sufixo, prepared statements
+  quebram de forma intermitente sob concorrencia.
+- `DIRECT_URL` — conexao direta do mesmo projeto (porta `5432`). Usada pelo
+  `vercel-build` (`prisma migrate deploy`). Sem ela, o build falha.
 - `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
 - `RESEND_API_KEY`, `EMAIL_FROM`, `SUPPORT_EMAIL`
 - `MERCADOPAGO_ACCESS_TOKEN`, `BLOB_READ_WRITE_TOKEN`

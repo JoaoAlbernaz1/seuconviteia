@@ -9,12 +9,28 @@ Gerenciador de pacotes: **pnpm**. Porta padrao: **3000**.
 
 ## Banco local (pre-requisito do dev)
 
-MySQL 8 em Docker, container **`sc-mysql`** (`mysql://root:root@127.0.0.1:3306/seuconviteia`):
+Postgres 17 em Docker, container **`sc-postgres`**
+(`postgresql://postgres:postgres@127.0.0.1:5433/seuconviteia`):
 
 ```bash
-docker start sc-mysql   # container ja existe; so precisa estar de pe
-pnpm db:push            # sincroniza o schema
-pnpm db:seed            # seed idempotente (evento demo maria-clara + login demo)
+docker start sc-postgres  # container ja existe; so precisa estar de pe
+pnpm db:migrate           # aplica as migrations versionadas
+pnpm db:seed              # seed idempotente (evento demo maria-clara + login demo)
+```
+
+**Porta 5433, nao 5432.** Esta maquina roda um PostgreSQL nativo do Windows
+(servico `postgresql-x64-17`) escutando na 5432; se o container subir na 5432, o
+Prisma conecta no servico nativo e falha com `P1000: Authentication failed`.
+
+Se `prisma generate` der `EPERM ... query_engine-windows.dll.node`, o dev server
+esta segurando o arquivo. Mate o processo `node` do Next e rode de novo.
+
+Recriar o container do zero (ele nao vem junto ao trocar de maquina):
+
+```bash
+docker run -d --name sc-postgres --restart unless-stopped \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=seuconviteia \
+  -p 5433:5432 postgres:17
 ```
 
 Login demo do painel: **demo@seuconviteia.com / demo12345**.

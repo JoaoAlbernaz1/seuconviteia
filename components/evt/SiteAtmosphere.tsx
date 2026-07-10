@@ -21,8 +21,6 @@ export function SiteAtmosphere({
         className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden bg-white"
         aria-hidden
       >
-        {/* Foto de fundo com desfoque LEVE (reconhecivel mas suave). Escala 150%
-            p/ o blur nao mostrar borda (o pai tem overflow-hidden). */}
         {fotoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -32,7 +30,6 @@ export function SiteAtmosphere({
             style={{ filter: "blur(60px) grayscale(0.12) sepia(0.06)", opacity: 0.25 }}
           />
         )}
-        {/* tinta do tema muito sutil + veu branco forte p/ manter os textos legiveis */}
         <div className="absolute inset-0 bg-evt-rosa/[0.05] mix-blend-multiply" />
         <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/78 to-white/88" />
       </div>

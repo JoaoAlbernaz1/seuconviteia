@@ -9,8 +9,8 @@
  * Professional, subdomain do Event) e por id deterministico quando nao ha outro
  * campo unico (Templates, Guests, GiftItem).
  *
- * Uso: `pnpm db:seed` (precisa de DATABASE_URL apontando para um MySQL ja
- * migrado com `pnpm db:push`).
+ * Uso: `pnpm db:seed` (precisa de DATABASE_URL apontando para um Postgres ja
+ * migrado com `pnpm db:migrate`).
  */
 import {
   PrismaClient,

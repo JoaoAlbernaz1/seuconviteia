@@ -21,6 +21,7 @@ import {
   type ProgramacaoItem,
 } from "@/lib/convite";
 import { TEMA_PADRAO } from "@/lib/temas";
+import { lerTemplateId } from "@/lib/templates";
 
 export type EventoFesta = {
   /** Nome em destaque na capa / nav / rodape (event.title). */
@@ -64,6 +65,8 @@ export type EventoFesta = {
   footerInfo: string;
   /** Preset de cor do site (chave de `lib/temas.ts`). */
   tema: string;
+  /** Id do template de DESIGN do site (chave de `lib/templates.ts`). */
+  templateId: string;
 };
 
 /** Idade comemorada por nicho (quando ha uma). */
@@ -154,6 +157,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     fotos: c.fotos,
     footerInfo: `${dataPontilhada(event.eventDate)}${footerLocal}`,
     tema: texto(extras.tema) ?? TEMA_PADRAO,
+    templateId: lerTemplateId(event.customization),
   };
 }
 

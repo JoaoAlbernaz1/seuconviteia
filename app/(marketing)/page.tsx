@@ -1,384 +1,193 @@
 import type { Metadata } from "next";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { appUrl } from "@/lib/tenant";
-import { PLANOS_INFO, PLAN_ORDER } from "@/lib/plans";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { Planos } from "@/components/marketing/Planos";
 
 export const metadata: Metadata = {
-  title: "SeuConvite IA — sites de evento lindos para os seus clientes",
+  title: "seuconvite.ia — seu convite pronto em minutos, não em horas",
   description:
-    "A plataforma para cerimonialistas e profissionais de eventos. Assine um plano e crie eventos ilimitados (casamento, 15 anos, bodas e mais), com recursos liberados por nível de plano. Publicar é incluído — sem marca d'água, sem mensalidade por site, sem programar.",
+    "Convites digitais com RSVP automático. Preencha algumas informações, escolha o modelo e pronto: um convite lindo, com link exclusivo e confirmação de presença — sem saber design.",
 };
 
-// Links do painel vivem no subdominio `app.` — a partir do marketing (dominio
-// raiz) precisam ser ABSOLUTOS, senao caem em 404. `appUrl` resolve dev/prod.
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 const CADASTRO = appUrl("/cadastrar", ROOT_DOMAIN);
 const ENTRAR = appUrl("/entrar", ROOT_DOMAIN);
-// TODO(joão): número de WhatsApp do negócio (ex.: https://wa.me/55DDDNUMERO).
-const WHATSAPP = "https://wa.me/";
-
-/** Rise-in delay helper (no-op visually under prefers-reduced-motion). */
-function delay(s: number): CSSProperties {
-  return { animationDelay: `${s}s` };
-}
-
-function Wordmark({ className = "" }: { className?: string }) {
-  return (
-    <span className={`mkt-wordmark ${className}`}>
-      seuconvite<span className="text-gradient">ia</span>
-      <span className="mkt-wordmark-tld">.com</span>
-    </span>
-  );
-}
+const CONTATO = "mailto:sac@seuconviteia.com";
 
 const NAV_LINKS = [
   { href: "#como-funciona", label: "Como funciona" },
-  { href: "#recursos", label: "Recursos" },
-  { href: "#precos", label: "Quanto custa" },
+  { href: "#depoimentos", label: "Depoimentos" },
+  { href: "#precos", label: "Preços" },
+  { href: "#faq", label: "FAQ" },
 ] as const;
 
-const STEPS: { n: string; t: string; d: ReactNode }[] = [
-  {
-    n: "01",
-    t: "Assine um plano",
-    d: "Básico, Clássico ou Premium — recursos liberam por nível.",
-  },
-  {
-    n: "02",
-    t: "Monte o site do cliente",
-    d: "nicho, fotos, cores, data e tudo ao vivo — em minutos.",
-  },
-  {
-    n: "03",
-    t: "Personalize com preview ao vivo",
-    d: "ajuste cada detalhe e veja o resultado na hora.",
-  },
-  {
-    n: "04",
-    t: "Publique — incluído no plano",
-    d: (
-      <>
-        no ar em <code className="mkt-code">cliente.seuconviteia.com</code>, sem
-        marca d&apos;água.
-      </>
-    ),
-  },
+// ── Dados ─────────────────────────────────────────────────────────────────────
+const STEPS: { n: string; t: string; d: string }[] = [
+  { n: "1", t: "Conte sobre o evento", d: "Nomes, data, local e o estilo da festa. A IA cuida do texto, das cores e do layout — nada de arrastar caixinhas." },
+  { n: "2", t: "Escolha e ajuste", d: "Receba variações prontas do seu convite. Gostou? Troque uma foto, uma cor ou uma palavra em segundos." },
+  { n: "3", t: "Envie o link", d: "Cada convidado recebe um link exclusivo e confirma presença ali mesmo. Você acompanha tudo em tempo real." },
 ];
 
-const FEATURES: { icon: string; t: string; d: string }[] = [
-  { icon: "❖", t: "Multi-nicho", d: "casamento, 15 anos, 60 anos, bodas, aniversário." },
-  {
-    icon: "↗",
-    t: "Endereço próprio",
-    d: "cada evento num subdomínio automático.",
-  },
-  {
-    icon: "✓",
-    t: "Confirmação de presença",
-    d: "convidados confirmam, você acompanha no painel.",
-  },
-  {
-    icon: "◈",
-    t: "Lista de presentes no Pix",
-    d: "QR e copia-e-cola; o valor cai na conta do cliente.",
-  },
-  {
-    icon: "❏",
-    t: "Mural de recados & álbum",
-    d: "memórias e mensagens dos convidados num só lugar.",
-  },
-  {
-    icon: "✦",
-    t: "Eventos ilimitados",
-    d: "crie quantos sites quiser a partir do Clássico.",
-  },
+const DEPOIMENTOS: { q: string; nm: string; rl: string; av: "j" | "p" | "r"; ini: string }[] = [
+  { q: "“Passei duas noites tentando fazer no Canva e desisti. Aqui o convite ficou pronto no intervalo do almoço — e muito mais bonito.”", nm: "Juliana M.", rl: "Noiva · Casamento em Goiânia", av: "j", ini: "J" },
+  { q: "“Uso com todas as minhas noivas. O RSVP automático acabou com a planilha de confirmações — só abro o painel e está tudo lá.”", nm: "Patrícia Lemos", rl: "Cerimonialista · 40+ eventos/ano", av: "p", ini: "P" },
+  { q: "“Fiz o convite dos 15 anos da minha filha em 10 minutos. Os convidados acharam que tinha sido feito por uma agência.”", nm: "Renata C.", rl: "Mãe da debutante · São Paulo", av: "r", ini: "R" },
 ];
 
-// Planos exibidos na ordem canonica (do menor para o maior), com os metadados
-// (label, descricaoCurta, inclui[], destaque) vindos da fonte unica `lib/plans`.
-const PLANOS = PLAN_ORDER.map(
-  (key) => PLANOS_INFO.find((p) => p.key === key)!,
-);
+// Fita de locais (marca própria de cada wordmark). Renderizada 2x p/ loop contínuo.
+type Logo = { t: string; ff: "disp" | "inter" | "georgia"; w: number; s: number; ls: number; it?: boolean; dot?: boolean };
+const LOGOS: Logo[] = [
+  { t: "VILLA LAGO SUL", ff: "disp", w: 800, s: 22, ls: 2.5 },
+  { t: "Cerimonial Alvorada", ff: "georgia", w: 400, s: 25, ls: -0.3, it: true },
+  { t: "espaço ermida", ff: "inter", w: 600, s: 23, ls: -1 },
+  { t: "PONTÃO EVENTOS", ff: "inter", w: 400, s: 20, ls: 4 },
+  { t: "Casa Paranoá", ff: "disp", w: 800, s: 24, ls: -0.8, dot: true },
+  { t: "Villa Jardins", ff: "disp", w: 600, s: 24, ls: -0.6 },
+  { t: "buffet pinheiros", ff: "inter", w: 500, s: 22, ls: -0.4 },
+  { t: "CASA IBIRAPUERA", ff: "disp", w: 800, s: 21, ls: 3 },
+  { t: "Mansão Urca", ff: "georgia", w: 400, s: 24, ls: -0.5 },
+  { t: "Jardim da Lagoa", ff: "georgia", w: 400, s: 25, ls: -0.2, it: true },
+  { t: "santa teresa eventos", ff: "inter", w: 600, s: 22, ls: -1 },
+  { t: "Mansão Park Way", ff: "disp", w: 600, s: 24, ls: -0.6 },
+];
+
+const FAM: Record<Logo["ff"], string> = {
+  disp: "var(--font-mktdisplay), sans-serif",
+  inter: "var(--font-inter), sans-serif",
+  georgia: "Georgia, 'Times New Roman', serif",
+};
+
+function LogoRun() {
+  return (
+    <>
+      {LOGOS.map((l, i) => (
+        <span
+          key={i}
+          style={{ fontFamily: FAM[l.ff], fontWeight: l.w, fontSize: l.s, letterSpacing: `${l.ls}px`, fontStyle: l.it ? "italic" : "normal" } as CSSProperties}
+        >
+          {l.t}
+          {l.dot ? <span style={{ color: "#a981ff" }}>.</span> : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
+const FAQ: { q: string; a: string }[] = [
+  { q: "Preciso saber design para usar?", a: "Não. Você só responde algumas perguntas sobre o evento e a IA monta o convite inteiro: texto, cores, tipografia e layout. Se quiser mexer em algo, é só clicar e trocar." },
+  { q: "Como os convidados confirmam presença?", a: "Cada convidado recebe um link do convite. Ao abrir, ele toca em “Vou confirmar” e pronto — a confirmação aparece na sua lista em tempo real, sem planilha e sem grupo de WhatsApp." },
+  { q: "Qual a diferença para o Canva?", a: "No Canva você monta uma imagem estática, do zero, arrastando elementos. Aqui o convite nasce pronto, é interativo (link, mapa, fotos) e ainda coleta as confirmações de presença para você." },
+  { q: "Posso cancelar a assinatura quando quiser?", a: "Sim, direto no painel, sem multa e sem ligação. Os convites já publicados continuam no ar até a data dos eventos." },
+  { q: "Sou cerimonialista. Consigo usar para vários clientes?", a: "Sim. O plano Cerimonialista tem um painel com todos os seus eventos, lista de convidados exportável e opção de colocar a sua marca nos convites." },
+];
 
 export default function MarketingHome() {
   return (
-    <div className="mkt flex flex-1 flex-col">
-      {/* ---------- Nav ---------- */}
-      <header className="mkt-nav">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-6">
-          <a href="#topo" className="mkt-nav-brand" aria-label="seuconviteia.com — início">
-            <Wordmark />
-          </a>
+    <div className="mkt" id="topo">
+      <MarketingNav links={NAV_LINKS} entrarHref={ENTRAR} cadastroHref={CADASTRO} />
 
-          <nav aria-label="Seções" className="hidden items-center gap-8 md:flex">
-            {NAV_LINKS.map((l) => (
-              <a key={l.href} href={l.href} className="mkt-nav-link">
-                {l.label}
-              </a>
-            ))}
-          </nav>
+      {/* ───────────── HERO ───────────── */}
+      <section className="hero" aria-labelledby="hero-h">
+        <span className="badge reveal r1">Convites digitais com RSVP automático</span>
+        <h1 id="hero-h" className="title reveal r2">
+          Seu convite pronto.<br />Em minutos, não em horas.
+        </h1>
+        <p className="hero-sub reveal r3">
+          Esqueça horas montando convite no Canva. Preencha algumas informações, escolha o modelo e pronto: um convite digital lindo, com link exclusivo e confirmação de presença.
+        </p>
+        <div className="hero-cta reveal r4">
+          <a className="btn accent lg" href={CADASTRO}>Criar meu convite agora</a>
+          <a className="btn soft lg" href="#como-funciona">Ver como funciona</a>
+        </div>
+        <p className="hero-micro reveal r5">Sem precisar saber design · Pronto para casamento, aniversário e 15 anos</p>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <a href={ENTRAR} className="mkt-btn mkt-btn-ghost hidden sm:inline-flex">
-              Entrar
-            </a>
-            <a href={CADASTRO} className="mkt-btn mkt-btn-grad">
-              Criar conta
-            </a>
+        <div className="proof reveal r5">
+          <p><b>Mais de 12.000 convites criados</b> nos principais espaços de eventos de Brasília, São Paulo e Rio de Janeiro.</p>
+          <div className="marquee" aria-hidden>
+            <div className="marquee-track">
+              <LogoRun />
+              <LogoRun />
+            </div>
           </div>
         </div>
-      </header>
+      </section>
 
-      <main id="topo" className="flex-1">
-        {/* ---------- Hero ---------- */}
-        <section aria-labelledby="hero-h" className="mkt-section mkt-hero">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-14 px-5 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
-            <div className="mkt-hero-copy">
-              <p className="mkt-eyebrow mkt-rise" style={delay(0.02)}>
-                <span className="mkt-jewel" aria-hidden>
-                  ✦
-                </span>{" "}
-                Para profissionais de eventos
-              </p>
-
-              <h1 id="hero-h" className="mkt-h1 mkt-rise" style={delay(0.08)}>
-                Crie sites de evento{" "}
-                <span className="mkt-jewel italic">lindos</span> pros seus
-                clientes — em minutos.
-              </h1>
-
-              <p className="mkt-lede mkt-rise" style={delay(0.16)}>
-                <strong>Assine um plano</strong> e crie quantos eventos quiser —
-                casamento, 15 anos, bodas e mais, cada festa no seu endereço
-                próprio. Os recursos liberam <strong>por nível de plano</strong>.{" "}
-                <strong>Publicar é incluído no plano.</strong> Sem programar.
-              </p>
-
-              <div className="mkt-hero-cta mkt-rise" style={delay(0.24)}>
-                <a href={CADASTRO} className="mkt-btn mkt-btn-grad mkt-btn-lg">
-                  Criar conta →
-                </a>
-                <a href={WHATSAPP} className="mkt-btn mkt-btn-ghost mkt-btn-lg">
-                  Falar no WhatsApp
-                </a>
-              </div>
-
-              <p className="mkt-trust mkt-rise" style={delay(0.32)}>
-                Eventos ilimitados no Clássico · publique sem custo extra
-              </p>
+      {/* ───────────── COMO FUNCIONA ───────────── */}
+      <section id="como-funciona" className="sec">
+        <h2 className="h2">Três passos. Só isso.</h2>
+        <p className="h2-sub">Se você sabe preencher um formulário, sabe criar um convite no seuconvite.ia.</p>
+        <div className="grid3">
+          {STEPS.map((s) => (
+            <div key={s.n} className="step">
+              <div className="num disp">{s.n}</div>
+              <h3>{s.t}</h3>
+              <p>{s.d}</p>
             </div>
-
-            {/* Hero visual — mock de site no endereço próprio */}
-            <div className="mkt-hero-art mkt-rise" style={delay(0.2)} aria-hidden>
-              <div className="mkt-hero-float">
-                <span className="mkt-spark mkt-spark-1 mkt-twinkle">✦</span>
-                <span className="mkt-spark mkt-spark-2 mkt-twinkle">✦</span>
-                <span className="mkt-spark mkt-spark-3 mkt-twinkle">✧</span>
-
-                <div className="mkt-browser">
-                  <div className="mkt-browser-bar">
-                    <span className="mkt-dot" />
-                    <span className="mkt-dot" />
-                    <span className="mkt-dot" />
-                    <span className="mkt-url">cliente.seuconviteia.com</span>
-                  </div>
-                  <div className="mkt-invite">
-                    <p className="mkt-invite-eyebrow">Casamento</p>
-                    <p className="mkt-invite-names">
-                      Ana <span className="mkt-jewel">&amp;</span> Léo
-                    </p>
-                    <span className="mkt-invite-rule" />
-                    <p className="mkt-invite-date">20 · 12 · 2026 — Búzios</p>
-                    <span className="mkt-invite-pill">Confirmar presença</span>
-                  </div>
-                </div>
-
-                <div className="mkt-chip mkt-chip-rsvp">
-                  <span className="mkt-jewel">✓</span> 128 confirmados
-                </div>
-                <div className="mkt-chip mkt-chip-pix">Pix · R$ 250 recebido</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ---------- Como funciona ---------- */}
-        <section
-          id="como-funciona"
-          aria-labelledby="como-h"
-          className="mkt-section"
-        >
-          <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
-            <header className="mkt-section-head">
-              <p className="mkt-kicker mkt-rise">Como funciona</p>
-              <h2 id="como-h" className="mkt-h2 mkt-rise" style={delay(0.05)}>
-                Do modelo ao site no ar, em{" "}
-                <span className="mkt-jewel italic">quatro passos</span>.
-              </h2>
-            </header>
-
-            <ol className="mkt-steps">
-              {STEPS.map((s, i) => (
-                <li
-                  key={s.n}
-                  className="mkt-step mkt-card mkt-rise"
-                  style={delay(0.08 + i * 0.07)}
-                >
-                  <span className="mkt-step-n">{s.n}</span>
-                  <h3 className="mkt-step-t">{s.t}</h3>
-                  <p className="mkt-step-d">{s.d}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* ---------- Recursos ---------- */}
-        <section id="recursos" aria-labelledby="rec-h" className="mkt-section">
-          <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
-            <header className="mkt-section-head">
-              <p className="mkt-kicker mkt-rise">Recursos</p>
-              <h2 id="rec-h" className="mkt-h2 mkt-rise" style={delay(0.05)}>
-                Tudo que a festa precisa,{" "}
-                <span className="mkt-jewel italic">num painel só</span>.
-              </h2>
-            </header>
-
-            <ul className="mkt-grid-3">
-              {FEATURES.map((f, i) => (
-                <li
-                  key={f.t}
-                  className="mkt-feature mkt-card mkt-rise"
-                  style={delay(0.06 + i * 0.05)}
-                >
-                  <span className="mkt-ico" aria-hidden>
-                    <span className="mkt-jewel">{f.icon}</span>
-                  </span>
-                  <h3 className="mkt-feature-t">{f.t}</h3>
-                  <p className="mkt-feature-d">{f.d}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* ---------- Quanto custa ---------- */}
-        <section id="precos" aria-labelledby="precos-h" className="mkt-section">
-          <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
-            <header className="mkt-section-head">
-              <p className="mkt-kicker mkt-rise">Quanto custa</p>
-              <h2 id="precos-h" className="mkt-h2 mkt-rise" style={delay(0.05)}>
-                Um plano,{" "}
-                <span className="mkt-jewel italic">eventos ilimitados</span>.
-              </h2>
-            </header>
-
-            <ul className="mkt-grid-3 mkt-plans">
-              {PLANOS.map((p, i) => {
-                const featured = p.destaque === true;
-                return (
-                  <li
-                    key={p.key}
-                    className={`mkt-plan mkt-rise ${
-                      featured ? "mkt-plan-featured" : "mkt-card"
-                    }`}
-                    style={delay(0.08 + i * 0.07)}
-                  >
-                    {featured ? (
-                      <span className="mkt-plan-badge">mais popular</span>
-                    ) : null}
-                    <h3 className="mkt-plan-name">{p.label}</h3>
-                    <p className="mkt-plan-price">Assinatura mensal</p>
-                    <p className="mkt-plan-d">{p.descricaoCurta}</p>
-                    <ul className="mkt-plan-feats">
-                      {p.inclui.map((item) => (
-                        <li key={item} className="mkt-plan-feat">
-                          <i className="bi bi-check2" aria-hidden />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <a
-                      href={CADASTRO}
-                      className={`mkt-btn mkt-btn-block ${
-                        featured ? "mkt-btn-grad" : "mkt-btn-soft"
-                      }`}
-                    >
-                      Criar conta
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <p className="mkt-plans-note mkt-rise">
-              Valores em definição —{" "}
-              <a href={WHATSAPP} className="mkt-inline-link">
-                fale com a gente
-              </a>
-              .
-            </p>
-          </div>
-        </section>
-
-        {/* ---------- CTA final ---------- */}
-        <section aria-labelledby="cta-h" className="mkt-section">
-          <div className="mx-auto w-full max-w-5xl px-5 sm:px-6">
-            <div className="mkt-cta mkt-rise">
-              <span className="mkt-spark mkt-cta-spark mkt-twinkle" aria-hidden>
-                ✦
-              </span>
-              <h2 id="cta-h" className="mkt-cta-h">
-                Pronto para encantar os clientes dos seus clientes?
-              </h2>
-              <p className="mkt-cta-sub">
-                Assine um plano e monte o primeiro site hoje — publicar é
-                incluído.
-              </p>
-              <a href={CADASTRO} className="mkt-btn mkt-btn-grad mkt-btn-lg">
-                Criar conta grátis →
-              </a>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* ---------- Footer ---------- */}
-      <footer className="mkt-footer">
-        <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
-          <div className="mkt-footer-top">
-            <div className="mkt-footer-brand">
-              <Wordmark className="mkt-wordmark-lg" />
-              <p className="mkt-footer-tag">O seu site de convite em minutos.</p>
-              <p className="mkt-footer-verbs">
-                Crie · Personalize · Convide ·{" "}
-                <span className="mkt-jewel">Encante</span>
-              </p>
-            </div>
-
-            <nav aria-label="Rodapé" className="mkt-footer-links">
-              <a href="#como-funciona" className="mkt-foot-link">
-                Como funciona
-              </a>
-              <a href="#recursos" className="mkt-foot-link">
-                Recursos
-              </a>
-              <a href="#precos" className="mkt-foot-link">
-                Quanto custa
-              </a>
-              <a href={ENTRAR} className="mkt-foot-link">
-                Entrar
-              </a>
-              <a href="mailto:sac@seuconviteia.com" className="mkt-foot-link">
-                sac@seuconviteia.com
-              </a>
-            </nav>
-          </div>
-
-          <div className="mkt-footer-bottom">
-            <span>© 2026 seuconviteia</span>
-          </div>
+          ))}
         </div>
+      </section>
+
+      {/* ───────────── DEPOIMENTOS ───────────── */}
+      <section id="depoimentos" className="sec">
+        <h2 className="h2">Quem já convidou, aprova.</h2>
+        <div className="grid3">
+          {DEPOIMENTOS.map((d) => (
+            <div key={d.nm} className="tcard">
+              <p className="q">{d.q}</p>
+              <div className="who">
+                <div className={`av ${d.av}`} aria-hidden>{d.ini}</div>
+                <div>
+                  <div className="nm">{d.nm}</div>
+                  <div className="rl">{d.rl}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ───────────── PREÇOS ───────────── */}
+      <section id="precos" className="sec">
+        <h2 className="h2">Um preço para cada momento.</h2>
+        <p className="h2-sub">Vai convidar uma vez ou convida o ano inteiro? Tem plano para os dois.</p>
+        <Planos cadastroHref={CADASTRO} />
+      </section>
+
+      {/* ───────────── FAQ ───────────── */}
+      <section id="faq" className="sec faqsec">
+        <h2 className="h2">Perguntas frequentes</h2>
+        <div className="faq">
+          {FAQ.map((it, i) => (
+            <details key={it.q} name="faq" open={i === 0}>
+              <summary>
+                <span>{it.q}</span>
+                <span className="chev" aria-hidden />
+              </summary>
+              <p className="ans">{it.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* ───────────── CTA FINAL ───────────── */}
+      <section className="final" aria-labelledby="cta-h">
+        <div className="final-card">
+          <h2 id="cta-h">A festa é sua.<br />O convite é com a gente.</h2>
+          <p>Crie seu primeiro convite agora e veja como é rápido. Leva menos tempo que escolher o bolo.</p>
+          <a className="btn accent lg" href={CADASTRO}>Criar meu convite agora</a>
+        </div>
+      </section>
+
+      {/* ───────────── FOOTER ───────────── */}
+      <footer className="foot">
+        <div className="brand disp">seuconvite<span className="ia" style={{ color: "var(--purple)" }}>.ia</span></div>
+        <div className="flinks">
+          <a href="#">Termos de uso</a>
+          <a href="#">Privacidade</a>
+          <a href={CONTATO}>Contato</a>
+        </div>
+        <div className="cop">© 2026 seuconvite.ia</div>
       </footer>
     </div>
   );

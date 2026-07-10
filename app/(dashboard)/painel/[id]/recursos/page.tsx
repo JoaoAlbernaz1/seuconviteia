@@ -32,7 +32,9 @@ export default async function RecursosPage({
         <div>
           <h1 className={TITULO}>O que o seu site vai ter?</h1>
           <p className={`${SUB} mt-1`}>
-            Toque para ligar ou desligar — o site ao lado muda na hora.
+            Toque para ligar ou desligar — o site{" "}
+            <span className="lg:hidden">logo abaixo</span>
+            <span className="hidden lg:inline">ao lado</span> muda na hora.
           </p>
         </div>
       </div>
