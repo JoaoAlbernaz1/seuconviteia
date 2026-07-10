@@ -1,7 +1,9 @@
-// Home do painel — "Meus eventos" (mockup DARK): saudação + resumo real +
-// grade com o card "Criar novo evento" e um card por evento (capa com a foto
-// real ou o gradiente da paleta, nome na fonte do evento, status e próximo
-// passo). Sem sidebar: tudo em coluna central.
+// Home do painel — "Meus eventos": saudacao + resumo em blocos + busca/filtro +
+// grade com um card por evento, em quatro estados (rascunho, no ar, no ar com
+// pendencia, expirado). Sem sidebar: tudo em coluna central sob a topbar.
+//
+// A logica vive em modulos puros e testados (lib/frases, lib/painelEstado,
+// lib/filtroEventos). Aqui so tem composicao.
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -11,8 +13,13 @@ import { lerTemaKey } from "@/lib/temas";
 import { lerFonteKey } from "@/lib/fontes";
 import { textosDoNicho } from "@/lib/textos";
 import { TIPO_LABEL } from "@/lib/painelUi";
-import { CapaEvento } from "./_ui/CapaEvento";
-import { COLUNA, PILL_NO_AR, PILL_PREPARO, TITULO } from "./_ui/estilos";
+import { limiteEventos } from "@/lib/plans";
+import { fraseResumo } from "@/lib/frases";
+import { estadoDoEvento, pendenciaDoEvento } from "@/lib/painelEstado";
+import { COLUNA, TITULO } from "./_ui/estilos";
+import { ResumoBlocos } from "./_ui/ResumoBlocos";
+import { EstadoVazio } from "./_ui/EstadoVazio";
+import { FiltroEventos } from "./_ui/FiltroEventos";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +31,6 @@ function lerCustomStr(c: unknown, k: string): string | undefined {
   return undefined;
 }
 
-const DATA_CURTA = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "America/Sao_Paulo",
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
-
 export default async function MeusEventosPage() {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
@@ -38,7 +38,7 @@ export default async function MeusEventosPage() {
   const [prof, events] = await Promise.all([
     prisma.professional.findUnique({
       where: { id: session.user.id },
-      select: { name: true },
+      select: { name: true, plan: true },
     }),
     prisma.event.findMany({
       where: { professionalId: session.user.id },
@@ -56,106 +56,87 @@ export default async function MeusEventosPage() {
     }),
   ]);
 
+  const agora = new Date();
   const primeiro = (prof?.name ?? "").split(" ")[0] || "você";
-  const noAr = events.filter((e) => e.status === "PUBLISHED").length;
-  const confirmadas = events.reduce((a, e) => a + e._count.guests, 0);
+
+  // Um unico passe: deriva estado e pendencia de cada evento.
+  const itens = events.map((e) => {
+    const fotoUrl = lerCustomStr(e.customization, "fotoUrl");
+    const pendencia = pendenciaDoEvento(Boolean(fotoUrl), e._count.gifts);
+    return {
+      id: e.id,
+      titulo: e.title,
+      estado: estadoDoEvento(e, pendencia, agora),
+      criadoEm: e.createdAt,
+      dataEvento: e.eventDate,
+      expiraEm: e.expiresAt,
+      presencas: e._count.guests,
+      pendencia,
+      nicho: TIPO_LABEL[e.type] ?? e.type,
+      kicker: textosDoNicho(e.type).conviteTitulo,
+      tema: lerTemaKey(e.customization),
+      fontes: lerFonteKey(e.customization),
+      fotoUrl,
+    };
+  });
+
+  // "No ar" conta quem esta publicado E dentro do prazo. Antes era
+  // `status === "PUBLISHED"`, entao um evento vencido era contado como no ar.
+  const noAr = itens.filter(
+    (i) => i.estado === "NO_AR" || i.estado === "NO_AR_PENDENTE",
+  ).length;
+  const presencas = itens.reduce((a, i) => a + i.presencas, 0);
   const recados = events.reduce((a, e) => a + e._count.recados, 0);
-  const resumo =
-    events.length === 0
-      ? "Seu primeiro site de evento está a 4 passos daqui."
-      : `${noAr} site${noAr === 1 ? "" : "s"} no ar · ${confirmadas} presença${
-          confirmadas === 1 ? "" : "s"
-        } confirmada${confirmadas === 1 ? "" : "s"} · ${recados} recado${
-          recados === 1 ? "" : "s"
-        } de carinho`;
+
+  const limite = limiteEventos(prof?.plan ?? "BASICO");
+  const noLimite = limite !== null && events.length >= limite;
 
   return (
     <div className={`${COLUNA} scv-fade py-11 pb-20 ${EVT_FONTS_CLASS}`}>
-      <h1 className={`${TITULO} text-[34px]`}>Olá, {primeiro}</h1>
-      <p className="mt-2.5 text-[15px] leading-relaxed text-scv-muted">{resumo}</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className={`${TITULO} text-[34px]`}>Olá, {primeiro}</h1>
+          <p className="mt-2.5 text-[15px] leading-relaxed text-scv-muted">
+            {events.length === 0
+              ? "Sua jornada para o evento perfeito começa aqui."
+              : fraseResumo(noAr, presencas, recados)}
+          </p>
+        </div>
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <Link
-          href="/painel/novo"
-          className="flex min-h-[280px] flex-col items-center justify-center gap-3.5 rounded-[20px] border-[1.5px] border-dashed border-scv-dash bg-violeta/5 text-center transition hover:border-violeta hover:bg-violeta/10"
-        >
-          <span className="grid size-[54px] place-items-center rounded-full bg-violeta text-white shadow-[0_12px_26px_-8px_rgba(122,64,237,0.5)]">
-            <i className="bi bi-plus-lg text-xl" aria-hidden />
-          </span>
-          <span className="text-base font-semibold text-scv-ink">Criar novo evento</span>
-          <span className="max-w-[200px] text-[12.5px] leading-normal text-scv-muted">
-            Em 4 passos simples seu site fica pronto
-          </span>
-        </Link>
-
-        {events.map((e) => {
-          const publicado = e.status === "PUBLISHED";
-          const tema = lerTemaKey(e.customization);
-          const fontes = lerFonteKey(e.customization);
-          const fotoUrl = lerCustomStr(e.customization, "fotoUrl");
-          const nicho = TIPO_LABEL[e.type] ?? e.type;
-          const kicker = textosDoNicho(e.type).conviteTitulo;
-          const faltando = !fotoUrl
-            ? "faltam as fotos"
-            : e._count.gifts === 0
-              ? "falta a lista de presentes"
-              : null;
-          const dica = publicado
-            ? `${e._count.guests} convidado${e._count.guests === 1 ? "" : "s"} confirmaram${
-                faltando ? ` · ${faltando}` : ""
-              }`
-            : "Continue de onde parou — falta pouco";
-          return (
-            <div
-              key={e.id}
-              className="flex flex-col overflow-hidden rounded-[20px] border border-scv-line bg-scv-card shadow-[0_16px_40px_-32px_rgba(15,23,42,0.12)]"
-            >
-              <CapaEvento
-                tema={tema}
-                fontes={fontes}
-                nome={e.title}
-                kicker={kicker}
-                fotoUrl={fotoUrl}
-                altura={140}
-              >
-                <span
-                  className={`absolute right-2.5 top-2.5 ${publicado ? PILL_NO_AR : PILL_PREPARO} !bg-white/95 ${
-                    publicado ? "!text-[#0EA5A6]" : "!text-[#B45309]"
-                  }`}
-                >
-                  {publicado ? "No ar" : "Em preparação"}
-                </span>
-              </CapaEvento>
-              <div className="flex flex-1 flex-col gap-3 p-4 pb-[18px]">
-                <div>
-                  <div className="text-[13px] font-semibold text-scv-ink">
-                    {nicho} · {DATA_CURTA.format(e.eventDate)}
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-2 text-[12.5px] text-scv-muted">
-                    <span
-                      aria-hidden
-                      className={`size-[7px] shrink-0 rounded-full ${
-                        publicado ? "bg-teal" : "bg-amber-500"
-                      }`}
-                    />
-                    {dica}
-                  </div>
-                </div>
-                <Link
-                  href={publicado ? `/painel/${e.id}` : `/painel/${e.id}/publicar`}
-                  className={`mt-auto w-full rounded-[11px] py-2.5 text-center text-[13.5px] font-semibold transition ${
-                    publicado
-                      ? "border border-scv-line bg-scv-card text-scv-ink hover:border-scv-dash"
-                      : "bg-violeta text-white shadow-[0_10px_22px_-10px_rgba(122,64,237,0.55)] hover:brightness-110"
-                  }`}
-                >
-                  {publicado ? "Ver e editar" : "Continuar montando"}
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+        {events.length > 0 && !noLimite && (
+          <Link
+            href="/painel/novo"
+            className="rounded-full bg-preto px-5 py-3 text-[13.5px] font-semibold text-white transition hover:brightness-125"
+          >
+            + Criar novo evento
+          </Link>
+        )}
       </div>
+
+      <ResumoBlocos sites={noAr} presencas={presencas} recados={recados} />
+
+      {events.length === 0 ? (
+        <EstadoVazio />
+      ) : (
+        <>
+          {noLimite && (
+            <div className="mt-6 rounded-[16px] border border-scv-line bg-cinza px-5 py-4 text-[13.5px] text-preto">
+              Você chegou ao limite de {limite} eventos do seu plano.{" "}
+              <Link
+                href="/painel/plano"
+                className="font-semibold underline underline-offset-2"
+              >
+                Ver planos
+              </Link>{" "}
+              para criar mais.
+            </div>
+          )}
+
+          {/* `itens` e serializavel (string/number/Date). Uma funcao aqui
+              quebraria: nao atravessa a fronteira Server -> Client. */}
+          <FiltroEventos itens={itens} />
+        </>
+      )}
     </div>
   );
 }
