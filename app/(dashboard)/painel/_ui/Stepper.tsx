@@ -15,7 +15,7 @@ function Bolinha({ p, n }: { p: PassoStepper; n: number }) {
     p.estado === "feito"
       ? "bg-teal text-white"
       : p.estado === "atual"
-        ? "bg-violeta text-white shadow-[0_0_0_4px_rgba(109,40,217,0.16)]"
+        ? "bg-violeta text-white shadow-[0_0_0_4px_rgba(122,64,237,0.16)]"
         : "bg-scv-line text-scv-faint";
   return (
     <span

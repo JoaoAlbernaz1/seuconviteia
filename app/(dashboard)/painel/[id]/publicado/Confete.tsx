@@ -7,7 +7,7 @@
 // desliga tudo para quem pediu menos movimento.
 import { useEffect, useState } from "react";
 
-const CORES = ["#2DE2E6", "#6D28D9", "#A78BFA", "#0EA5A6", "#F472B6", "#FBBF24"];
+const CORES = ["#2DE2E6", "#7A40ED", "#A78BFA", "#0EA5A6", "#F472B6", "#FBBF24"];
 
 type Fita = { left: number; dur: number; delay: number; cor: string; w: number; h: number };
 

@@ -23,7 +23,7 @@ export const LABEL = "mb-1.5 block text-[13px] font-semibold text-scv-ink";
 
 /** Botao primario (violeta cheio, como no mockup). */
 export const BTN_PRIMARIO =
-  "cursor-pointer rounded-xl bg-violeta px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(109,40,217,0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-110 hover:shadow-[0_14px_30px_-12px_rgba(109,40,217,0.5)] disabled:cursor-not-allowed disabled:opacity-50";
+  "cursor-pointer rounded-xl bg-violeta px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(122,64,237,0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-110 hover:shadow-[0_14px_30px_-12px_rgba(122,64,237,0.5)] disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Botao secundario (card com borda). */
 export const BTN_GHOST =
