@@ -84,7 +84,7 @@ export function TopBar({ nome }: { nome: string }) {
           >
             <span
               className="grid size-7 place-items-center rounded-full text-[11.5px] font-bold text-white"
-              style={{ background: "linear-gradient(135deg,#0EA5A6,#6D28D9)" }}
+              style={{ background: "var(--grad-faisca)" }}
               aria-hidden
             >
               {iniciais || "SC"}

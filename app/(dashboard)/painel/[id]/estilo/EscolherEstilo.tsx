@@ -100,7 +100,7 @@ export function EscolherEstilo({
                   style={{
                     background: `linear-gradient(135deg, ${t.vars["--ev-rosa"]}, ${t.vars["--ev-framboesa-deep"]})`,
                     boxShadow: sel
-                      ? "0 0 0 2px var(--scv-card), 0 0 0 4px #6D28D9"
+                      ? "0 0 0 2px var(--scv-card), 0 0 0 4px #7A40ED"
                       : "0 0 0 1px rgba(0,0,0,0.12)",
                   }}
                 />

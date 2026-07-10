@@ -79,7 +79,7 @@ export default async function MeusEventosPage() {
           href="/painel/novo"
           className="flex min-h-[280px] flex-col items-center justify-center gap-3.5 rounded-[20px] border-[1.5px] border-dashed border-scv-dash bg-violeta/5 text-center transition hover:border-violeta hover:bg-violeta/10"
         >
-          <span className="grid size-[54px] place-items-center rounded-full bg-violeta text-white shadow-[0_12px_26px_-8px_rgba(109,40,217,0.5)]">
+          <span className="grid size-[54px] place-items-center rounded-full bg-violeta text-white shadow-[0_12px_26px_-8px_rgba(122,64,237,0.5)]">
             <i className="bi bi-plus-lg text-xl" aria-hidden />
           </span>
           <span className="text-base font-semibold text-scv-ink">Criar novo evento</span>
@@ -146,7 +146,7 @@ export default async function MeusEventosPage() {
                   className={`mt-auto w-full rounded-[11px] py-2.5 text-center text-[13.5px] font-semibold transition ${
                     publicado
                       ? "border border-scv-line bg-scv-card text-scv-ink hover:border-scv-dash"
-                      : "bg-violeta text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.55)] hover:brightness-110"
+                      : "bg-violeta text-white shadow-[0_10px_22px_-10px_rgba(122,64,237,0.55)] hover:brightness-110"
                   }`}
                 >
                   {publicado ? "Ver e editar" : "Continuar montando"}
