@@ -13,6 +13,7 @@
  */
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidarSiteDoEvento } from "@/lib/revalidar";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -244,6 +245,7 @@ export async function criarRascunho(
   });
 
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(`/painel/${event.id}/publicar`);
 }
 
@@ -312,6 +314,7 @@ export async function atualizarDetalhes(
   });
 
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
@@ -342,6 +345,7 @@ export async function salvarEstilo(formData: FormData): Promise<void> {
     data: { customization: mesclar(event.customization, patch) },
   });
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
@@ -357,6 +361,7 @@ export async function salvarRecursos(formData: FormData): Promise<void> {
     },
   });
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
@@ -394,6 +399,7 @@ export async function salvarFotos(
     });
   }
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
@@ -461,6 +467,7 @@ export async function salvarPresentes(
     });
   }
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
@@ -484,6 +491,7 @@ export async function salvarProgramacao(formData: FormData): Promise<void> {
     },
   });
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
@@ -499,6 +507,7 @@ export async function publicarEComemorar(formData: FormData): Promise<void> {
     data: { status: "PUBLISHED" },
   });
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect(`/painel/${event.id}/publicado`);
 }
 
@@ -516,6 +525,7 @@ export async function excluirEvento(formData: FormData): Promise<void> {
   await prisma.recado.deleteMany({ where: { eventId: event.id } });
   await prisma.event.delete({ where: { id: event.id } });
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
   redirect("/painel");
 }
 
