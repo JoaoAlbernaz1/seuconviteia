@@ -13,9 +13,12 @@
  *
  * LGPD: coleta o minimo (nome + recado) e exige consentimento explicito.
  */
+import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { eventoPublico } from "@/lib/event";
+import { tagRecados } from "@/lib/cacheTags";
+import { revalidarRecados } from "@/lib/revalidar";
 
 /** Recado pronto para o mural (campos em pt-BR, como o festa renderiza). */
 export type RecadoView = { id: string; nome: string; mensagem: string };
@@ -54,20 +57,41 @@ export async function deixarRecado(input: {
     await prisma.recado.create({
       data: { eventId: event.id, name: nome, message: mensagem },
     });
+    // Depois do create e dentro do try: se a escrita falhar, nao ha o que invalidar.
+    revalidarRecados(event.id);
   } catch {
     return { ok: false, error: "Não foi possível enviar agora. Tente de novo." };
   }
   return { ok: true };
 }
 
-/** Recados aprovados de um evento, mais recentes primeiro. */
+/**
+ * Recados aprovados de um evento, mais recentes primeiro.
+ *
+ * Cacheado sob `tagRecados(eventId)`, invalidado por `deixarRecado`. Tag propria,
+ * separada da do evento: o mural muda por acao de CONVIDADO e nao deve invalidar
+ * o convite inteiro.
+ *
+ * Sem revival de datas: o `select` abaixo nao traz nenhum campo `Date`, entao a
+ * serializacao do `unstable_cache` e inofensiva aqui. (No carregador do evento,
+ * que traz `expiresAt`, ela nao seria — ver `lib/eventoCru.ts`.)
+ *
+ * O `revalidate: 300` e rede de seguranca para o dia em que alguem escrever um
+ * recado por outro caminho e esquecer de invalidar.
+ */
 export async function listarRecadosAprovados(
   eventId: string,
 ): Promise<RecadoView[]> {
-  const rows = await prisma.recado.findMany({
-    where: { eventId, approved: true },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, message: true },
-  });
-  return rows.map((r) => ({ id: r.id, nome: r.name, mensagem: r.message }));
+  return unstable_cache(
+    async () => {
+      const rows = await prisma.recado.findMany({
+        where: { eventId, approved: true },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, name: true, message: true },
+      });
+      return rows.map((r) => ({ id: r.id, nome: r.name, mensagem: r.message }));
+    },
+    ["recados", eventId],
+    { tags: [tagRecados(eventId)], revalidate: 300 },
+  )();
 }

@@ -11,6 +11,7 @@
  */
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidarSiteDoEvento } from "@/lib/revalidar";
 import { AuthError } from "next-auth";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -161,24 +162,36 @@ export async function sair(): Promise<void> {
 // Status do site (despublicar) — ownership revalidado pela sessao
 // ----------------------------------------------------------------------------
 
-/** Ownership: o evento precisa ser do profissional logado. Retorna o id ou null. */
-async function eventoDoDono(eventId: unknown): Promise<string | null> {
+/**
+ * Ownership: o evento precisa ser do profissional logado.
+ *
+ * Traz `subdomain` junto do `id`: sem ele, `despublicarEvento` nao sabe qual tag
+ * do Data Cache invalidar, e o convite despublicado continuaria no ar por ate 5
+ * minutos (o TTL do unstable_cache).
+ */
+async function eventoDoDono(
+  eventId: unknown,
+): Promise<{ id: string; subdomain: string } | null> {
   const session = await auth();
   if (!session?.user) return null;
   if (typeof eventId !== "string" || !eventId) return null;
   const ev = await prisma.event.findFirst({
     where: { id: eventId, professionalId: session.user.id },
-    select: { id: true },
+    select: { id: true, subdomain: true },
   });
-  return ev?.id ?? null;
+  return ev ?? null;
 }
 
 /** Despublica o site (volta a rascunho — sai do ar). */
 export async function despublicarEvento(formData: FormData) {
-  const id = await eventoDoDono(formData.get("eventId"));
-  if (!id) redirect("/entrar");
-  await prisma.event.update({ where: { id }, data: { status: "DRAFT" } });
+  const event = await eventoDoDono(formData.get("eventId"));
+  if (!event) redirect("/entrar");
+  await prisma.event.update({
+    where: { id: event.id },
+    data: { status: "DRAFT" },
+  });
   revalidatePath("/painel");
+  revalidarSiteDoEvento(event.subdomain);
 }
 
 // ----------------------------------------------------------------------------
