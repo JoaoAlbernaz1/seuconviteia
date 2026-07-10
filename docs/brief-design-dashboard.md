@@ -171,6 +171,32 @@ Use fotos de placeholder de eventos reais (Unsplash) nas capas. Nomes fictícios
 
 ---
 
+## Google Stitch (usado em 2026-07-10)
+
+O Stitch foi conectado como MCP (`claude mcp add --transport http stitch https://stitch.googleapis.com/mcp`,
+com header `X-Goog-Api-Key`). Três coisas aprendidas:
+
+1. **O Claude Code não carrega as ferramentas dele.** `claude mcp list` diz
+   `Connected · tools fetch failed`, e o motivo é `can't resolve reference
+   #/$defs/ScreenInstance from id #` — o schema do Stitch usa `$defs` que o validador
+   do cliente não resolve. Não é a chave nem a URL.
+2. **O transporte funciona.** Dá para falar JSON-RPC direto com o endpoint por `fetch`,
+   e as 15 ferramentas respondem (`create_project`, `create_design_system`,
+   `generate_screen_from_text`, `generate_variants`, `apply_design_system`…).
+3. **Ele devolve IMAGEM, não código.** Não há campo de HTML no retorno e `list_screens`
+   volta vazio. Portar uma tela do Stitch significa **reimplementar a partir do
+   screenshot**, não colar um HTML pronto (como foi com o artifact da landing).
+
+Projeto criado: `projects/358589699141357452`.
+Design system: `assets/15422681558507635724` — `LIGHT`, Hanken Grotesk + Inter,
+`ROUND_TWELVE`, `customColor: #7A40ED`, com os hex exatos da marca no campo `designMd`.
+
+**Cuidado:** o `customColor` vira a cor **primária**. Com `#7A40ED` o painel sai roxo e o
+amarelo `#F5FF63` só aparece em detalhes. Para o amarelo virar o botão principal (como na
+landing), recriar o design system com `customColor: "#F5FF63"`.
+
+---
+
 ## Depois que a IA responder
 
 Me mande o HTML (ou o link do artifact). Eu porto para o Next.js:
