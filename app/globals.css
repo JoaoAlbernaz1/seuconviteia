@@ -12,7 +12,10 @@
   --color-ink: #0f172a; /* texto / estrutura */
   --color-turquesa: #2de2e6; /* simbolo / acento vivo */
   --color-teal: #0ea5a6; /* acento de apoio */
-  --color-violeta: #6d28d9; /* CTA / acento principal */
+  --color-violeta: #7a40ed; /* roxo da marca — o ".ia" do logo (mesmo hex da landing) */
+  --color-amarelo: #f5ff63; /* acento — SO como fundo, com tinta preta (nao passa contraste no branco) */
+  --color-preto: #19171c; /* preto da marca */
+  --color-cinza: #f2f1f3; /* superficie cinza da marca */
   --color-nevoa: #f1f5f9; /* fundo */
   --color-lilas: #ede9fe; /* superficies */
   --color-texto-suave: #64748b; /* texto secundario */
@@ -24,11 +27,13 @@
 }
 
 :root {
-  /* Gradiente "faisca" para o simbolo e acentos (fundos, icones). */
-  --grad-faisca: linear-gradient(135deg, #2de2e6 0%, #0ea5a6 50%, #6d28d9 100%);
-  /* Gradiente para TEXTO sobre fundo claro (ex.: o "ia" do logo).
-     Turquesa puro tem baixo contraste em texto, por isso comeca no teal. */
-  --grad-texto: linear-gradient(90deg, #0ea5a6, #6d28d9);
+  /* Gradiente do simbolo. O teal saiu: deixou de ser cor de marca quando o painel
+     adotou a identidade da landing (roxo #7A40ED + preto #19171C + amarelo). */
+  --grad-faisca: linear-gradient(135deg, #7a40ed 0%, #19171c 100%);
+  /* Gradiente para TEXTO sobre fundo claro (o "ia" do logo). Roxo solido: na
+     landing o ".ia" e chapado, nao degrade. Fica como gradiente porque o
+     `background-clip: text` exige um. */
+  --grad-texto: linear-gradient(90deg, #7a40ed, #7a40ed);
 }
 
 /*
@@ -52,8 +57,8 @@
   --scv-faint: #94a3b8; /* texto apagado (so dicas) */
   --scv-dash: #cbd5e1; /* borda tracejada / trilho de toggle off */
   --scv-lilac: #ede9fe; /* superficie lilas (icones) */
-  --scv-violet: #6d28d9; /* violeta (CTA/acentos) */
-  --scv-teal: #0ea5a6; /* teal de apoio */
+  --scv-violet: #7a40ed; /* roxo da marca (mesmo hex do --color-violeta) */
+  --scv-teal: #0ea5a6; /* teal: NAO e mais cor de marca; sobrevive so como sinal */
   --scv-warn-bg: #fef3c7;
   --scv-warn-ink: #b45309;
   --scv-btn: #0f172a; /* botao "neutro forte" (tinta) */
@@ -61,7 +66,7 @@
   background-color: var(--scv-bg);
   background-image:
     radial-gradient(52rem 30rem at 8% -6%, rgba(14, 165, 166, 0.06), transparent 60%),
-    radial-gradient(56rem 32rem at 96% -10%, rgba(109, 40, 217, 0.055), transparent 62%);
+    radial-gradient(56rem 32rem at 96% -10%, rgba(122, 64, 237, 0.055), transparent 62%);
   background-repeat: no-repeat;
   color: var(--scv-ink);
 }

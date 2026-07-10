@@ -62,7 +62,7 @@ export function PerfilForm({ initial }: { initial: PerfilInitial }) {
         {/* Avatar */}
         <div className="flex items-center gap-4">
           <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-full text-xl font-bold text-white"
-            style={{ background: "linear-gradient(135deg,#0EA5A6,#6D28D9)" }}
+            style={{ background: "var(--grad-faisca)" }}
           >
             {avatarUrl ? (
               <Image src={avatarUrl} alt="" fill sizes="64px" unoptimized className="object-cover" />

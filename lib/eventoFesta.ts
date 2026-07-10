@@ -51,6 +51,8 @@ export type EventoFesta = {
   /** URL de embed do Google Maps (`?output=embed`) — alimenta o <iframe> da /evento. */
   mapsEmbedUrl?: string;
   traje?: string;
+  /** Nomes dos pais/organizadores — linha do convite e assinatura. */
+  pais?: string;
   programacao: ProgramacaoItem[];
   pixNome?: string;
   pixChave?: string;
@@ -152,6 +154,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     mapsLinkUrl: c.mapsUrl,
     mapsEmbedUrl: texto(extras.mapsEmbedUrl),
     traje: c.traje,
+    pais: c.pais,
     programacao: c.programacao,
     pixNome: c.pixNome,
     pixChave: c.pixChave,

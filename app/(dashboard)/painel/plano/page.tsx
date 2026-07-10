@@ -35,7 +35,7 @@ export default async function PlanoPage() {
           const borda = ehAtual
             ? "border-2 border-teal"
             : p.destaque
-              ? "border-2 border-violeta shadow-[0_22px_44px_-28px_rgba(109,40,217,0.55)]"
+              ? "border-2 border-violeta shadow-[0_22px_44px_-28px_rgba(122,64,237,0.55)]"
               : "border border-scv-line";
           return (
             <div key={p.key} className={`flex flex-col rounded-[18px] bg-scv-card p-6 ${borda}`}>

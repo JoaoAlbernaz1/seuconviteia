@@ -124,7 +124,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                 key={t}
                 type="button"
                 onClick={() => escolherOcasiao(t)}
-                className="flex w-[150px] flex-col items-center gap-3 rounded-[18px] border border-scv-line bg-scv-card px-3.5 pb-5 pt-6 shadow-[0_10px_30px_-26px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:border-violeta hover:shadow-[0_18px_36px_-22px_rgba(109,40,217,0.45)]"
+                className="flex w-[150px] flex-col items-center gap-3 rounded-[18px] border border-scv-line bg-scv-card px-3.5 pb-5 pt-6 shadow-[0_10px_30px_-26px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:border-violeta hover:shadow-[0_18px_36px_-22px_rgba(122,64,237,0.45)]"
               >
                 <span className="grid size-[50px] place-items-center rounded-[14px] bg-scv-lilac text-scv-violet">
                   <i className={`bi ${TIPO_ICON[t]} text-xl`} aria-hidden />
@@ -343,7 +343,7 @@ export function Wizard({ rootDomain }: { rootDomain: string }) {
                         style={{
                           background: `linear-gradient(135deg, ${t.vars["--ev-rosa"]}, ${t.vars["--ev-framboesa-deep"]})`,
                           boxShadow: sel
-                            ? "0 0 0 2px var(--scv-card), 0 0 0 4px #6D28D9"
+                            ? "0 0 0 2px var(--scv-card), 0 0 0 4px #7A40ED"
                             : "0 0 0 1px rgba(0,0,0,0.12)",
                         }}
                       />

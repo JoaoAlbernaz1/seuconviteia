@@ -202,7 +202,7 @@ export default async function PublicarPage({
                 <input type="hidden" name="eventId" value={event.id} />
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_14px_30px_-12px_rgba(109,40,217,0.7)] transition hover:brightness-110"
+                  className="w-full rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#7A40ED] px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_14px_30px_-12px_rgba(122,64,237,0.7)] transition hover:brightness-110"
                 >
                   Publicar meu site
                 </button>

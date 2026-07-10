@@ -38,7 +38,7 @@ export function CardTemplate({
         indisponivel
           ? "cursor-not-allowed border border-scv-line opacity-70"
           : selecionado
-            ? "border-2 border-violeta shadow-[0_18px_40px_-24px_rgba(109,40,217,0.5)]"
+            ? "border-2 border-violeta shadow-[0_18px_40px_-24px_rgba(122,64,237,0.5)]"
             : "border border-scv-line shadow-[0_12px_32px_-28px_rgba(15,23,42,0.12)] hover:-translate-y-0.5 hover:border-scv-dash"
       }`}
     >

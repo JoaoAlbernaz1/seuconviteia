@@ -23,6 +23,7 @@ type Inicial = {
   local: string;
   endereco: string;
   traje: string;
+  pais: string;
   mensagem: string;
 };
 
@@ -56,6 +57,7 @@ export function FormDetalhes({
   const [local, setLocal] = useState(inicial.local);
   const [endereco, setEndereco] = useState(inicial.endereco);
   const [traje, setTraje] = useState(inicial.traje);
+  const [pais, setPais] = useState(inicial.pais);
   const [mensagem, setMensagem] = useState(inicial.mensagem);
 
   const rascunhoJson = JSON.stringify({
@@ -66,6 +68,7 @@ export function FormDetalhes({
     local,
     endereco,
     traje,
+    pais,
     mensagem,
   });
 
@@ -135,6 +138,18 @@ export function FormDetalhes({
             <Erro msg={state.fieldErrors?.traje} />
           </label>
         </div>
+
+        <label className="block">
+          <span className={LABEL}>Nome dos pais (opcional)</span>
+          <input
+            name="pais"
+            value={pais}
+            onChange={(e) => setPais(e.target.value)}
+            placeholder="Ex.: Adalberto e Ivânia"
+            className={INPUT}
+          />
+          <Erro msg={state.fieldErrors?.pais} />
+        </label>
 
         <label className="block">
           <span className={LABEL}>Endereço</span>

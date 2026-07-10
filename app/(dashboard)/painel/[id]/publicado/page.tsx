@@ -31,7 +31,7 @@ export default async function PublicadoPage({
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-[-40px] size-[440px] -translate-x-1/2 blur-[70px]"
         style={{
-          background: "radial-gradient(circle, rgba(109,40,217,0.38), transparent 70%)",
+          background: "radial-gradient(circle, rgba(122,64,237,0.38), transparent 70%)",
         }}
       />
       <div
@@ -45,7 +45,7 @@ export default async function PublicadoPage({
 
       <div className="scv-popin relative z-10 mx-auto w-full max-w-[560px] text-center">
         <span
-          className="mx-auto grid size-[86px] place-items-center rounded-full text-white shadow-[0_18px_44px_-14px_rgba(109,40,217,0.6)]"
+          className="mx-auto grid size-[86px] place-items-center rounded-full text-white shadow-[0_18px_44px_-14px_rgba(122,64,237,0.6)]"
           style={{ backgroundImage: "var(--grad-faisca)" }}
         >
           <i className="bi bi-check-lg text-[42px]" aria-hidden />
