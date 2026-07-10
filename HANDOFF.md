@@ -3,6 +3,61 @@
 > Leia este arquivo primeiro. Ele resume **o que é o projeto, onde paramos, e como
 > retomar** — inclusive as skills a instalar. Gerado em 2026-07-05.
 
+---
+
+## ⚡ UPDATE 2026-07-10 (ler antes do resto — várias seções abaixo ficaram desatualizadas)
+
+**A produção está no ar**: `https://seuconviteia.vercel.app`, pública, servindo a landing
+aprovada, com banco Postgres real. Isso não era verdade até 2026-07-09.
+
+- **Landing "seuconvite.ia" (claro/amarelo)** — a direção dark tech ciano/roxo (v4) foi
+  ABANDONADA. Tema branco, acento amarelo `#F5FF63`, `.ia` roxo `#7A40ED`, escuro
+  `#19171C`, Hanken Grotesk + Inter. Commit `d393a9e`, **aprovado pelo dono**, promovido
+  para `master` no merge `2d4f2d1`. Agora tem PREÇO (R$47 único · R$27/mês · R$69/mês
+  cerimonialista) e PROVA SOCIAL. ⚠️ Depoimentos, logos de espaços e "12.000 convites"
+  parecem **placeholder** e estão públicos — confirmar se são reais (LGPD/honestidade).
+- **Banco migrado de MySQL/PlanetScale → Postgres/Supabase** (`0e3b1b3`, `5b75efb`,
+  `1217a4f`). `relationMode="prisma"` removido → **7 foreign keys reais**. `db:push`
+  aposentado em favor de `prisma migrate` versionado. O `vercel-build` roda
+  `migrate deploy`; o `build` fica limpo para o CI, que não tem banco.
+  - Dev = Postgres em Docker, container **`sc-postgres`, porta 5433** (a 5432 tem um
+    PostgreSQL nativo do Windows → `P1000`).
+  - Prod = projeto Supabase `seuconviteia-prod` (`lhmezkzdaspwltgmlwyk`). **RLS ligado
+    nas 9 tabelas, sem políticas** — fecha a API REST do Supabase; o Prisma conecta
+    como dono e passa direto. **Não criar políticas** achando que ajuda.
+  - O plano free do Supabase permite **2 projetos ativos**. O **Zinc foi pausado** para
+    liberar vaga (autorizado). Restaurar antes de voltar a mexer nele.
+- **Cache do site de evento FEITO** (merge `d15c624`). Query do evento e mural de recados
+  no Data Cache, tags `evento:<sub>` / `recados:<eventId>`, invalidação via `updateTag`.
+  Medido: 6 visitas de convidado = 1 query; cache quente = 0. As páginas seguem
+  `force-dynamic` (o dono exigiu expiração exata no segundo), então **cada visita ainda
+  acorda uma função serverless** — o custo de banco caiu, o da Vercel não.
+- **D4 (dashboard "Meus sites") já existe** no estilo do painel D2 (topbar + coluna
+  1080px, turquesa/roxo, tokens `scv`). D4 = finalizar/lapidar, não do zero.
+
+### Pendências
+
+- **Do dono:** criar a 1ª conta real em `/cadastrar` (E2E que só ele fecha); confirmar os
+  números da landing; decidir se o painel mantém o turquesa/roxo do D2 ou rebranda para o
+  amarelo da landing.
+- **De negócio, descoberta em 2026-07-10:** `lib/dates.ts:4` fixa `VALIDADE_MS = 30 dias`
+  após a festa, **igual para todos os planos**. O dono quer validade dependente do plano
+  contratado. Não existe no código — precisa de spec própria.
+
+### Armadilhas de ambiente (custaram tempo)
+
+- O Data Cache do dev vive em **`.next/dev/cache`**, não em `.next/cache`.
+- Um dev server esquecido faz `pnpm build` falhar com `Type 'Route' does not satisfy the
+  constraint 'LayoutRoutes'`. Não é erro de código: mate o processo e `rm -rf .next`.
+- `prisma generate` dá `EPERM` no `query_engine-windows.dll.node` se o dev estiver rodando.
+- **O Prisma CLI lê apenas `.env`**, nunca `.env.local` (isso é convenção do Next.js).
+- Deploys via git ficam `BLOCKED` se o commit for assinado com `joaovictoralbernaz95@`.
+  A conta Vercel é a `...77@`. Manter `git config user.email` no `77`.
+
+Spec e plano do que foi feito: `docs/superpowers/specs/` e `docs/superpowers/plans/`.
+
+---
+
 ## O que é
 
 **SeuConviteIA** — SaaS para criar **sites de convite digital** (casamento, 15 anos,
@@ -26,13 +81,21 @@ cd seuconviteia
 git checkout reset-mvp-convites
 pnpm install
 
-# 2) Segredos — .env.local NÃO vem no git (está no .gitignore).
-#    Copie ~/seuconviteia/.env.local do PC antigo por fora (AirDrop/pendrive/gerenciador de senhas).
-#    Contém as chaves do Supabase (projeto rphedglardgxfytlcweo) etc.
+# 2) Segredos — copie `.env.example` para `.env` e preencha.
+#    ATENÇÃO: as conexões do banco moram no `.env`, NÃO no `.env.local`. O Prisma CLI
+#    lê só o `.env`; `.env.local` é convenção do Next.js e o CLI o ignora, causando
+#    "Environment variable not found: DIRECT_URL" nas migrations.
+cp .env.example .env
 
-# 3) Banco de dev (Docker MySQL) + rodar — ver skill `run` do projeto:
-#    (o app usa Prisma + MySQL; há um container de dev `sc-mysql`)
-pnpm dev        # http://localhost:3000
+# 3) Banco de dev — Postgres em Docker, PORTA 5433 (a 5432 costuma ter um
+#    PostgreSQL nativo do Windows; sem isso o Prisma falha com P1000):
+docker run -d --name sc-postgres --restart unless-stopped \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=seuconviteia \
+  -p 5433:5432 postgres:17
+
+pnpm db:migrate  # aplica as migrations versionadas
+pnpm db:seed     # evento demo maria-clara + login demo@seuconviteia.com / demo12345
+pnpm dev         # http://localhost:3000  (tenant: http://maria-clara.localhost:3000)
 ```
 
 **Skills a instalar** (no Claude Code do outro PC):
