@@ -4,6 +4,36 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-10-cache-site-evento-design.md` (commits `72f2aec`, `ed1efe3`)
 
+## Executado em 2026-07-10 — resultados e correções
+
+Implementado em `9d1a2f0`..`c31fdee`. Todas as 7 tarefas concluídas. 156 testes verdes, `tsc` limpo, `pnpm build` ok.
+
+**Medições no dev server, contando statements reais do Postgres (`log_statement = all`):**
+
+| Cenário | Queries no `Event` |
+|---|---|
+| 6 visitas seguidas ao convite | **1** |
+| Cache quente, 3 visitas | **0** |
+| Após salvar pelo painel (Server Action real) | **1** (invalidou) |
+| 2 visitas seguintes | **0** (recacheou) |
+
+**Expiração exata, comprovada:** com `expiresAt = agora + 30s` e a linha já cacheada, o convite continuou visível e sumiu (`"Este convite expirou"`) assim que o relógio passou — com **zero queries novas**. A linha veio do cache; a visibilidade foi reavaliada com `new Date()` fresco. É a promessa da §3 do spec.
+
+**`updateTag` não lançou** em nenhuma das actions (`grep -c "can only be called" dev.log` → 0).
+
+### Três erros deste plano, corrigidos aqui
+
+1. **Tarefa 2 mandava pôr o revival em `lib/eventoFesta.ts`.** Não funciona: esse arquivo importa `prisma`, e o Vitest não resolve o alias `@/`. O teste nem carregava. O revival vive em **`lib/eventoCru.ts`**, sem import de runtime — como os outros 19 testes puros do repo.
+
+2. **O plano usava `revalidateTag(tag)`.** No Next 16 a assinatura é `revalidateTag(tag, profile)` — dois argumentos, e o `tsc` acusou. A API correta aqui é **`updateTag(tag)`**, que só vale dentro de Server Action (os três arquivos chamadores são `"use server"`) e dá semântica de *read-your-own-writes*: o dono salva e vê na hora.
+
+3. **O passo 5 da Tarefa 7 testava a coisa errada.** Alterar `expiresAt` no banco simula uma *mudança de dado*, não a *passagem do tempo* — e a linha cacheada, com o `expiresAt` antigo, faria o teste falhar por culpa do teste. O cenário real é o inverso: `expiresAt` fica parado e o relógio anda. O passo foi reescrito assim.
+
+### Duas armadilhas de ambiente, para o próximo agente
+
+- **O Data Cache do dev vive em `.next/dev/cache`**, não em `.next/cache` (235 MB, sobrevive ao restart do dev server). Apagar o diretório errado faz o teste medir a linha antiga e mentir.
+- **Um dev server esquecido rodando** faz `pnpm build` falhar com `Type 'Route' does not satisfy the constraint 'LayoutRoutes'`, porque `.next/dev/types` e `.next/types` colidem. Não é erro de código; mate o processo e refaça.
+
 **Goal:** Fazer o banco parar de ser consultado a cada visita de convidado, sem que as edições do profissional demorem a aparecer no convite.
 
 **Architecture:** A query do evento passa a viver no Data Cache do Next (`unstable_cache`), sob a tag `evento:<sub>`, com TTL de 300s como rede de segurança. As páginas continuam `force-dynamic` — decisão do dono, que exige expiração exata no segundo. Uma fronteira de revival normaliza as datas, porque o `unstable_cache` devolve `Date` no cache miss e `string` no cache hit.
