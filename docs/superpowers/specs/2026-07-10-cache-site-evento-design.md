@@ -93,13 +93,24 @@ convite inteiro.
 `expiresAt`, `createdAt`, `updatedAt` — e as relações incluídas (`professional`,
 `template`, `gifts`, `photos`) também têm `createdAt`.
 
-Se voltarem como `string`, `eventoPublico` estoura ao chamar `ev.expiresAt.getTime()`.
-O TypeScript **não** avisa: ele acredita no tipo declarado pelo Prisma.
+**Verificado no código-fonte do Next 16.2.9**
+(`next/dist/server/web/spec-extension/unstable-cache.js`):
 
-Em vez de apostar no comportamento do `unstable_cache`, o carregador terá revival
-explícito das datas na saída do cache. A função de revival é pura e testada. Um teste
-separado prova, empiricamente, o que o `unstable_cache` faz com um `Date` — e deve
-falhar antes de a correção existir.
+- **Cache miss:** `cacheNewResult()` grava com `JSON.stringify(result)` (linha 23) e
+  devolve `return result` — o objeto **original**, com `Date` intactos.
+- **Cache hit:** devolve `JSON.parse(cacheEntry.value.data.body)` (linha 168) — os
+  `Date` viraram **string ISO**.
+
+Há um comentário do próprio Next no ponto da serialização: `// TODO: handle non-JSON
+values?`
+
+Portanto o tipo mente e **o bug é intermitente**: a primeira visita a um convite
+funciona (miss), a segunda estoura em `ev.expiresAt.getTime()` (hit). O TypeScript não
+avisa — ele acredita no tipo declarado pelo Prisma. Um teste manual de uma visita só
+passaria, e a quebra apareceria em produção.
+
+Consequência de design: a fronteira de revival fica **fora** do `unstable_cache`,
+aceita `Date | string` e normaliza os dois caminhos para `Date`. Ela é pura e testada.
 
 ### 5.5 Invalidação
 
@@ -138,12 +149,16 @@ o `expiresAt` dela não muda com o tempo.
 Vitest, 19 arquivos, todos de funções puras, nenhum toca o banco. Manter assim.
 
 - `lib/cacheTags.test.ts` — formato e estabilidade das tags.
-- `lib/eventoFesta.test.ts` — revival de datas: entrada com strings ISO nas quatro
-  datas do `Event` e nas relações, saída com `Date` reais. Inclui o caso `null`
-  (evento inexistente) e datas ausentes/opcionais.
-- Um teste que documenta o comportamento real do `unstable_cache` com `Date`. Se ele
-  provar que datas sobrevivem, a fronteira de revival vira redundante e **deve ser
-  removida** — mas só depois da prova.
+- `lib/eventoFesta.test.ts` — revival de datas. Casos obrigatórios:
+  - entrada com strings ISO nas quatro datas do `Event` → saída com `Date` reais
+    (simula o **cache hit**);
+  - entrada já com `Date` → saída inalterada, ainda `Date` (simula o **cache miss**);
+  - `null` (evento inexistente) → `null`, sem estourar;
+  - relações (`photos`, `gifts`, `professional`, `template`) com `createdAt` string;
+  - `template: null` (relação opcional).
+- Não há teste do `unstable_cache` em si: o comportamento foi verificado lendo o
+  código-fonte do Next (§5.4) e não é responsabilidade deste repo testar o framework.
+  O que se testa é a nossa fronteira, que precisa tolerar **os dois** formatos.
 
 ## 7. Verificação
 
