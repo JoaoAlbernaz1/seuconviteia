@@ -59,7 +59,7 @@ export default async function EventSiteLayout({
       style={{ ...varsDoTema(tema), ...varsDaFonte(fonteKey) }}
     >
       <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />
-      <SiteNav nome={dados.primeiroNome} recursos={recursos} />
+      <SiteNav nome={dados.primeiroNome} logoUrl={dados.logoUrl} recursos={recursos} />
       {children}
       <SiteFooter
         nome={dados.primeiroNome}

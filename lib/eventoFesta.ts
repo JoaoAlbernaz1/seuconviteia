@@ -63,6 +63,8 @@ export type EventoFesta = {
   fotos: string[];
   /** Linha discreta do rodape: "DD . MM . AAAA · Local". */
   footerInfo: string;
+  /** Monograma/logo do evento (opcional; a nav usa as iniciais do nome se ausente). */
+  logoUrl?: string;
   /** Preset de cor do site (chave de `lib/temas.ts`). */
   tema: string;
   /** Id do template de DESIGN do site (chave de `lib/templates.ts`). */
@@ -79,6 +81,7 @@ const IDADE_POR_NICHO: Partial<Record<NichoEvento, number>> = {
 const extrasSchema = z
   .object({
     tema: z.string(),
+    logoUrl: z.string(),
     fotoDesktopUrl: z.string(),
     presentesFotoUrl: z.string(),
     presentesTexto: z.string(),
@@ -156,6 +159,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     presentesTexto: texto(extras.presentesTexto),
     fotos: c.fotos,
     footerInfo: `${dataPontilhada(event.eventDate)}${footerLocal}`,
+    logoUrl: texto(extras.logoUrl),
     tema: texto(extras.tema) ?? TEMA_PADRAO,
     templateId: lerTemplateId(event.customization),
   };

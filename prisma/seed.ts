@@ -105,6 +105,7 @@ async function main() {
     tema: "rose",
     fontes: "classica",
     accent: "#CE578B",
+    logoUrl: "/demo/maria-clara/mc.png",
     mensagem:
       "Um sonho que começa a se tornar realidade. Vai ser uma alegria imensa celebrar essa noite tão especial ao seu lado.",
     local: "Espaço Esplendor",

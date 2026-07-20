@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { RecursoSite, TogglesSite } from "@/lib/recursos";
@@ -27,13 +28,24 @@ const LINKS: { href: string; label: string; recurso: RecursoSite | null }[] = [
  */
 export function SiteNav({
   nome,
+  logoUrl,
   recursos,
 }: {
   nome: string;
+  /** Monograma/logo do evento (ex.: mc.png). Ausente ⇒ iniciais do nome. */
+  logoUrl?: string;
   recursos: TogglesSite;
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);
+  // Iniciais do nome p/ o monograma-fallback (ex.: "Maria Clara" -> "MC").
+  const iniciais = nome
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0] ?? "")
+    .join("")
+    .toUpperCase();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -79,16 +91,27 @@ export function SiteNav({
         aria-label="Navegação principal"
         className="mx-auto flex h-16 max-w-[1100px] items-center justify-between px-[clamp(1.25rem,5vw,2rem)]"
       >
-        {/* Marca — wordmark de texto (nome do evento) */}
+        {/* Marca — monograma do evento (logo) ou iniciais. SEMPRE visível,
+            inclusive sobre a capa (igual ao site da festa). */}
         <Link
           href="/"
           aria-label={`${nome} — início`}
-          className={`flex cursor-pointer items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff}`}
+          className={`flex cursor-pointer items-center rounded-md focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff}`}
         >
-          {/* Wordmark escondido NA CAPA — aparece nas paginas internas. */}
-          <span className={`font-evt-util text-[0.7rem] uppercase tracking-[0.28em] transition-colors ${overHero ? "hidden" : "hidden sm:inline-block"} ${wordmark}`}>
-            {nome}
-          </span>
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt={nome}
+              width={64}
+              height={64}
+              priority
+              className="h-12 w-auto object-contain"
+            />
+          ) : (
+            <span className={`font-evt-display text-[1.6rem] leading-none tracking-[0.06em] transition-colors ${claro ? "text-white" : "text-evt-rosa-ink"}`}>
+              {iniciais}
+            </span>
+          )}
         </Link>
 
         {/* Links — desktop */}
