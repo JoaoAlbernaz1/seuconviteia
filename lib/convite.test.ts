@@ -22,9 +22,11 @@ describe("lerConteudo", () => {
     expect(c.local).toBeUndefined();
   });
 
-  it("formata a data em pt-BR no fuso America/Sao_Paulo", () => {
+  it("formata a data em pt-BR no fuso America/Sao_Paulo (dia da semana, sem ano)", () => {
     const c = lerConteudo(baseEvent);
-    expect(c.dataLabel).toBe("15 de julho de 2026");
+    // Espelha o site da festa: dia da semana capitalizado, sem o ano (o ano
+    // aparece no rodapé, na data pontilhada).
+    expect(c.dataLabel).toBe("Quarta-feira, 15 de julho");
   });
 
   it("mapeia cada nicho para o rotulo amigavel", () => {
