@@ -1,56 +1,46 @@
 "use client";
-// Contador do Glamour Rosé — tiles glossy com "brilho suave" (sheen ambiente +
-// glow). Usa o hook COMPARTILHADO useCountdown (a contagem "bate" igual aos
-// outros templates); o VISUAL é próprio deste corpo.
+// Contagem regressiva — clone FIEL do Countdown do site da Maria Clara
+// (festa-15-maria-clara/components/Countdown.tsx): números na display Didone (ink),
+// rótulos rosa, separadores hairline. Calmo sobre claro. Usa o hook compartilhado
+// useCountdown (a contagem "bate" igual aos outros templates).
 import { useCountdown } from "@/components/evt/useCountdown";
 
-function Tile({ valor, rotulo, delay }: { valor: number; rotulo: string; delay: string }) {
+function Bloco({ valor, rotulo }: { valor: number; rotulo: string }) {
   return (
-    <div className="qgr-tile flex min-w-[4.6rem] flex-col items-center px-[clamp(0.7rem,3.5vw,1.5rem)] py-[clamp(0.9rem,3vw,1.5rem)] sm:min-w-[6rem]">
-      {/* glow suave por trás do número */}
-      <span
-        aria-hidden
-        className="qgr-glow pointer-events-none absolute inset-0 -z-0"
-        style={{
-          animationDelay: delay,
-          background:
-            "radial-gradient(60% 55% at 50% 40%, color-mix(in srgb, var(--ev-rose) 40%, transparent), transparent 70%)",
-        }}
-      />
-      <span className="qgr-sheen qgr-sheen--auto" aria-hidden style={{ animationDelay: delay }} />
-      <span className="relative z-10 font-evt-display text-[clamp(2.4rem,9vw,3.6rem)] leading-none tabular-nums text-evt-ink">
+    <div className="flex flex-col items-center">
+      <span className="font-evt-display text-[clamp(2.6rem,9vw,3.6rem)] leading-none tabular-nums text-evt-ink">
         {String(valor).padStart(2, "0")}
       </span>
-      <span className="relative z-10 mt-2 font-evt-util text-[0.54rem] uppercase tracking-[0.28em] text-evt-rosa-ink">
+      <span className="mt-2 font-evt-util text-[0.55rem] uppercase tracking-[0.3em] text-evt-rosa-ink">
         {rotulo}
       </span>
     </div>
   );
 }
 
+function Sep() {
+  return <span className="h-9 w-px bg-[var(--line)] sm:h-11" aria-hidden />;
+}
+
 export function QgrCountdown({ alvoISO }: { alvoISO: string }) {
   const r = useCountdown(alvoISO);
 
   // SSR / primeiro paint: reserva a altura (evita layout shift / hydration mismatch).
-  if (!r) return <div className="h-[128px]" aria-hidden />;
-
-  if (r.chegou) {
-    return (
-      <p className="qgr-foil font-evt-script text-[clamp(2.4rem,8vw,3.4rem)] leading-tight">
-        É hoje! O grande dia chegou
-      </p>
-    );
-  }
+  if (!r) return <div className="h-[88px]" aria-hidden />;
+  if (r.chegou) return <p className="font-evt-script text-4xl text-evt-rosa-ink">É hoje! 💗</p>;
 
   return (
     <div
-      className="flex flex-wrap items-stretch justify-center gap-[clamp(0.6rem,2.5vw,1.1rem)]"
+      className="flex items-center justify-center gap-5 sm:gap-8"
       aria-label="Contagem regressiva para a festa"
     >
-      <Tile valor={r.dias} rotulo="dias" delay="0s" />
-      <Tile valor={r.horas} rotulo="horas" delay="0.8s" />
-      <Tile valor={r.minutos} rotulo="min" delay="1.6s" />
-      <Tile valor={r.segundos} rotulo="seg" delay="2.4s" />
+      <Bloco valor={r.dias} rotulo="dias" />
+      <Sep />
+      <Bloco valor={r.horas} rotulo="horas" />
+      <Sep />
+      <Bloco valor={r.minutos} rotulo="min" />
+      <Sep />
+      <Bloco valor={r.segundos} rotulo="seg" />
     </div>
   );
 }

@@ -96,7 +96,7 @@ export function SiteNav({
         <Link
           href="/"
           aria-label={`${nome} — início`}
-          className={`flex cursor-pointer items-center rounded-md focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff}`}
+          className={`flex cursor-pointer items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff}`}
         >
           {logoUrl ? (
             <Image
@@ -112,6 +112,10 @@ export function SiteNav({
               {iniciais}
             </span>
           )}
+          {/* Wordmark (nome do evento) — escondido SOBRE a capa, aparece nas páginas internas. */}
+          <span className={`font-evt-util text-[0.7rem] uppercase tracking-[0.28em] transition-colors ${overHero ? "hidden" : "hidden sm:inline-block"} ${wordmark}`}>
+            {nome}
+          </span>
         </Link>
 
         {/* Links — desktop */}

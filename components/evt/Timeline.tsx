@@ -29,10 +29,10 @@ export function Timeline({
               className="absolute left-0 top-[0.55rem] h-[15px] w-[15px] rounded-full bg-white ring-1 ring-[var(--line)] [box-shadow:inset_0_0_0_3px_var(--ev-rosa)]"
               aria-hidden
             />
-            <span className="min-w-[3.6rem] shrink-0 font-evt-display text-[clamp(1.5rem,5vw,2rem)] leading-none tabular-nums text-evt-rosa-ink">
+            <span className="min-w-[4.4rem] shrink-0 font-evt-display text-[clamp(1.9rem,6vw,2.4rem)] leading-none tabular-nums text-evt-rosa-ink">
               {item.hora}
             </span>
-            <span className="font-evt-body text-lg text-evt-ink">{item.titulo}</span>
+            <span className="font-evt-body text-[clamp(1.2rem,4.5vw,1.4rem)] text-evt-ink">{item.titulo}</span>
           </div>
         </Reveal>
       ))}
