@@ -102,10 +102,10 @@ export function SiteNav({
             <Image
               src={logoUrl}
               alt={nome}
-              width={64}
-              height={64}
+              width={84}
+              height={84}
               priority
-              className="h-12 w-auto object-contain"
+              className="h-[42px] w-[42px] object-contain"
             />
           ) : (
             <span className={`font-evt-display text-[1.6rem] leading-none tracking-[0.06em] transition-colors ${claro ? "text-white" : "text-evt-rosa-ink"}`}>

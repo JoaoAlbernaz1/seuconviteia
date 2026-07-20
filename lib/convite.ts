@@ -100,10 +100,19 @@ const customizationSchema = z
 
 type Customization = z.infer<typeof customizationSchema>;
 
+// Data "por extenso" com dia da semana, SEM ano (ex.: "Sábado, 29 de agosto")
+// — o ano aparece no rodapé (data pontilhada). Espelha o site da festa.
 const formatadorData = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "long",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
   timeZone: "America/Sao_Paulo",
 });
+
+/** Primeira letra maiúscula ("sábado, ..." -> "Sábado, ..."). */
+function capitalizar(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
 
 const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -151,7 +160,7 @@ export function lerConteudo(event: EventoParaConteudo): ConviteConteudo {
   return {
     titulo: texto(event.title) ?? "Nosso convite",
     nichoLabel,
-    dataLabel: formatadorData.format(event.eventDate),
+    dataLabel: capitalizar(formatadorData.format(event.eventDate)),
     dataISO: event.eventDate.toISOString(),
     accent: texto(custom.accent) ?? ACCENT_PADRAO,
     mensagem: texto(custom.mensagem),

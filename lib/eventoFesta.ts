@@ -37,6 +37,10 @@ export type EventoFesta = {
   /** Alvo da contagem regressiva (ISO 8601). */
   dataAlvoISO: string;
   mensagemBoasVindas?: string;
+  /** Linha de abertura do convite (ex.: "Os pais de X convidam você..."). */
+  conviteIntro?: string;
+  /** Assinatura da carta (ex.: "Adalberto, Ivânia e Maria Clara"). */
+  assinatura?: string;
   local?: string;
   endereco?: string;
   /** Link "Abrir no Google Maps" (texto). */
@@ -82,6 +86,9 @@ const extrasSchema = z
   .object({
     tema: z.string(),
     logoUrl: z.string(),
+    conviteIntro: z.string(),
+    assinatura: z.string(),
+    cidade: z.string(),
     fotoDesktopUrl: z.string(),
     presentesFotoUrl: z.string(),
     presentesTexto: z.string(),
@@ -133,7 +140,10 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
 
   const idade = IDADE_POR_NICHO[event.type as NichoEvento];
 
-  const footerLocal = c.local ? ` · ${c.local}` : "";
+  // Rodapé: "DD . MM . AAAA · Local · Cidade" (partes vazias somem).
+  const footerInfo = [dataPontilhada(event.eventDate), c.local, texto(extras.cidade)]
+    .filter(Boolean)
+    .join(" · ");
 
   return {
     primeiroNome: c.titulo,
@@ -143,6 +153,8 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     horario: horarioBR(event.eventDate),
     dataAlvoISO: c.dataISO,
     mensagemBoasVindas: c.mensagem,
+    conviteIntro: texto(extras.conviteIntro),
+    assinatura: texto(extras.assinatura),
     local: c.local,
     endereco: c.endereco,
     mapsLinkUrl: c.mapsUrl,
@@ -158,7 +170,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     presentesFotoUrl: texto(extras.presentesFotoUrl) ?? c.fotoUrl ?? c.fotos[0],
     presentesTexto: texto(extras.presentesTexto),
     fotos: c.fotos,
-    footerInfo: `${dataPontilhada(event.eventDate)}${footerLocal}`,
+    footerInfo,
     logoUrl: texto(extras.logoUrl),
     tema: texto(extras.tema) ?? TEMA_PADRAO,
     templateId: lerTemplateId(event.customization),

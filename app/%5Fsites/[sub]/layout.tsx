@@ -51,7 +51,9 @@ export default async function EventSiteLayout({
   // filtra os links; o rodape/white-label continua so por plano.
   const recursos = recursosDoSite(event.plan, event.customization);
   const whiteLabel = planoPermite(event.plan, "whiteLabel");
-  const brandName = event.professional?.brandName ?? event.professional?.name;
+  // Só a marca EXPLÍCITA do profissional (não vaza o nome interno da conta): sem
+  // brandName, o rodapé white-label fica sem crédito (como o site real da festa).
+  const brandName = event.professional?.brandName ?? undefined;
 
   return (
     <div

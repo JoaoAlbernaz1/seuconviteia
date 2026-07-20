@@ -60,13 +60,16 @@ async function main() {
       name: "Estudio Demo Eventos",
       plan: Plan.PREMIUM,
       passwordHash: DEMO_PASSWORD_HASH,
+      // Sem marca de agência -> o convite-demo (premium) fica sem crédito no
+      // rodapé, igual ao site real da festa.
+      brandName: null,
     },
     create: {
       name: "Estudio Demo Eventos",
       plan: Plan.PREMIUM,
       email: "demo@seuconviteia.com",
       passwordHash: DEMO_PASSWORD_HASH,
-      brandName: "Estudio Demo Eventos",
+      brandName: null,
     },
   });
 
@@ -106,10 +109,14 @@ async function main() {
     fontes: "classica",
     accent: "#CE578B",
     logoUrl: "/demo/maria-clara/mc.png",
+    conviteIntro:
+      "Os pais de Maria Clara convidam você para celebrar os 15 anos de sua filha.",
     mensagem:
-      "Um sonho que começa a se tornar realidade. Vai ser uma alegria imensa celebrar essa noite tão especial ao seu lado.",
-    local: "Espaço Esplendor",
+      "Há quinze anos, Deus nos presenteou com o mais belo capítulo da nossa história. Hoje, com o coração repleto de gratidão, queremos compartilhar esse momento tão especial com as pessoas que fazem parte da nossa caminhada.\n\nSerá uma imensa alegria contar com a sua presença para celebrar essa data tão significativa e tornar essa noite ainda mais inesquecível.",
+    assinatura: "Adalberto, Ivânia e Maria Clara",
+    local: "Esplendor Hall",
     endereco: "SMPW Quadra 4, Conjunto 3 — Park Way, Brasília – DF",
+    cidade: "Brasília",
     mapsUrl:
       "https://www.google.com/maps/search/?api=1&query=Esplendor+Hall+SMPW+Quadra+4+Conjunto+3+Park+Way+Bras%C3%ADlia+DF",
     mapsEmbedUrl:
