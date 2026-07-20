@@ -1,0 +1,1270 @@
+"use client";
+
+// Editor guiado "Criar convite" — réplica do Claude Design "seuconvite - Criar
+// convite.dc.html": 6 passos (Festa · Capa e estilo · Conteúdo · Confirmação ·
+// Presentes e Pix · Galeria e publicação) com PRÉVIA AO VIVO à direita.
+//
+// Melhorias (pedidos do João, 16/07):
+//  · Passo 1 DESPOLUÍDO (grupos + "detalhes opcionais" recolhidos).
+//  · CEP (ViaCEP, API grátis) preenche endereço/cidade/estado sozinho.
+//  · Prévia ACOMPANHA o passo: rola até a seção em edição e a destaca.
+//  · Aparelhos REALISTAS: iPhone (celular) e MacBook (computador), toggle em
+//    todos os passos. No MacBook o convite ocupa a TELA INTEIRA num layout de
+//    desktop (hero full-bleed + corpo largo), como um visitante veria no PC.
+// (IA de imagem/texto fica para a próxima fatia — a pedido do João.)
+//
+// Estado 100% local — a gravação no banco é a próxima fatia.
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Ic, IC } from "../_shell/Ic";
+
+const V = "#7C3AED";
+const MUT = "#6E6E76";
+const STEP_NAMES = ["Festa", "Capa e estilo", "Conteúdo", "Confirmação", "Presentes e Pix", "Galeria e publicação"];
+const TXTC = ["#FFFFFF", "#C4B5FD", "#E8C87A", "#FF9EC9"];
+const DETC = ["#C4B5FD", "#FF2D8D", "#E8C87A", "#FFFFFF"];
+const BTNC = ["#7C3AED", "#FF2D8D", "#C4B5FD", "#E8C87A"];
+const T_SIZES = [26, 34, 44];
+const D_SIZES = [9, 10.5, 12];
+const S_SIZES = [8, 9, 11];
+const RSVP_LABELS = [
+  "Permitir acompanhantes",
+  "Solicitar nome dos acompanhantes",
+  "Solicitar telefone",
+  "Solicitar e-mail",
+  "Perguntar sobre restrição alimentar",
+  "Permitir recado para a debutante",
+];
+const GIFTS = [
+  { n: "Jantar de gala", desc: "Ajude com o buffet da noite", v: "R$ 180", q: 4, c1: "#2b2440", c2: "#7C3AED" },
+  { n: "Valsa da debutante", desc: "O momento mais esperado", v: "R$ 250", q: 2, c1: "#241a12", c2: "#D4AF37" },
+  { n: "Sessão de fotos", desc: "Registros para a vida toda", v: "R$ 320", q: 1, c1: "#101426", c2: "#5B8DEF" },
+  { n: "Kit lembrancinhas", desc: "Para os convidados", v: "R$ 90", q: 8, c1: "#191114", c2: "#C97B7F" },
+];
+const RECADOS = [
+  { n: "Tia Márcia", txt: "Que noite linda vai ser! Estamos contando os dias, minha querida.", d: "02/07" },
+  { n: "Bia e Carol", txt: "Amiga, você merece o mundo! Te amamos!", d: "30/06" },
+  { n: "Vô Antônio", txt: "Minha neta, que Deus abençoe seus 15 anos.", d: "28/06" },
+];
+
+type State = {
+  step: number;
+  sv: "salvo" | "salvando";
+  showErr: boolean;
+  nome: string; data: string; hIni: string; pai: string; mae: string;
+  cep: string; local: string; endereco: string; cidade: string; uf: string; traje: string; slug: string;
+  capaT: string; capaS: string; capaD: string;
+  szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
+  acc: number; abT: string; abTx: string;
+  paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; rodapeTx: string;
+  rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
+  gifts: boolean; free: boolean; giftHidden: boolean[]; pixNome: string; pixChave: string;
+  gal: boolean; rec: boolean; recSt: string[];
+  published: boolean; copied: boolean; pvMode: "celular" | "desktop";
+};
+
+const INICIAL: State = {
+  step: 1, sv: "salvo", showErr: false,
+  nome: "Luiza", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Renata Martins",
+  cep: "", local: "Espaço Villa Eventos", endereco: "Av. das Palmeiras, 1200", cidade: "São Paulo", uf: "SP",
+  traje: "Esporte fino", slug: "luiza15",
+  capaT: "Luiza", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
+  szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: true,
+  acc: 0, abT: "Vem comemorar comigo!",
+  abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
+  paisOn: true, paisTx: "Com a alegria dos meus pais, convido você para celebrar este momento comigo.",
+  trajeOn: true, btnTx: "Confirmar presença", btnDest: 0,
+  rodapeTx: "Obrigada por fazer parte da minha história.",
+  rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0, corBtn: 0,
+  gifts: true, free: true, giftHidden: [false, false, false, false],
+  pixNome: "Renata Martins", pixChave: "renata.martins@email.com",
+  gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
+  published: false, copied: false, pvMode: "celular",
+};
+
+// Cada campo do editor aponta para uma seção da prévia — usado para destacar
+// "onde você está mexendo" a cada alteração.
+const FIELD_SEC: Partial<Record<keyof State, string>> = {
+  capaT: "capa", capaS: "capa", capaD: "capa",
+  corTxt: "capa", corDet: "capa", szT: "capa", szS: "capa", szD: "capa", overlay: "capa",
+  data: "info", hIni: "info", cep: "info", local: "info", endereco: "info", cidade: "info", uf: "info",
+  nome: "rodape", rodapeTx: "rodape",
+  pai: "pais", mae: "pais", paisOn: "pais", paisTx: "pais",
+  traje: "traje", trajeOn: "traje",
+  abT: "msg", abTx: "msg",
+  btnTx: "rsvp", btnDest: "rsvp", rsvp: "rsvp", maxComp: "rsvp", rsvpOpts: "rsvp", theme: "rsvp", corBtn: "rsvp",
+  pixNome: "gifts", pixChave: "gifts", gifts: "gifts", free: "gifts", giftHidden: "gifts",
+};
+
+const inputCls = "w-full rounded-[11px] border bg-white px-3 py-2.5 text-[14px] text-[#17171B]";
+const cardCls = "rounded-[18px] border border-[#ECECF0] bg-white p-6 shadow-[0_2px_10px_rgba(23,23,27,0.04)]";
+
+function Label({ children, opt }: { children: React.ReactNode; opt?: boolean }) {
+  return (
+    <div className="mb-1.5 text-[12.5px] font-semibold text-[#3F3F46]">
+      {children}
+      {opt && <span className="font-normal text-[#A6A6AE]"> · opcional</span>}
+    </div>
+  );
+}
+
+function Sub({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.09em] text-[#A6A6AE]">{children}</div>;
+}
+
+function Toggle({ on, onClick, size = "sm" }: { on: boolean; onClick: () => void; size?: "sm" | "lg" }) {
+  const w = size === "lg" ? 42 : 38;
+  const h = size === "lg" ? 24 : 22;
+  const knob = h - 5;
+  const left = on ? (size === "lg" ? 20 : 18) : 3;
+  return (
+    <span onClick={onClick} style={{ width: w, height: h, background: on ? V : "#D5D5DC" }} className="relative shrink-0 cursor-pointer rounded-full transition-colors">
+      <span style={{ top: 2.5, left, width: knob, height: knob }} className="absolute rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-all" />
+    </span>
+  );
+}
+
+function Seg({ value, onChange }: { value: number; onChange: (i: number) => void }) {
+  return (
+    <div className="flex gap-0.5 rounded-[10px] border border-[#ECECF0] bg-[#F4F4F6] p-[3px]">
+      {["Pequeno", "Médio", "Grande"].map((l, i) => (
+        <span key={l} onClick={() => onChange(i)} style={{ background: value === i ? "#fff" : "transparent", color: value === i ? "#17171B" : MUT, boxShadow: value === i ? "0 1px 3px rgba(0,0,0,0.1)" : "none", fontWeight: value === i ? 600 : 400 }} className="cursor-pointer rounded-lg px-4 py-1.5 text-[12px]">
+          {l}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Swatches({ colors, value, onChange }: { colors: string[]; value: number; onChange: (i: number) => void }) {
+  return (
+    <div className="flex gap-2">
+      {colors.map((c, i) => (
+        <span key={i} onClick={() => onChange(i)} style={{ background: c, borderColor: value === i ? V : "#E4E4EA" }} className="size-7 cursor-pointer rounded-full border-2 shadow-[inset_0_0_0_2px_#fff]" />
+      ))}
+    </div>
+  );
+}
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <span onClick={onClick} style={{ borderColor: active ? V : "#E4E4EA", background: active ? "#F3EFFE" : "#fff", color: active ? "#6D28D9" : MUT, fontWeight: active ? 600 : 400 }} className="cursor-pointer rounded-full border px-3.5 py-[7px] text-[12.5px]">
+      {label}
+    </span>
+  );
+}
+
+export function CriarConvite() {
+  const router = useRouter();
+  const [S, setS] = useState<State>(INICIAL);
+  const [maisDetalhes, setMaisDetalhes] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [pvHl, setPvHl] = useState<string | null>(null);
+  const svTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refs das seções da prévia (para a prévia acompanhar o passo).
+  const pvScroll = useRef<HTMLDivElement>(null);
+  const rCapa = useRef<HTMLDivElement>(null);
+  const rMsg = useRef<HTMLDivElement>(null);
+  const rPais = useRef<HTMLDivElement>(null);
+  const rInfo = useRef<HTMLDivElement>(null);
+  const rTraje = useRef<HTMLDivElement>(null);
+  const rRsvp = useRef<HTMLDivElement>(null);
+  const rGifts = useRef<HTMLDivElement>(null);
+  const rRodape = useRef<HTMLDivElement>(null);
+  const hlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAim = useRef<string | null>(null);
+
+  // Aponta a prévia para uma seção: rola até ela e a destaca por um instante.
+  const scrollToSec = (key: string) => {
+    const map: Record<string, React.RefObject<HTMLDivElement | null>> = {
+      capa: rCapa, msg: rMsg, pais: rPais, info: rInfo, traje: rTraje, rsvp: rRsvp, gifts: rGifts, rodape: rRodape,
+    };
+    const el = map[key]?.current;
+    const c = pvScroll.current;
+    if (!el || !c) return;
+    const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    c.scrollTo({ top: Math.max(0, el.offsetTop - 74), behavior: reduce ? "auto" : "smooth" });
+  };
+  const aim = (key: string | null | undefined) => {
+    if (!key) return;
+    setPvHl(key);
+    if (hlTimer.current) clearTimeout(hlTimer.current);
+    hlTimer.current = setTimeout(() => setPvHl(null), 1700);
+    // Só rola quando a seção-alvo MUDA (digitar no mesmo campo não fica rolando).
+    if (lastAim.current !== key) {
+      lastAim.current = key;
+      requestAnimationFrame(() => scrollToSec(key));
+    }
+  };
+
+  const upd = (patch: Partial<State>) => {
+    if (svTimer.current) clearTimeout(svTimer.current);
+    setS((s) => ({ ...s, ...patch, sv: "salvando" }));
+    svTimer.current = setTimeout(() => setS((s) => ({ ...s, sv: "salvo" })), 900);
+    // Aponta a prévia para a seção do campo alterado.
+    const alvo = (Object.keys(patch) as (keyof State)[]).map((k) => FIELD_SEC[k]).find(Boolean);
+    if (alvo) aim(alvo);
+  };
+  const inp = (key: keyof State) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    upd({ [key]: e.target.value } as Partial<State>);
+
+  // CEP → ViaCEP (API pública grátis) preenche endereço, cidade e estado.
+  const onCep = async (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    const mask = digits.replace(/(\d{5})(\d)/, "$1-$2");
+    upd({ cep: mask });
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const d = await r.json();
+      if (!d.erro) {
+        const rua = [d.logradouro, d.bairro].filter(Boolean).join(", ");
+        upd({ cep: mask, endereco: rua || S.endereco, cidade: d.localidade || S.cidade, uf: d.uf || S.uf });
+      }
+    } catch {
+      /* offline / CEP inválido — segue com preenchimento manual */
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  const req = (v: string) => !!v && v.trim().length > 0;
+  const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
+  const slugTaken = ["maria15", "festa15"].includes(S.slug);
+  const slugOk = slugValid && !slugTaken;
+  const reqOk = req(S.nome) && req(S.data) && req(S.hIni) && req(S.local) && req(S.cidade) && req(S.uf) && slugOk;
+
+  const corTxt = TXTC[S.corTxt];
+  const corDet = DETC[S.corDet];
+  const btnColor = S.theme === 1 ? BTNC[S.corBtn] : V;
+
+  const next = () => {
+    if (S.step === 1 && !reqOk) return setS((s) => ({ ...s, showErr: true }));
+    setS((s) => ({ ...s, step: Math.min(6, s.step + 1), showErr: false }));
+  };
+  const prev = () => setS((s) => ({ ...s, step: Math.max(1, s.step - 1), showErr: false }));
+  const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false }));
+
+  const copyLink = () => {
+    navigator.clipboard?.writeText(`${S.slug}.seuconvite.orivya.com`).catch(() => {});
+    setS((s) => ({ ...s, copied: true }));
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setS((s) => ({ ...s, copied: false })), 1500);
+  };
+
+  // A prévia acompanha o passo (e o acordeão do passo 3): rola até a seção
+  // correspondente e a destaca por um instante.
+  useEffect(() => {
+    let key = "capa";
+    if (S.step === 1) key = "info";
+    else if (S.step === 2) key = "capa";
+    else if (S.step === 3) key = ["msg", "msg", "pais", "info", "traje", "rsvp", "rodape"][S.acc] ?? "msg";
+    else if (S.step === 4) key = "rsvp";
+    else if (S.step === 5) key = "gifts";
+    else key = "rodape";
+    lastAim.current = null; // troca de passo/aba/aparelho sempre rola
+    aim(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [S.step, S.acc, S.pvMode]);
+
+  const sec = (k: string) => `pv-sec${pvHl === k ? " on" : ""}`;
+
+  const rsvpFieldNames: string[] = [];
+  if (S.rsvpOpts[0]) rsvpFieldNames.push(`Quantos acompanhantes? (até ${S.maxComp})`);
+  if (S.rsvpOpts[1]) rsvpFieldNames.push("Nome dos acompanhantes");
+  if (S.rsvpOpts[2]) rsvpFieldNames.push("Telefone");
+  if (S.rsvpOpts[3]) rsvpFieldNames.push("E-mail");
+  if (S.rsvpOpts[4]) rsvpFieldNames.push("Alguma restrição alimentar?");
+  if (S.rsvpOpts[5]) rsvpFieldNames.push(`Deixe um recado para ${S.nome}`);
+
+  const accDefs = [
+    { name: "Mensagem de abertura", tag: "", kind: "abertura", st: "Preenchida", ok: true },
+    { name: "Mensagem abaixo da capa", tag: "· opcional", kind: "abaixo", st: "Preenchida", ok: true },
+    { name: "Pais e família", tag: "· opcional", kind: "pais", st: S.paisOn ? "Visível" : "Oculta", ok: S.paisOn },
+    { name: "Local da festa", tag: "", kind: "local", st: "Sincronizada", ok: true },
+    { name: "Traje", tag: "· opcional", kind: "traje", st: S.trajeOn ? "Visível" : "Oculta", ok: S.trajeOn },
+    { name: "Botão principal", tag: "", kind: "botao", st: "Configurado", ok: true },
+    { name: "Rodapé", tag: "", kind: "rodape", st: "Preenchido", ok: true },
+  ];
+
+  const checklist = [
+    { name: "Informações da festa preenchidas", ok: reqOk, note: "" },
+    { name: "Foto da capa adicionada", ok: true, note: "" },
+    { name: "Textos revisados", ok: true, note: "" },
+    { name: "Localização configurada", ok: req(S.local), note: "" },
+    { name: "Confirmação configurada", ok: S.rsvp, note: S.rsvp ? "" : "desativada" },
+    { name: "Presentes configurados", ok: S.gifts, note: S.gifts ? "4 presentes" : "desativados" },
+    { name: "QR Code do Pix adicionado", ok: S.gifts, note: "opcional" },
+    { name: "Galeria revisada", ok: S.gal, note: "opcional" },
+    { name: "Recados configurados", ok: S.rec, note: "opcional" },
+  ];
+
+  const recStyles: Record<string, { s: string; sBg: string; sColor: string }> = {
+    pendente: { s: "Aguardando aprovação", sBg: "#FFF3E5", sColor: "#B8730F" },
+    publicado: { s: "Publicado", sBg: "rgba(52,161,119,0.12)", sColor: "#2E8A66" },
+    oculto: { s: "Oculto", sBg: "#F0F0F3", sColor: "#8B8B93" },
+  };
+
+  const svText = S.sv === "salvo" ? "Tudo salvo." : "Salvando suas alterações...";
+  const svColor = S.sv === "salvo" ? "#34A177" : V;
+  const isDesktop = S.pvMode === "desktop";
+  const pvOvA = S.overlay ? 0.3 : 0.42;
+  const pvOvB = S.overlay ? 0.92 : 0.62;
+  const heroBg = `linear-gradient(165deg,rgba(124,58,237,${pvOvA}),rgba(13,10,20,${pvOvB}) 85%),linear-gradient(15deg,rgba(255,45,141,0.10),transparent 55%)`;
+
+  // ---- PRÉVIA · versão CELULAR (fiel ao design, 264px) ----
+  const inviteMobile = (
+    <>
+      <div ref={rCapa} style={{ background: heroBg }} className={`flex min-h-[250px] flex-col items-center justify-center gap-2 px-4 py-[26px] text-center ${sec("capa")}`}>
+        <div style={{ fontSize: S_SIZES[S.szS], letterSpacing: "0.34em", color: corDet }} className="uppercase">{S.capaS}</div>
+        <div style={{ fontSize: T_SIZES[S.szT], color: corTxt, lineHeight: 1.05 }} className="font-[family-name:var(--font-playfair)]">{S.capaT}</div>
+        <div style={{ fontSize: D_SIZES[S.szD], maxWidth: 230, lineHeight: 1.6 }} className="text-white/65">{S.capaD}</div>
+        <div className="mt-1 text-[9.5px] text-white/55">{S.data} · {S.hIni}</div>
+      </div>
+      <div className="flex flex-col gap-[18px] px-[18px] pb-[22px] pt-[18px]">
+        <div ref={rMsg} className={`p-1 text-center ${sec("msg")}`}>
+          <div className="mb-1.5 text-[12.5px] font-bold text-white">{S.abT}</div>
+          <div className="text-[10px] leading-[1.7] text-white/65">{S.abTx}</div>
+        </div>
+        {S.paisOn && (
+          <div ref={rPais} className={`border-t border-white/[0.08] p-1 pt-4 text-center ${sec("pais")}`}>
+            <div className="text-[9.5px] italic leading-[1.7] text-white/60">{S.paisTx}</div>
+            <div style={{ color: corDet }} className="mt-1.5 text-[10.5px]">{S.pai} · {S.mae}</div>
+          </div>
+        )}
+        <div ref={rInfo} className={`rounded-xl border border-white/[0.08] bg-white/[0.05] px-3.5 py-3.5 text-center ${sec("info")}`}>
+          <div style={{ color: corDet }} className="mb-1.5 text-[8.5px] uppercase tracking-[0.26em]">A festa</div>
+          <div className="text-[10.5px] leading-[1.9] text-white/80">
+            <b className="text-white">{S.data}</b> · {S.hIni}
+            <br />{S.local}
+            <br />{S.endereco}
+            <br />{S.cidade} — {S.uf}
+          </div>
+        </div>
+        {S.trajeOn && !!S.traje && (
+          <div ref={rTraje} className={`p-1 text-center ${sec("traje")}`}>
+            <div style={{ color: corDet }} className="mb-1 text-[8.5px] uppercase tracking-[0.26em]">Traje</div>
+            <div className="text-[10.5px] text-white/80">{S.traje}</div>
+          </div>
+        )}
+        {S.rsvp && (
+          <div ref={rRsvp} className={sec("rsvp")}>
+            {S.step === 4 ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] p-3.5">
+                <div className="mb-0.5 text-center text-[11px] font-bold text-white">Confirme sua presença</div>
+                <div className="text-center text-[8.5px] text-white/50">até 10/11/2026</div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.07] px-2.5 py-2 text-[9.5px] text-white/45">Nome completo</div>
+                <div className="flex gap-1.5">
+                  <span style={{ background: btnColor }} className="flex-1 rounded-lg py-2 text-center text-[9px] font-bold text-white">Sim, estarei presente</span>
+                  <span className="flex-1 rounded-lg border border-white/[0.18] py-2 text-center text-[9px] text-white/70">Não poderei comparecer</span>
+                </div>
+                {rsvpFieldNames.map((f) => (
+                  <div key={f} className="rounded-lg border border-white/10 bg-white/[0.07] px-2.5 py-2 text-[9.5px] text-white/45">{f}</div>
+                ))}
+                <div style={{ background: btnColor }} className="mt-0.5 rounded-full py-2 text-center text-[10px] font-bold text-white">Enviar confirmação</div>
+              </div>
+            ) : (
+              <div style={{ background: btnColor }} className="rounded-full py-2.5 text-center text-[10.5px] font-bold text-white">{S.btnTx}</div>
+            )}
+          </div>
+        )}
+        {S.gifts && S.step >= 5 && (
+          <div ref={rGifts} className={`border-t border-white/[0.08] pt-4 ${sec("gifts")}`}>
+            <div style={{ color: corDet }} className="mb-2.5 text-center text-[8.5px] uppercase tracking-[0.26em]">Lista de presentes</div>
+            <div className="flex flex-col gap-1.5">
+              {GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => (
+                <div key={g.n} className="flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.05] px-2.5 py-2">
+                  <div style={{ background: `linear-gradient(140deg,${g.c1},${g.c2})` }} className="size-7 flex-none rounded-[7px]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[10px] font-semibold text-white">{g.n}</div>
+                    <div className="text-[8.5px] text-white/45">{g.q} disponíveis</div>
+                  </div>
+                  <span style={{ color: corDet }} className="text-[10px] font-bold">{g.v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.05] p-3 text-center">
+              <div className="mx-auto flex size-[74px] items-center justify-center rounded-lg bg-white"><QrMock size={58} /></div>
+              <div className="mt-2 text-[9px] text-white/70">Pix para <b className="text-white">{S.pixNome}</b></div>
+              <div className="mt-1.5 inline-block rounded-full border border-white/[0.18] px-3 py-1 text-[8.5px] text-white/75">Copiar chave Pix</div>
+            </div>
+          </div>
+        )}
+        <div ref={rRodape} className={`border-t border-white/[0.08] p-1 pt-3.5 text-center ${sec("rodape")}`}>
+          <div className="text-[9.5px] italic text-white/60">{S.rodapeTx}</div>
+          <div className="mt-1.5 font-[family-name:var(--font-playfair)] text-[15px] text-white">{S.nome}</div>
+          <div className="mt-0.5 text-[8px] text-white/40">{S.data}</div>
+          <div className="mt-3 text-[7.5px] text-white/30">Criado com seuconvite · uma marca Orivya</div>
+        </div>
+      </div>
+    </>
+  );
+
+  // ---- PRÉVIA · versão DESKTOP (ocupa a tela do MacBook; hero full-bleed +
+  // corpo largo + tipografia de desktop; é como um visitante veria no PC) ----
+  const inviteDesktop = (
+    <>
+      <div ref={rCapa} style={{ background: heroBg }} className={`flex min-h-[330px] flex-col items-center justify-center gap-3 px-12 py-16 text-center ${sec("capa")}`}>
+        <div style={{ fontSize: S_SIZES[S.szS] * 1.6, letterSpacing: "0.34em", color: corDet }} className="uppercase">{S.capaS}</div>
+        <div style={{ fontSize: T_SIZES[S.szT] * 1.8, color: corTxt, lineHeight: 1.03 }} className="font-[family-name:var(--font-playfair)]">{S.capaT}</div>
+        <div style={{ fontSize: D_SIZES[S.szD] * 1.5, maxWidth: 400, lineHeight: 1.6 }} className="text-white/70">{S.capaD}</div>
+        <div className="mt-1.5 text-[13px] text-white/55">{S.data} · {S.hIni}</div>
+      </div>
+      <div className="mx-auto flex max-w-[480px] flex-col gap-7 px-8 py-10">
+        <div ref={rMsg} className={`text-center ${sec("msg")}`}>
+          <div className="mb-2 text-[17px] font-bold text-white">{S.abT}</div>
+          <div className="text-[13px] leading-[1.75] text-white/65">{S.abTx}</div>
+        </div>
+        {S.paisOn && (
+          <div ref={rPais} className={`border-t border-white/[0.08] pt-6 text-center ${sec("pais")}`}>
+            <div className="text-[12.5px] italic leading-[1.7] text-white/60">{S.paisTx}</div>
+            <div style={{ color: corDet }} className="mt-2 text-[13px]">{S.pai} · {S.mae}</div>
+          </div>
+        )}
+        <div ref={rInfo} className={`rounded-2xl border border-white/[0.08] bg-white/[0.05] px-7 py-6 text-center ${sec("info")}`}>
+          <div style={{ color: corDet }} className="mb-2 text-[11px] uppercase tracking-[0.26em]">A festa</div>
+          <div className="text-[13.5px] leading-[2] text-white/80">
+            <b className="text-white">{S.data}</b> · {S.hIni}
+            <br />{S.local}
+            <br />{S.endereco}
+            <br />{S.cidade} — {S.uf}
+          </div>
+        </div>
+        {S.trajeOn && !!S.traje && (
+          <div ref={rTraje} className={`text-center ${sec("traje")}`}>
+            <div style={{ color: corDet }} className="mb-1 text-[11px] uppercase tracking-[0.26em]">Traje</div>
+            <div className="text-[13.5px] text-white/80">{S.traje}</div>
+          </div>
+        )}
+        {S.rsvp && (
+          <div ref={rRsvp} className={sec("rsvp")}>
+            {S.step === 4 ? (
+              <div className="mx-auto flex max-w-[380px] flex-col gap-2.5 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-5">
+                <div className="text-center text-[14px] font-bold text-white">Confirme sua presença</div>
+                <div className="text-center text-[10.5px] text-white/50">até 10/11/2026</div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2.5 text-[11px] text-white/45">Nome completo</div>
+                <div className="flex gap-2">
+                  <span style={{ background: btnColor }} className="flex-1 rounded-lg py-2.5 text-center text-[11px] font-bold text-white">Sim, estarei presente</span>
+                  <span className="flex-1 rounded-lg border border-white/[0.18] py-2.5 text-center text-[11px] text-white/70">Não poderei</span>
+                </div>
+                {rsvpFieldNames.map((f) => (
+                  <div key={f} className="rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2.5 text-[11px] text-white/45">{f}</div>
+                ))}
+                <div style={{ background: btnColor }} className="mt-1 rounded-full py-2.5 text-center text-[12px] font-bold text-white">Enviar confirmação</div>
+              </div>
+            ) : (
+              <div style={{ background: btnColor }} className="mx-auto max-w-[300px] rounded-full py-3 text-center text-[13px] font-bold text-white">{S.btnTx}</div>
+            )}
+          </div>
+        )}
+        {S.gifts && S.step >= 5 && (
+          <div ref={rGifts} className={`border-t border-white/[0.08] pt-6 ${sec("gifts")}`}>
+            <div style={{ color: corDet }} className="mb-3 text-center text-[11px] uppercase tracking-[0.26em]">Lista de presentes</div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => (
+                <div key={g.n} className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 py-2.5">
+                  <div style={{ background: `linear-gradient(140deg,${g.c1},${g.c2})` }} className="size-9 flex-none rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-semibold text-white">{g.n}</div>
+                    <div className="text-[10px] text-white/45">{g.q} disponíveis</div>
+                  </div>
+                  <span style={{ color: corDet }} className="text-[12px] font-bold">{g.v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mx-auto mt-4 max-w-[320px] rounded-2xl border border-white/[0.08] bg-white/[0.05] p-4 text-center">
+              <div className="mx-auto flex size-[92px] items-center justify-center rounded-lg bg-white"><QrMock size={74} /></div>
+              <div className="mt-2.5 text-[11px] text-white/70">Pix para <b className="text-white">{S.pixNome}</b></div>
+              <div className="mt-2 inline-block rounded-full border border-white/[0.18] px-3.5 py-1.5 text-[10px] text-white/75">Copiar chave Pix</div>
+            </div>
+          </div>
+        )}
+        <div ref={rRodape} className={`border-t border-white/[0.08] pt-6 text-center ${sec("rodape")}`}>
+          <div className="text-[12.5px] italic text-white/60">{S.rodapeTx}</div>
+          <div className="mt-2 font-[family-name:var(--font-playfair)] text-[22px] text-white">{S.nome}</div>
+          <div className="mt-1 text-[10px] text-white/40">{S.data}</div>
+          <div className="mt-4 text-[9px] text-white/30">Criado com seuconvite · uma marca Orivya</div>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="flex-1 px-4 pb-8 pt-6 sm:px-8">
+        {/* STEPPER */}
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center overflow-x-auto pb-1">
+            {STEP_NAMES.map((label, i) => {
+              const n = i + 1;
+              const active = n === S.step;
+              const done = n < S.step;
+              return (
+                <div key={label} className="flex items-center">
+                  <div onClick={() => goStep(n)} className="flex cursor-pointer items-center gap-2.5">
+                    <span style={{ background: active ? V : done ? "#F3EFFE" : "#fff", borderColor: active ? V : done ? "#DCCDFB" : "#E4E4EA", color: active ? "#fff" : done ? V : "#A6A6AE" }} className="grid size-7 place-items-center rounded-full border-[1.5px] text-[12px] font-bold">
+                      {done ? <Ic d={IC.check} size={12} stroke={V} width={3} /> : n}
+                    </span>
+                    <span style={{ color: active ? "#17171B" : done ? "#3F3F46" : "#A6A6AE", fontWeight: active ? 700 : 500 }} className="whitespace-nowrap text-[12.5px]">
+                      {label}
+                    </span>
+                  </div>
+                  {n < 6 && <div style={{ background: done ? "#C4B5FD" : "#E4E4EA" }} className="mx-2.5 h-[1.5px] w-[30px]" />}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ color: svColor }} className="flex shrink-0 items-center gap-2 text-[12.5px] font-medium">
+            <span style={{ background: svColor }} className={`size-[7px] rounded-full ${S.sv === "salvando" ? "sc-pulse" : ""}`} />
+            {svText}
+          </div>
+        </div>
+
+        <div className={`grid grid-cols-1 items-start gap-6 ${isDesktop ? "lg:grid-cols-[minmax(0,1fr)_560px]" : "lg:grid-cols-[minmax(0,1fr)_400px]"}`}>
+          {/* ===================== FORM COLUMN ===================== */}
+          <div className="flex flex-col gap-4">
+            {/* STEP 1 — despoluído: essenciais visíveis, opcionais recolhidos */}
+            {S.step === 1 && (
+              <>
+                <div className={cardCls}>
+                  <div className="text-[18px] font-bold tracking-[-0.02em]">Conte-nos sobre a festa</div>
+                  <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">O essencial primeiro. Os detalhes opcionais podem ficar para depois.</div>
+
+                  <Sub>A festa</Sub>
+                  <div className="flex flex-col gap-3.5">
+                    <div>
+                      <Label>Nome da debutante</Label>
+                      <input value={S.nome} onChange={inp("nome")} style={{ borderColor: S.showErr && !req(S.nome) ? "#FF2D8D" : "#E4E4EA" }} className={`${inputCls} text-[15px] font-semibold`} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Data da festa</Label>
+                        <input value={S.data} onChange={inp("data")} style={{ borderColor: S.showErr && !req(S.data) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                      </div>
+                      <div>
+                        <Label>Horário de início</Label>
+                        <input value={S.hIni} onChange={inp("hIni")} style={{ borderColor: S.showErr && !req(S.hIni) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="my-5 h-px bg-[#F0F0F3]" />
+                  <Sub>Onde vai ser</Sub>
+                  <div className="flex flex-col gap-3.5">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+                      <div>
+                        <Label>CEP</Label>
+                        <div className="relative">
+                          <input value={S.cep} onChange={(e) => onCep(e.target.value)} inputMode="numeric" placeholder="00000-000" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                          {cepLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2"><Ic d={IC.help} size={15} stroke="#7C3AED" className="ai-spin" /></span>}
+                        </div>
+                        <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Preenchemos o endereço pra você.</div>
+                      </div>
+                      <div>
+                        <Label>Nome do local</Label>
+                        <input value={S.local} onChange={inp("local")} style={{ borderColor: S.showErr && !req(S.local) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Endereço</Label>
+                      <input value={S.endereco} onChange={inp("endereco")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                    </div>
+                    <div className="grid grid-cols-[1.6fr_0.6fr] gap-3">
+                      <div>
+                        <Label>Cidade</Label>
+                        <input value={S.cidade} onChange={inp("cidade")} style={{ borderColor: S.showErr && !req(S.cidade) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                      </div>
+                      <div>
+                        <Label>UF</Label>
+                        <input value={S.uf} onChange={inp("uf")} style={{ borderColor: S.showErr && !req(S.uf) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="my-5 h-px bg-[#F0F0F3]" />
+                  <button onClick={() => setMaisDetalhes((v) => !v)} className="flex w-full items-center gap-2 text-[13px] font-semibold text-[#7C3AED]">
+                    <span style={{ transform: `rotate(${maisDetalhes ? 180 : 0}deg)` }} className="transition-transform">
+                      <Ic d={IC.chevronDown} size={15} stroke="#7C3AED" width={2.2} />
+                    </span>
+                    {maisDetalhes ? "Menos detalhes" : "Mais detalhes (opcional)"}
+                  </button>
+                  {maisDetalhes && (
+                    <div className="mt-4 flex flex-col gap-3.5">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <Label opt>Nome do pai</Label>
+                          <input value={S.pai} onChange={inp("pai")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div>
+                          <Label opt>Nome da mãe</Label>
+                          <input value={S.mae} onChange={inp("mae")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <Label opt>Horário de término</Label>
+                          <input placeholder="—" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div>
+                          <Label opt>Complemento</Label>
+                          <input placeholder="Salão 2…" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <Label opt>Link do mapa</Label>
+                          <input placeholder="https://maps.app…" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div>
+                          <Label opt>Traje</Label>
+                          <input value={S.traje} onChange={inp("traje")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {S.showErr && (
+                    <div className="mt-4 rounded-[11px] border border-[#FF2D8D]/25 bg-[#FDF0F5] px-3.5 py-2.5 text-[13px] text-[#C2185B]">
+                      Preencha os campos destacados para continuar. Os campos opcionais podem ficar para depois.
+                    </div>
+                  )}
+                </div>
+                <div className={cardCls}>
+                  <div className="text-[15.5px] font-bold">Endereço do seu convite</div>
+                  <div className="mb-3.5 mt-1 text-[13px] text-[#6e6e76]">É o link que seus convidados vão receber.</div>
+                  <div className="flex items-center overflow-hidden rounded-[11px] border border-[#E4E4EA] bg-[#F4F4F6]">
+                    <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
+                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.seuconvite.orivya.com</span>
+                  </div>
+                  <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
+                    <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
+                    {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* STEP 2 */}
+            {S.step === 2 && (
+              <div className={cardCls}>
+                <div className="text-[18px] font-bold tracking-[-0.02em]">Personalize a capa</div>
+                <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">Ajuste a foto, os textos e as cores principais do convite.</div>
+                <div className="mb-2.5 text-[13.5px] font-bold">Foto da capa</div>
+                <div className="flex items-stretch gap-3.5">
+                  <div className="flex h-[100px] w-[150px] flex-none items-center justify-center rounded-xl bg-[linear-gradient(160deg,#1a1426,#3b2a63_70%,#7C3AED)]">
+                    <span className="font-[family-name:var(--font-playfair)] text-[20px] text-white">{S.capaT}</span>
+                  </div>
+                  <div className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
+                    <Ic d={IC.upload} size={18} stroke="currentColor" width={1.8} />
+                    <span className="text-[12.5px] font-semibold">Trocar foto</span>
+                    <span className="text-[11px] text-[#A6A6AE]">JPG ou PNG · até 10 MB</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button className="cursor-pointer rounded-[9px] border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#3F3F46] hover:bg-[#F4F4F6]">Reposicionar</button>
+                  <button className="cursor-pointer rounded-[9px] border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#3F3F46] hover:bg-[#F4F4F6]">Ponto principal</button>
+                  <button className="cursor-pointer rounded-[9px] border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12.5px] text-[#A6A6AE] hover:bg-[#F4F4F6]">Remover</button>
+                  <div className="flex flex-1 items-center gap-2.5 pl-2">
+                    <span className="text-[12px] text-[#6e6e76]">Zoom</span>
+                    <input type="range" min={1} max={2} step={0.05} className="flex-1" />
+                  </div>
+                </div>
+                <div className="my-5 h-px bg-[#F0F0F3]" />
+                <div className="mb-3 text-[13.5px] font-bold">Textos da capa</div>
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
+                    <div>
+                      <Label>Texto principal</Label>
+                      <input value={S.capaT} onChange={inp("capaT")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                    </div>
+                    <div>
+                      <Label>Subtítulo</Label>
+                      <input value={S.capaS} onChange={inp("capaS")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Texto abaixo da capa</Label>
+                    <textarea rows={2} value={S.capaD} onChange={inp("capaD")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                  </div>
+                </div>
+                <div className="my-5 h-px bg-[#F0F0F3]" />
+                <div className="mb-3 text-[13.5px] font-bold">Tamanho dos textos</div>
+                <div className="flex flex-col gap-2.5">
+                  {(
+                    [
+                      ["Texto principal", "szT"],
+                      ["Subtítulo", "szS"],
+                      ["Texto abaixo da capa", "szD"],
+                    ] as const
+                  ).map(([label, key]) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className="w-[130px] text-[12.5px] text-[#6e6e76]">{label}</span>
+                      <Seg value={S[key] as number} onChange={(i) => upd({ [key]: i } as Partial<State>)} />
+                    </div>
+                  ))}
+                </div>
+                <div className="my-5 h-px bg-[#F0F0F3]" />
+                <div className="mb-3 text-[13.5px] font-bold">Cores</div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Texto principal</span>
+                    <Swatches colors={TXTC} value={S.corTxt} onChange={(i) => upd({ corTxt: i })} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Detalhes</span>
+                    <Swatches colors={DETC} value={S.corDet} onChange={(i) => upd({ corDet: i })} />
+                  </div>
+                  <div className="mt-1 flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
+                    <div>
+                      <div className="text-[13px] font-semibold">Escurecer foto para melhorar a leitura</div>
+                      <div className="text-[12px] text-[#6e6e76]">Recomendado quando a foto é clara</div>
+                    </div>
+                    <Toggle on={S.overlay} onClick={() => upd({ overlay: !S.overlay })} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3 */}
+            {S.step === 3 && (
+              <>
+                <div>
+                  <div className="text-[18px] font-bold tracking-[-0.02em]">Edite as mensagens do convite</div>
+                  <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Personalize os textos, a apresentação e as seções do site.</div>
+                </div>
+                {accDefs.map((a, i) => {
+                  const open = S.acc === i;
+                  return (
+                    <div key={a.name} className="overflow-hidden rounded-2xl border border-[#ECECF0] bg-white shadow-[0_2px_8px_rgba(23,23,27,0.03)]">
+                      <div onClick={() => setS((s) => ({ ...s, acc: open ? -1 : i }))} className="flex cursor-pointer items-center gap-3 px-5 py-4 hover:bg-[#FBFBFC]">
+                        <span className="flex-1 text-[14px] font-semibold">
+                          {a.name} {a.tag && <span className="text-[12px] font-normal text-[#A6A6AE]">{a.tag}</span>}
+                        </span>
+                        <span style={{ color: a.ok ? "#2E8A66" : "#A6A6AE" }} className="text-[12px] font-medium">{a.st}</span>
+                        <span style={{ transform: `rotate(${open ? 180 : 0}deg)` }} className="transition-transform">
+                          <Ic d={IC.chevronDown} size={14} stroke="#A6A6AE" width={2} />
+                        </span>
+                      </div>
+                      {open && (
+                        <div className="border-t border-[#F0F0F3] px-5 pb-5 pt-3.5">
+                          {a.kind === "abertura" && (
+                            <div className="flex flex-col gap-3">
+                              <div>
+                                <Label>Título</Label>
+                                <input value={S.abT} onChange={inp("abT")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                              </div>
+                              <div>
+                                <Label>Texto</Label>
+                                <textarea rows={3} value={S.abTx} onChange={inp("abTx")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                              </div>
+                            </div>
+                          )}
+                          {a.kind === "abaixo" && (
+                            <div className="flex flex-col gap-3">
+                              <div>
+                                <Label opt>Subtítulo</Label>
+                                <input placeholder="Ex.: Uma noite especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                              </div>
+                              <div>
+                                <Label>Texto</Label>
+                                <textarea rows={2} value={S.capaD} onChange={inp("capaD")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                              </div>
+                            </div>
+                          )}
+                          {a.kind === "pais" && (
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[13px] font-semibold">Mostrar o nome dos pais</span>
+                                <Toggle on={S.paisOn} onClick={() => upd({ paisOn: !S.paisOn })} />
+                              </div>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                  <Label>Nome do pai</Label>
+                                  <input value={S.pai} onChange={inp("pai")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                                <div>
+                                  <Label>Nome da mãe</Label>
+                                  <input value={S.mae} onChange={inp("mae")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Texto de apresentação</Label>
+                                <textarea rows={2} value={S.paisTx} onChange={inp("paisTx")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                              </div>
+                              <div className="text-[12px] text-[#A6A6AE]">Os nomes ficam sincronizados com a etapa 1.</div>
+                            </div>
+                          )}
+                          {a.kind === "local" && (
+                            <div className="flex flex-col gap-3">
+                              <div className="rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3.5 text-[13px] leading-[1.8] text-[#3F3F46]">
+                                <b>{S.data}</b> · início às <b>{S.hIni}</b>
+                                <br />
+                                {S.local} — {S.endereco}
+                                <br />
+                                {S.cidade} — {S.uf}
+                              </div>
+                              <div className="text-[12px] text-[#A6A6AE]">
+                                Esses dados vêm da etapa 1.{" "}
+                                <span onClick={() => goStep(1)} className="cursor-pointer font-semibold text-[#7C3AED]">Editar informações</span>
+                              </div>
+                              <div>
+                                <Label>Texto de apresentação da seção</Label>
+                                <input defaultValue="Esperamos você para celebrar com a gente" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                              </div>
+                            </div>
+                          )}
+                          {a.kind === "traje" && (
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[13px] font-semibold">Mostrar seção de traje</span>
+                                <Toggle on={S.trajeOn} onClick={() => upd({ trajeOn: !S.trajeOn })} />
+                              </div>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_2fr]">
+                                <div>
+                                  <Label>Título</Label>
+                                  <input defaultValue="Traje" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                                <div>
+                                  <Label>Descrição</Label>
+                                  <input value={S.traje} onChange={inp("traje")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {a.kind === "botao" && (
+                            <div className="flex flex-col gap-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                  <Label opt>Texto acima do botão</Label>
+                                  <input defaultValue="Sua presença é o maior presente" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                                <div>
+                                  <Label>Texto do botão</Label>
+                                  <input value={S.btnTx} onChange={inp("btnTx")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Ação do botão</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {["Confirmar presença", "Ver localização", "Ver presentes"].map((l, bi) => (
+                                    <Chip key={l} label={l} active={S.btnDest === bi} onClick={() => upd({ btnDest: bi })} />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {a.kind === "rodape" && (
+                            <div className="flex flex-col gap-3">
+                              <div>
+                                <Label>Mensagem pessoal</Label>
+                                <input value={S.rodapeTx} onChange={inp("rodapeTx")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                              </div>
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                  <Label>Nome exibido</Label>
+                                  <input value={S.nome} onChange={inp("nome")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                                <div>
+                                  <Label>Data exibida</Label>
+                                  <input value={S.data} onChange={inp("data")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 rounded-[11px] border border-[#ECECF0] bg-[#F4F4F6] px-3.5 py-2.5 text-[12.5px] text-[#6e6e76]">
+                                <Ic d={IC.lock} size={13} stroke="#A6A6AE" width={2} />
+                                A assinatura “Criado com seuconvite · uma marca Orivya” é fixa e não pode ser removida.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* STEP 4 */}
+            {S.step === 4 && (
+              <div className={cardCls}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[18px] font-bold tracking-[-0.02em]">Configure as confirmações</div>
+                    <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Defina como seus convidados vão confirmar presença.</div>
+                  </div>
+                  <Toggle on={S.rsvp} onClick={() => upd({ rsvp: !S.rsvp })} size="lg" />
+                </div>
+                {!S.rsvp ? (
+                  <div className="mt-[18px] rounded-xl border border-[#ECECF0] bg-[#F4F4F6] p-4 text-[13px] leading-relaxed text-[#6e6e76]">
+                    A confirmação de presença está desativada. A seção não aparecerá no convite e os convidados não poderão responder pelo site.
+                  </div>
+                ) : (
+                  <div className="mt-5 flex flex-col gap-3.5">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label>Data limite para confirmação</Label>
+                        <input defaultValue="10/11/2026" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                      </div>
+                      <div>
+                        <Label>Máximo de acompanhantes</Label>
+                        <input value={S.maxComp} onChange={inp("maxComp")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="flex flex-col">
+                      {RSVP_LABELS.map((name, i) => (
+                        <div key={name} className="flex items-center justify-between border-b border-[#F0F0F3] py-2.5">
+                          <span className="text-[13.5px] text-[#3F3F46]">{name}</span>
+                          <Toggle on={S.rsvpOpts[i]} onClick={() => { const rsvpOpts = [...S.rsvpOpts]; rsvpOpts[i] = !rsvpOpts[i]; upd({ rsvpOpts }); }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div className="mb-2 text-[12.5px] font-semibold text-[#3F3F46]">Cores do formulário</div>
+                      <div className="flex flex-wrap gap-2">
+                        <Chip label="Usar as cores do meu convite" active={S.theme === 0} onClick={() => upd({ theme: 0 })} />
+                        <Chip label="Personalizar cores" active={S.theme === 1} onClick={() => upd({ theme: 1 })} />
+                      </div>
+                      {S.theme === 1 && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Cor do botão</span>
+                          <Swatches colors={BTNC} value={S.corBtn} onChange={(i) => upd({ corBtn: i })} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label>Mensagem para quem confirma</Label>
+                        <textarea rows={2} defaultValue="Obrigado! Mal podemos esperar para ter você nesse dia especial!" style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                      </div>
+                      <div>
+                        <Label>Mensagem para quem não pode ir</Label>
+                        <textarea rows={2} defaultValue="Tudo bem! Agradecemos por nos avisar. Sentiremos sua falta!" style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 5 */}
+            {S.step === 5 && (
+              <>
+                <div className={cardCls}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[18px] font-bold tracking-[-0.02em]">Configure sua lista de presentes</div>
+                      <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Adicione presentes, organize contribuições e informe o recebimento.</div>
+                    </div>
+                    <Toggle on={S.gifts} onClick={() => upd({ gifts: !S.gifts })} size="lg" />
+                  </div>
+                  {S.gifts && (
+                    <div className="mt-5 flex flex-col gap-3.5">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_2fr]">
+                        <div>
+                          <Label>Título da lista</Label>
+                          <input defaultValue="Lista de presentes" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div>
+                          <Label>Texto de apresentação</Label>
+                          <input defaultValue="Escolha um presente e ajude a tornar essa noite ainda mais especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="hidden grid-cols-[40px_2fr_0.9fr_0.6fr_1fr_70px] gap-2.5 border-b border-[#F0F0F3] px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#8b8b93] sm:grid">
+                          <span />
+                          <span>Presente</span>
+                          <span>Valor</span>
+                          <span>Qtd.</span>
+                          <span>Status</span>
+                          <span />
+                        </div>
+                        {GIFTS.map((g, i) => {
+                          const hid = S.giftHidden[i];
+                          return (
+                            <div key={g.n} className="grid grid-cols-[40px_1fr_auto] items-center gap-2.5 border-b border-[#F5F5F7] px-3 py-2.5 sm:grid-cols-[40px_2fr_0.9fr_0.6fr_1fr_70px]">
+                              <div style={{ background: `linear-gradient(140deg,${g.c1},${g.c2})` }} className="size-[34px] rounded-[9px]" />
+                              <div>
+                                <div style={{ color: hid ? "#A6A6AE" : "#17171B" }} className="text-[13.5px] font-semibold">{g.n}</div>
+                                <div className="text-[11.5px] text-[#A6A6AE]">{g.desc}</div>
+                              </div>
+                              <span style={{ color: hid ? "#A6A6AE" : "#17171B" }} className="hidden text-[13px] font-semibold sm:block">{g.v}</span>
+                              <span className="hidden text-[13px] text-[#6e6e76] sm:block">{g.q}</span>
+                              <span className="hidden sm:block">
+                                <span style={{ background: hid ? "#F0F0F3" : "rgba(52,161,119,0.12)", color: hid ? "#8B8B93" : "#2E8A66" }} className="rounded-full px-2.5 py-1 text-[11px] font-semibold">
+                                  {hid ? "Oculto" : "Visível"}
+                                </span>
+                              </span>
+                              <div className="flex justify-end gap-1">
+                                <span onClick={() => { const giftHidden = [...S.giftHidden]; giftHidden[i] = !giftHidden[i]; upd({ giftHidden }); }} title="Ocultar" className="grid size-[27px] cursor-pointer place-items-center rounded-lg text-[#8b8b93] hover:bg-[#F4F4F6] hover:text-[#17171B]">
+                                  <Ic d={IC.eye} size={13} stroke="currentColor" />
+                                </span>
+                                <span className="grid size-[27px] cursor-pointer place-items-center rounded-lg text-[#8b8b93] hover:bg-[#F4F4F6] hover:text-[#17171B]">⋯</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <button className="mt-2.5 w-full cursor-pointer rounded-[11px] border-[1.5px] border-dashed border-[#D5D5DC] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#7C3AED] hover:border-[#7C3AED] hover:bg-[#FBFAFE]">
+                          + Adicionar presente
+                        </button>
+                      </div>
+                      <div className="rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="text-[13.5px] font-bold">Contribuição com valor livre</div>
+                          <Toggle on={S.free} onClick={() => upd({ free: !S.free })} />
+                        </div>
+                        {S.free && (
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                              <Label>Título</Label>
+                              <input defaultValue="Contribua com o valor que desejar" style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                            </div>
+                            <div>
+                              <Label opt>Valores sugeridos</Label>
+                              <input defaultValue="R$ 50 · R$ 100 · R$ 200" style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {S.gifts && (
+                  <div className={cardCls}>
+                    <div className="text-[15.5px] font-bold">Recebimento por Pix</div>
+                    <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os convidados pagam usando o QR Code do seu banco.</div>
+                    <div className="flex flex-col gap-[18px] sm:flex-row">
+                      <div className="w-[130px] flex-none text-center">
+                        <div className="flex size-[130px] items-center justify-center rounded-[14px] border border-[#ECECF0] bg-white p-3">
+                          <QrMock size={90} />
+                        </div>
+                        <div className="mt-2 flex justify-center gap-1.5">
+                          <span className="cursor-pointer text-[11.5px] font-semibold text-[#7C3AED]">Trocar</span>
+                          <span className="cursor-pointer text-[11.5px] text-[#A6A6AE]">Remover</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-1 flex-col gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label>Quem recebe</Label>
+                            <input value={S.pixNome} onChange={inp("pixNome")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                          </div>
+                          <div>
+                            <Label>Chave Pix</Label>
+                            <input value={S.pixChave} onChange={inp("pixChave")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Texto de orientação</Label>
+                          <input defaultValue="Aponte a câmera do celular para o QR Code ou copie a chave Pix" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div className="flex items-center gap-2 rounded-[11px] border border-[#D99B37]/30 bg-[#FFF8ED] px-3.5 py-2.5 text-[12.5px] text-[#9A6B15]">
+                          <Ic d={IC.alertTriangle} size={14} stroke="#C08A2D" width={2} />
+                          O QR Code precisa estar inteiro e legível. Confira a prévia antes de publicar.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* STEP 6 */}
+            {S.step === 6 && (
+              <>
+                <div>
+                  <div className="text-[18px] font-bold tracking-[-0.02em]">Finalize seu convite</div>
+                  <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Revise a galeria, os recados e publique quando estiver tudo pronto.</div>
+                </div>
+                <div className={cardCls}>
+                  <div className="mb-3.5 flex items-center justify-between">
+                    <div className="text-[14.5px] font-bold">Galeria de fotos</div>
+                    <Toggle on={S.gal} onClick={() => upd({ gal: !S.gal })} />
+                  </div>
+                  {S.gal && (
+                    <>
+                      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-6">
+                        <div className="relative aspect-square rounded-[10px] bg-[linear-gradient(150deg,#2b2440,#463366)]">
+                          <span className="absolute left-1.5 top-1.5 rounded-full bg-[#7C3AED] px-[7px] py-0.5 text-[9px] font-bold text-white">Destaque</span>
+                        </div>
+                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#3a2d55,#2b2440)]" />
+                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#241f38,#39304f)]" />
+                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#39304f,#241f38)]" />
+                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#463366,#2b2440)]" />
+                        <div className="flex aspect-square cursor-pointer items-center justify-center rounded-[10px] border-[1.5px] border-dashed border-[#D5D5DC] bg-[#FBFBFC] text-[22px] text-[#A6A6AE] hover:border-[#7C3AED] hover:text-[#7C3AED]">+</div>
+                      </div>
+                      <div className="mt-2.5 text-[12px] text-[#A6A6AE]">5 de 20 fotos · arraste para reordenar · toque para legenda</div>
+                    </>
+                  )}
+                </div>
+                <div className={cardCls}>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="text-[14.5px] font-bold">Mural de recados</div>
+                    <Toggle on={S.rec} onClick={() => upd({ rec: !S.rec })} />
+                  </div>
+                  {S.rec && (
+                    <>
+                      <div className="mb-3.5 text-[12.5px] text-[#6e6e76]">Os recados passam pela sua aprovação antes de aparecer no convite.</div>
+                      {RECADOS.map((r, i) => {
+                        const st = S.recSt[i];
+                        const sty = recStyles[st];
+                        return (
+                          <div key={r.n} className="flex items-center gap-3 border-b border-[#F5F5F7] py-2.5">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[13px] font-semibold">{r.n} <span className="text-[11.5px] font-normal text-[#A6A6AE]">· {r.d}</span></div>
+                              <div className="truncate text-[12.5px] text-[#6e6e76]">{r.txt}</div>
+                            </div>
+                            <span style={{ background: sty.sBg, color: sty.sColor }} className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold">{sty.s}</span>
+                            {st !== "publicado" && (
+                              <span onClick={() => { const recSt = [...S.recSt]; recSt[i] = "publicado"; upd({ recSt }); }} className="shrink-0 cursor-pointer text-[12px] font-semibold text-[#7C3AED]">Aprovar</span>
+                            )}
+                            <span onClick={() => { const recSt = [...S.recSt]; recSt[i] = "oculto"; upd({ recSt }); }} className="shrink-0 cursor-pointer text-[12px] text-[#A6A6AE] hover:text-[#17171B]">Ocultar</span>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+                <div className={cardCls}>
+                  <div className="mb-2 text-[14.5px] font-bold">Antes de publicar</div>
+                  {checklist.map((c) => (
+                    <div key={c.name} className="flex items-center gap-3 border-b border-[#F5F5F7] py-2.5">
+                      <span style={{ background: c.ok ? "rgba(52,161,119,0.14)" : "#F0F0F3" }} className="grid size-[22px] flex-none place-items-center rounded-full">
+                        {c.ok ? <Ic d={IC.check} size={11} stroke="#2E8A66" width={2.8} /> : <span className="size-1.5 rounded-full bg-[#A6A6AE]" />}
+                      </span>
+                      <span style={{ color: c.ok ? "#17171B" : MUT }} className="flex-1 text-[13px]">{c.name}</span>
+                      <span className="text-[11.5px] text-[#A6A6AE]">{c.note}</span>
+                    </div>
+                  ))}
+                  <div className="mt-2.5 text-[12px] text-[#A6A6AE]">Itens opcionais não bloqueiam a publicação.</div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ===================== PREVIEW COLUMN ===================== */}
+          <div className="lg:sticky lg:top-0">
+            <div className={`${cardCls} p-4`}>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b8b93]">
+                  {S.step === 4 ? "Prévia · formulário de confirmação" : S.step === 5 ? "Prévia · presentes e Pix" : "Prévia do convite"}
+                </span>
+                <div className="flex gap-0.5 rounded-[9px] border border-[#ECECF0] bg-[#F4F4F6] p-0.5">
+                  <span onClick={() => setS((s) => ({ ...s, pvMode: "celular" }))} style={{ background: S.pvMode === "celular" ? "#fff" : "transparent", color: S.pvMode === "celular" ? "#17171B" : MUT }} className="cursor-pointer rounded-[7px] px-2.5 py-1 text-[11.5px] font-semibold">iPhone</span>
+                  <span onClick={() => setS((s) => ({ ...s, pvMode: "desktop" }))} style={{ background: S.pvMode === "desktop" ? "#fff" : "transparent", color: S.pvMode === "desktop" ? "#17171B" : MUT }} className="cursor-pointer rounded-[7px] px-2.5 py-1 text-[11.5px] font-semibold">MacBook</span>
+                </div>
+              </div>
+              {/* preview device — iPhone (celular) ou MacBook (computador) */}
+              <DeviceFrame isDesktop={isDesktop} scrollRef={pvScroll}>
+                {isDesktop ? inviteDesktop : inviteMobile}
+              </DeviceFrame>
+              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia acompanha o que você edita · {S.slug}.seuconvite.orivya.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ACTION BAR */}
+      <div className="sticky bottom-0 z-30 flex items-center gap-2.5 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
+        <div className="hidden text-[12.5px] text-[#8b8b93] sm:block">Etapa {S.step} de 6 · {STEP_NAMES[S.step - 1]}</div>
+        <div className="flex-1" />
+        {S.step > 1 && (
+          <button onClick={prev} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">Voltar</button>
+        )}
+        <button className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] sm:block">Salvar rascunho</button>
+        {S.step < 6 ? (
+          <button onClick={next} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Continuar</button>
+        ) : (
+          <button onClick={() => setS((s) => ({ ...s, published: true }))} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9]">Publicar convite</button>
+        )}
+      </div>
+
+      {/* PUBLISH MODAL */}
+      {S.published && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#080808]/55 p-4 backdrop-blur-[5px]">
+          <div className="w-[440px] max-w-full rounded-[22px] bg-white p-9 text-center shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
+            <div className="mx-auto mb-5 grid size-[66px] place-items-center rounded-full bg-[#F3EFFE]">
+              <Ic d={IC.check} size={28} stroke="#7C3AED" width={2.4} />
+            </div>
+            <div className="text-[22px] font-extrabold tracking-[-0.02em]">Seu convite está no ar</div>
+            <div className="mb-5 mt-2 text-[13.5px] leading-relaxed text-[#6e6e76]">Compartilhe o link com os convidados e acompanhe tudo pelo painel.</div>
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-3 py-2.5">
+              <span className="flex-1 text-left text-[13px] font-semibold text-[#7C3AED]">{S.slug}.seuconvite.orivya.com</span>
+              <button onClick={copyLink} className="cursor-pointer rounded-lg border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">{S.copied ? "Copiado!" : "Copiar"}</button>
+            </div>
+            <button onClick={() => router.push("/painel")} className="w-full cursor-pointer rounded-xl bg-[#7C3AED] py-3 text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Voltar ao dashboard</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Molduras realistas da prévia: iPhone (Dynamic Island + botões + barra de
+// gesto) e MacBook (tela c/ notch + base/dobradiça). No MacBook o convite
+// ocupa a tela inteira (layout de desktop).
+function DeviceFrame({
+  isDesktop,
+  scrollRef,
+  children,
+}: {
+  isDesktop: boolean;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+}) {
+  if (isDesktop) {
+    return (
+      <div className="mx-auto w-full" style={{ maxWidth: 560 }}>
+        {/* tampa / tela */}
+        <div style={{ background: "linear-gradient(145deg,#3a3a3d,#141416)" }} className="rounded-[16px] p-[10px] shadow-[0_22px_48px_rgba(23,23,27,0.28)]">
+          <div className="relative overflow-hidden rounded-[8px] bg-[#0d0a14]">
+            <div className="pointer-events-none absolute left-1/2 top-0 z-30 h-[13px] w-[116px] -translate-x-1/2 rounded-b-[8px] bg-black" />
+            <div ref={scrollRef} className="dash-scroll relative overflow-y-auto" style={{ height: 384 }}>
+              {children}
+            </div>
+          </div>
+        </div>
+        {/* base / dobradiça (um pouco mais larga que a tela) */}
+        <div className="relative mx-auto h-[13px] rounded-b-[11px]" style={{ width: "calc(100% + 36px)", marginLeft: -18, background: "linear-gradient(180deg,#d3d3d8,#9a9aa0)" }}>
+          <div className="absolute left-1/2 top-0 h-[6px] w-[86px] -translate-x-1/2 rounded-b-[7px] bg-[#8b8b91]" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="relative mx-auto w-[264px]">
+      {/* botões laterais */}
+      <span className="absolute -left-[3px] top-[96px] h-[24px] w-[3px] rounded-l-sm bg-[#26262a]" />
+      <span className="absolute -left-[3px] top-[130px] h-[44px] w-[3px] rounded-l-sm bg-[#26262a]" />
+      <span className="absolute -left-[3px] top-[182px] h-[44px] w-[3px] rounded-l-sm bg-[#26262a]" />
+      <span className="absolute -right-[3px] top-[150px] h-[64px] w-[3px] rounded-r-sm bg-[#26262a]" />
+      {/* corpo (titânio) */}
+      <div style={{ background: "linear-gradient(145deg,#3a3a3d,#141416)" }} className="rounded-[46px] p-[11px] shadow-[0_22px_48px_rgba(23,23,27,0.30)]">
+        <div className="relative overflow-hidden rounded-[36px] bg-[#0d0a14]">
+          {/* Dynamic Island */}
+          <div className="pointer-events-none absolute left-1/2 top-[10px] z-30 flex h-[22px] w-[88px] -translate-x-1/2 items-center justify-end rounded-full bg-black pr-2.5">
+            <span className="size-[7px] rounded-full bg-[#15151c]" />
+          </div>
+          {/* barra de gesto */}
+          <div className="pointer-events-none absolute bottom-[9px] left-1/2 z-30 h-[5px] w-[104px] -translate-x-1/2 rounded-full bg-white/45" />
+          <div ref={scrollRef} className="dash-scroll relative overflow-y-auto" style={{ height: 560 }}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Mini QR decorativo (mesmo do design).
+function QrMock({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 90 90" aria-hidden>
+      <path
+        d="M0 0h26v26H0zM8 8h10v10H8zM64 0h26v26H64zM72 8h10v10H72zM0 64h26v26H0zM8 72h10v10H8zM36 0h8v8h-8zM52 8h8v8h-8zM36 18h8v8h-8zM44 28h8v8h-8zM60 36h8v8h-8zM36 44h8v8h-8zM74 44h8v8h-8zM52 56h8v8h-8zM36 64h8v8h-8zM68 64h8v8h-8zM52 74h8v8h-8zM80 76h8v8h-8zM64 82h8v8h-8z"
+        fill="#17171B"
+      />
+    </svg>
+  );
+}

@@ -1,7 +1,33 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Fraunces, Sora, Space_Grotesk } from "next/font/google";
+import { Cormorant_Garamond, Fraunces, Hanken_Grotesk, Inter, Playfair_Display, Sora, Space_Grotesk } from "next/font/google";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
+
+// Inter — corpo/UI da landing (fonte dominante do jitter.video) e do PAINEL
+// (dashboard do Claude Design). Pesos 300..800 para o dashboard violeta.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+// Playfair Display — serifa do "nome" no mini-convite do dashboard (Claude Design).
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-playfair",
+  display: "swap",
+});
+
+// Hanken Grotesk — display da landing (substituto livre da "TWK Lausanne"
+// usada no jitter.video): grotesk neutra p/ títulos gigantes e tracking apertado.
+const hanken = Hanken_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-hanken",
+  display: "swap",
+});
 
 // Fraunces — display / titulos (com italico).
 const fraunces = Fraunces({
@@ -54,7 +80,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${fraunces.variable} ${sora.variable} ${spaceGrotesk.variable} ${cormorant.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${sora.variable} ${spaceGrotesk.variable} ${cormorant.variable} ${inter.variable} ${hanken.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-nevoa font-sans text-ink">
         {children}
