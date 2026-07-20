@@ -184,6 +184,6 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
 export const carregarEventoFesta = cache(async (sub: string) => {
   return prisma.event.findUnique({
     where: { subdomain: sub },
-    include: { professional: true, template: true, gifts: true, photos: true },
+    include: { professional: true, template: true, gifts: { orderBy: { id: "asc" } }, photos: true },
   });
 });

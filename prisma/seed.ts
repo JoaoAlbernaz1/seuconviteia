@@ -133,7 +133,7 @@ async function main() {
     fotoDesktopUrl: "/demo/maria-clara/capa-desktop.jpg",
     presentesFotoUrl: "/demo/maria-clara/g8.jpg",
     presentesTexto:
-      "Sua presença já é o maior presente. Se quiser presentear, deixamos algumas ideias — e a chave Pix logo abaixo.",
+      "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui.",
     pixNome: "Maria Clara Martins Albernaz",
     pixChave: "",
     pixQrUrl: "/demo/maria-clara/pix-qr.png",
@@ -211,12 +211,13 @@ async function main() {
   // Lista REAL da Maria Clara: ideias de presente (itens com "tamanho"), sem
   // preco (o presente vem via Pix acima). Modo ITEM, priceCents 0.
   const giftSeeds: { id: string; title: string; description: string }[] = [
-    { id: "gift-mc-roupas", title: "Roupas", description: "Tamanho P" },
-    { id: "gift-mc-calcas", title: "Calças e shorts", description: "Tamanho M · 38" },
-    { id: "gift-mc-calcados", title: "Calçados", description: "Nº 36" },
-    { id: "gift-mc-joias", title: "Joias", description: "Prata · anel 14" },
-    { id: "gift-mc-perfumes", title: "Perfumes", description: "" },
-    { id: "gift-mc-maquiagem", title: "Maquiagem", description: "" },
+    // Prefixo numérico = ordem curada da festa (id asc na query).
+    { id: "gift-mc-1-roupas", title: "Roupas", description: "tam. P" },
+    { id: "gift-mc-2-calcas", title: "Calças e shorts", description: "tam. M · 38" },
+    { id: "gift-mc-3-calcados", title: "Calçados", description: "nº 36" },
+    { id: "gift-mc-4-joias", title: "Joias", description: "de preferência prata · anel 14" },
+    { id: "gift-mc-5-perfumes", title: "Perfumes", description: "" },
+    { id: "gift-mc-6-maquiagem", title: "Maquiagem", description: "" },
   ];
   // deleteMany + createMany: remove itens de placeholder antigos (gift-demo-*) e
   // recria a lista real — idempotente e sem orfaos.

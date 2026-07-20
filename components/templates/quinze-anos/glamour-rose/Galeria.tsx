@@ -1,52 +1,47 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// /galeria — 15 anos "Glamour Rosé". CORPO PRÓPRIO.
-// ─────────────────────────────────────────────────────────────────────────────
-// Cabeçalho glam + grade em destaque com lightbox (Galeria compartilhada é só a
-// LÓGICA do lightbox/teclado/swipe). Estado vazio elegante.
+// /galeria — 15 anos "Glamour Rosé" = CLONE FIEL do /galeria real da Maria Clara
+// (festa-15-maria-clara/app/galeria/page.tsx): cabeçalho + texto + grade+lightbox
+// (componente compartilhado evt/Galeria, porte fiel). Sem moldura glam.
 import type { PaginaTemplateProps } from "@/components/templates/registro";
 import { Reveal } from "@/components/evt/Reveal";
 import { Galeria } from "@/components/evt/Galeria";
-import { QgrStyle, QgrHeading, QgrSparkleTrio } from "./glam";
+import { Flourish } from "@/components/evt/icons";
 
-const PAD = "px-[clamp(1.25rem,5vw,2rem)]";
-const WRAP = "mx-auto max-w-[1100px]";
+function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="text-center">
+      <p className="eyebrow text-evt-rosa-ink">{eyebrow}</p>
+      <h2 className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
+        {title}
+      </h2>
+      <div className="mt-5 flex items-center justify-center" aria-hidden>
+        <Flourish className="h-4 w-24 text-evt-rosa" />
+      </div>
+    </div>
+  );
+}
 
 export function GaleriaQuinzeGlamour({ evento }: PaginaTemplateProps) {
   const fotos = evento.fotos ?? [];
 
   return (
-    <main className={`bg-transparent ${PAD} pb-[clamp(5rem,10vw,8rem)] pt-32`}>
-      <QgrStyle />
-
-      <div className={WRAP}>
+    <main className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">
+      <div className="mx-auto max-w-[1080px]">
         <Reveal>
-          <QgrHeading eyebrow="Galeria" titulo="Momentos" />
+          <Heading eyebrow="Galeria" title="Momentos" />
         </Reveal>
         <Reveal delay={120}>
-          <p className="mx-auto mt-7 max-w-[520px] text-center font-evt-body text-[1.12rem] leading-relaxed text-evt-ink-soft">
-            Um pedacinho dessa história, com todo o brilho. Toque em qualquer foto para ver de pertinho.
+          <p className="mx-auto mt-6 max-w-md text-center font-evt-body text-lg text-evt-ink-soft">
+            Um pedacinho dessa história em fotos. Toque para ver de pertinho.
           </p>
         </Reveal>
 
         {fotos.length > 0 ? (
           <Reveal delay={200} className="mt-12">
-            {/* Moldura foil por trás da grade (destaque glam). */}
-            <div className="qgr-frame rounded-[calc(1.6rem+3px)] p-[3px]">
-              <div className="qgr-glass rounded-[1.6rem] p-[clamp(0.75rem,3vw,1.4rem)]">
-                <Galeria fotos={fotos} nome={evento.primeiroNome} />
-              </div>
-            </div>
+            <Galeria fotos={fotos} nome={evento.primeiroNome} />
           </Reveal>
         ) : (
-          <Reveal delay={200} className="mt-16 flex flex-col items-center gap-6 text-center">
-            <QgrSparkleTrio />
-            <p className="max-w-[520px] font-evt-script text-[clamp(2rem,6vw,2.8rem)] leading-tight text-evt-rosa-ink">
-              As fotos chegam em breve — com todo o glamour.
-            </p>
-            <p className="font-evt-body text-[1.05rem] text-evt-ink-soft">
-              Volte logo para reviver cada instante dessa noite.
-            </p>
-          </Reveal>
+          <p className="mt-12 text-center font-evt-body text-evt-ink-soft">As fotos chegam em breve.</p>
         )}
       </div>
     </main>
