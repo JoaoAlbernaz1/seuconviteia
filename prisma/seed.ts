@@ -91,37 +91,44 @@ async function main() {
   }
 
   // 3) Evento de exemplo — keyed por subdomain unico.
-  // Horario fixo (20:30 local) para a demo nao herdar o relogio atual.
-  const eventDate = new Date(Date.now() + 60 * DAY_MS);
-  eventDate.setHours(20, 30, 0, 0);
+  // Data REAL da festa da Maria Clara (Brasília -03:00) — o countdown bate com o
+  // site real (base de fidelidade do template glamour-rose).
+  const eventDate = new Date("2026-08-29T20:30:00-03:00");
   const expiresAt = new Date(eventDate.getTime() + 30 * DAY_MS);
   const quinzeTemplateId = templatesByNicho.get(EventType.QUINZE_ANOS)!;
 
-  // Customization rica para a demo ficar "cheia" (alimenta `lerConteudo`).
+  // Customization = conteudo REAL do site da Maria Clara (fonte de fidelidade do
+  // template quinze-anos/glamour-rose). Fotos em public/demo/maria-clara/.
+  // `template` explicito p/ NAO cair no template padrao (casamento).
   const mariaClaraCustomization = {
-    accent: "#8C4A63",
+    template: "quinze-anos-glamour-rose",
+    tema: "rose",
+    fontes: "classica",
+    accent: "#CE578B",
     mensagem:
-      "É com imensa alegria que convidamos você para celebrar os 15 anos da Maria Clara. Será uma noite inesquecível, e a sua presença vai tornar tudo ainda mais especial.",
+      "Um sonho que começa a se tornar realidade. Vai ser uma alegria imensa celebrar essa noite tão especial ao seu lado.",
     local: "Espaço Esplendor",
-    endereco: "Park Way, Brasília – DF",
+    endereco: "SMPW Quadra 4, Conjunto 3 — Park Way, Brasília – DF",
     mapsUrl:
-      "https://www.google.com/maps/search/?api=1&query=Espa%C3%A7o%20Esplendor%20Park%20Way%20Bras%C3%ADlia",
+      "https://www.google.com/maps/search/?api=1&query=Esplendor+Hall+SMPW+Quadra+4+Conjunto+3+Park+Way+Bras%C3%ADlia+DF",
     mapsEmbedUrl:
-      "https://www.google.com/maps?q=Espa%C3%A7o%20Esplendor%20Park%20Way%20Bras%C3%ADlia&output=embed",
+      "https://www.google.com/maps?q=Esplendor+Hall+SMPW+Quadra+4+Conjunto+3+Park+Way+Bras%C3%ADlia+DF&output=embed",
     traje: "Esporte fino",
     programacao: [
       { hora: "20h30", titulo: "Recepção" },
-      { hora: "21h30", titulo: "Entrada da debutante" },
-      { hora: "22h00", titulo: "Jantar" },
-      { hora: "23h30", titulo: "Valsa" },
-      { hora: "00h30", titulo: "Pista" },
+      { hora: "21h", titulo: "Abertura do buffet" },
+      { hora: "22h", titulo: "Valsa e parabéns" },
+      { hora: "23h", titulo: "Abertura da pista" },
+      { hora: "02h", titulo: "Fim" },
     ],
-    fotoUrl: "/exemplo/aniversariante.jpg",
-    fotoDesktopUrl: "/exemplo/retrato.jpg",
+    fotoUrl: "/demo/maria-clara/capa-mobile.jpg",
+    fotoDesktopUrl: "/demo/maria-clara/capa-desktop.jpg",
+    presentesFotoUrl: "/demo/maria-clara/g8.jpg",
+    presentesTexto:
+      "Sua presença já é o maior presente. Se quiser presentear, deixamos algumas ideias — e a chave Pix logo abaixo.",
     pixNome: "Maria Clara Martins Albernaz",
-    pixChave: "maria.clara@email.com",
-    // Preset de cor do site (porta a HOME "festa"; "rose" = paleta original).
-    tema: "rose",
+    pixChave: "",
+    pixQrUrl: "/demo/maria-clara/pix-qr.png",
   };
 
   const event = await prisma.event.upsert({
@@ -193,82 +200,53 @@ async function main() {
 
   // 5) Itens de presente (Pix) — keyed por id deterministico. A lista da pagina
   //    /presentes vem daqui (gifts do evento); mais itens deixam a pagina "cheia".
-  const giftSeeds: {
-    id: string;
-    title: string;
-    description: string;
-    priceCents: number;
-  }[] = [
-    {
-      id: "gift-demo-pix",
-      title: "Cota da festa",
-      description: "Contribua com a celebracao via Pix.",
-      priceCents: 15000,
-    },
-    {
-      id: "gift-demo-vale-look",
-      title: "Vale look",
-      description: "Uma graninha pro look perfeito da noite.",
-      priceCents: 12000,
-    },
-    {
-      id: "gift-demo-perfume",
-      title: "Perfume favorito",
-      description: "Aquele que ela ama de paixao.",
-      priceCents: 25000,
-    },
-    {
-      id: "gift-demo-dia-princesa",
-      title: "Dia de princesa",
-      description: "Spa, cabelo e maquiagem antes da festa.",
-      priceCents: 30000,
-    },
+  // Lista REAL da Maria Clara: ideias de presente (itens com "tamanho"), sem
+  // preco (o presente vem via Pix acima). Modo ITEM, priceCents 0.
+  const giftSeeds: { id: string; title: string; description: string }[] = [
+    { id: "gift-mc-roupas", title: "Roupas", description: "Tamanho P" },
+    { id: "gift-mc-calcas", title: "Calças e shorts", description: "Tamanho M · 38" },
+    { id: "gift-mc-calcados", title: "Calçados", description: "Nº 36" },
+    { id: "gift-mc-joias", title: "Joias", description: "Prata · anel 14" },
+    { id: "gift-mc-perfumes", title: "Perfumes", description: "" },
+    { id: "gift-mc-maquiagem", title: "Maquiagem", description: "" },
   ];
-  for (const g of giftSeeds) {
-    await prisma.giftItem.upsert({
-      where: { id: g.id },
-      update: {
-        eventId: event.id,
-        title: g.title,
-        description: g.description,
-        priceCents: g.priceCents,
-        mode: GiftMode.PIX,
-      },
-      create: {
-        id: g.id,
-        eventId: event.id,
-        title: g.title,
-        description: g.description,
-        priceCents: g.priceCents,
-        mode: GiftMode.PIX,
-      },
-    });
-  }
+  // deleteMany + createMany: remove itens de placeholder antigos (gift-demo-*) e
+  // recria a lista real — idempotente e sem orfaos.
+  await prisma.giftItem.deleteMany({ where: { eventId: event.id } });
+  await prisma.giftItem.createMany({
+    data: giftSeeds.map((g) => ({
+      id: g.id,
+      eventId: event.id,
+      title: g.title,
+      description: g.description,
+      priceCents: 0,
+      mode: GiftMode.ITEM,
+    })),
+  });
 
   // 6) Album de exemplo (carrossel/galeria da home "festa") — keyed por id
   //    deterministico, ordenado. Fotos copiadas em public/exemplo/.
   const fotosDemo = [
-    "/exemplo/sel-05305.jpg",
-    "/exemplo/sel-05758.jpg",
-    "/exemplo/sel-05112.jpg",
-    "/exemplo/sel-05446.jpg",
-    "/exemplo/sel-05556.jpg",
-    "/exemplo/sel-05377.jpg",
-    "/exemplo/sel-05100.jpg",
-    "/exemplo/sel-05150.jpg",
-    "/exemplo/sel-05191.jpg",
-    "/exemplo/sel-05214.jpg",
-    "/exemplo/sel-05269.jpg",
-    "/exemplo/sel-05290.jpg",
+    "/demo/maria-clara/g1.jpg",
+    "/demo/maria-clara/g2.jpg",
+    "/demo/maria-clara/g3.jpg",
+    "/demo/maria-clara/g4.jpg",
+    "/demo/maria-clara/g5.jpg",
+    "/demo/maria-clara/g6.jpg",
+    "/demo/maria-clara/g7.jpg",
+    "/demo/maria-clara/g8.jpg",
+    "/demo/maria-clara/g9.jpg",
+    "/demo/maria-clara/g10.jpg",
   ];
-  for (let i = 0; i < fotosDemo.length; i++) {
-    const id = `photo-demo-${i + 1}`;
-    await prisma.photo.upsert({
-      where: { id },
-      update: { eventId: event.id, url: fotosDemo[i], order: i },
-      create: { id, eventId: event.id, url: fotosDemo[i], order: i },
-    });
-  }
+  await prisma.photo.deleteMany({ where: { eventId: event.id } });
+  await prisma.photo.createMany({
+    data: fotosDemo.map((url, i) => ({
+      id: `photo-demo-${i + 1}`,
+      eventId: event.id,
+      url,
+      order: i,
+    })),
+  });
 
   // 7) Recados de exemplo (mural /recados) — keyed por id deterministico, para
   //    o mural ja nascer "cheio". Auto-aprovados (approved default true).
