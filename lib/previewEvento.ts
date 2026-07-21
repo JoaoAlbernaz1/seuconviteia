@@ -31,6 +31,7 @@ const rascunhoSchema = z
     date: z.string().max(10),
     time: z.string().max(5),
     mensagem: z.string().max(2200),
+    aberturaTitulo: z.string().max(140),
     presentesTexto: z.string().max(600),
     local: z.string().max(220),
     endereco: z.string().max(320),
@@ -159,11 +160,13 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
       ? Object.fromEntries(r.recursosOff.map((k) => [k as RecursoSite, false]))
       : undefined;
 
+  const aberturaTitulo = texto(r.aberturaTitulo);
   const customization = semUndefined({
     tema: texto(r.tema),
     fontes: texto(r.fontes),
     template: texto(r.template),
     recursos,
+    secoes: aberturaTitulo ? { abertura: { titulo: aberturaTitulo } } : undefined,
     mensagem: texto(r.mensagem),
     presentesTexto: texto(r.presentesTexto),
     local,

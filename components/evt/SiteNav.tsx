@@ -26,18 +26,43 @@ const LINKS: { href: string; label: string; recurso: RecursoSite | null }[] = [
  * GATING: `recursos` (recursos ATIVOS do site) filtra os links — Confirmar/
  * Presentes/Galeria/Recados so aparecem se o recurso esta ativo.
  */
+/** Mapeia o href real da nav -> página do preview (`/preview-evento?p=`). */
+const PREVIEW_PAGE: Record<string, string> = {
+  "/": "inicio",
+  "/evento": "evento",
+  "/presentes": "presentes",
+  "/galeria": "galeria",
+  "/confirmar": "evento",
+  "/recados": "inicio",
+};
+
 export function SiteNav({
   nome,
   logoUrl,
   recursos,
+  preview,
 }: {
   nome: string;
   /** Monograma/logo do evento (ex.: mc.png). Ausente ⇒ iniciais do nome. */
   logoUrl?: string;
   recursos: TogglesSite;
+  /**
+   * Modo PREVIEW (dentro do iframe do editor): links navegam a própria prévia
+   * (`/preview-evento?p=&s=`) em vez das rotas reais, e os estados ativo/hero
+   * vêm da `pagina` mostrada, não do pathname (que é sempre `/preview-evento`).
+   */
+  preview?: { s: string; pagina: string };
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);
+  // No preview, cada link aponta pra própria prévia (mantendo o rascunho `s`).
+  const hrefDe = (href: string) =>
+    preview
+      ? `/preview-evento?p=${PREVIEW_PAGE[href] ?? "inicio"}&s=${encodeURIComponent(preview.s)}`
+      : href;
+  const ehAtivo = (href: string) =>
+    preview ? PREVIEW_PAGE[href] === preview.pagina : pathname === href;
+  const naHome = preview ? preview.pagina === "inicio" : pathname === "/";
   // Iniciais do nome p/ o monograma-fallback (ex.: "Maria Clara" -> "MC").
   const iniciais = nome
     .trim()
@@ -52,13 +77,13 @@ export function SiteNav({
   useEffect(() => {
     // Na home (capa escura full-bleed), so fica solida depois de passar o hero.
     const onScroll = () => {
-      const limite = pathname === "/" ? window.innerHeight * 0.8 : 24;
+      const limite = naHome ? window.innerHeight * 0.8 : 24;
       setScrolled(window.scrollY > limite);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [pathname]);
+  }, [pathname, naHome]);
 
   // Trava o scroll do body enquanto o drawer esta aberto.
   useEffect(() => {
@@ -70,7 +95,7 @@ export function SiteNav({
 
   const solid = scrolled || open;
   // Sobre a capa escura (home, antes de rolar) -> texto claro/transparente.
-  const overHero = pathname === "/" && !solid;
+  const overHero = naHome && !solid;
   const claro = overHero;
 
   const wordmark = claro ? "text-white" : "text-evt-ink";
@@ -94,7 +119,7 @@ export function SiteNav({
         {/* Marca — monograma do evento (logo) ou iniciais. SEMPRE visível,
             inclusive sobre a capa (igual ao site da festa). */}
         <Link
-          href="/"
+          href={hrefDe("/")}
           aria-label={`${nome} — início`}
           className={`flex cursor-pointer items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff}`}
         >
@@ -121,11 +146,11 @@ export function SiteNav({
         {/* Links — desktop */}
         <ul className="hidden items-center gap-7 md:flex">
           {links.map((l) => {
-            const active = pathname === l.href;
+            const active = ehAtivo(l.href);
             return (
               <li key={l.href}>
                 <Link
-                  href={l.href}
+                  href={hrefDe(l.href)}
                   aria-current={active ? "page" : undefined}
                   className={`link-underline font-evt-util text-[0.66rem] uppercase tracking-[0.24em] transition-colors ${linkHover} focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff} ${
                     active ? linkActive : linkIdle
@@ -161,11 +186,11 @@ export function SiteNav({
         >
           <ul className="mx-auto flex max-w-[1100px] flex-col px-[clamp(1.25rem,5vw,2rem)] py-3">
             {links.map((l) => {
-              const active = pathname === l.href;
+              const active = ehAtivo(l.href);
               return (
                 <li key={l.href}>
                   <Link
-                    href={l.href}
+                    href={hrefDe(l.href)}
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={`flex items-center gap-3 rounded-md px-1 py-3.5 font-evt-util text-[0.72rem] uppercase tracking-[0.24em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evt-rosa-ink ${

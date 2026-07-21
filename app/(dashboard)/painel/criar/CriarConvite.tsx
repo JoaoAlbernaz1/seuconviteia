@@ -14,9 +14,67 @@
 // (IA de imagem/texto fica para a próxima fatia — a pedido do João.)
 //
 // Estado 100% local — a gravação no banco é a próxima fatia.
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
+import { criarConvite } from "./acoes";
+import { PreviewSite } from "../_ui/PreviewSite";
+
+/** "dd/mm/aaaa" -> "aaaa-mm-dd" (vazio se invalido; a action valida). */
+function ddmmParaISO(s: string): string {
+  const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return "";
+  const [, d, mo, y] = m;
+  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+/** Página do site que a prévia mostra em cada passo do editor. */
+function paginaDoPasso(step: number): string {
+  if (step === 5) return "presentes";
+  if (step === 6) return "galeria";
+  if (step === 3 || step === 4) return "evento";
+  return "inicio";
+}
+
+/**
+ * Estado do editor -> rascunho serializado do `/preview-evento` (o MESMO shape
+ * que as telas do painel usam). Assim a prévia mostra o SITE REAL (template
+ * rosé, mesmos componentes) reagindo ao que o usuário edita. Foto/álbum ficam
+ * vazios de propósito — o preview povoa com fotos de exemplo (U5 liga o upload).
+ */
+function montarRascunho(S: State) {
+  const endereco = [S.endereco, S.cidade, S.uf]
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .join(", ");
+  return {
+    type: "QUINZE_ANOS",
+    tema: "rose",
+    fontes: "classica",
+    template: "quinze-anos-glamour-rose",
+    title: S.nome,
+    date: ddmmParaISO(S.data),
+    time: S.hIni,
+    mensagem: S.abTx,
+    aberturaTitulo: S.abT,
+    local: S.local,
+    endereco,
+    traje: S.trajeOn ? S.traje : "",
+    presentes: S.gifts
+      ? GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => ({
+          titulo: g.n,
+          descricao: g.desc,
+          valor: g.v,
+        }))
+      : [],
+    recursosOff: [
+      !S.rsvp ? "rsvp" : null,
+      !S.gifts ? "presentes" : null,
+      !S.gal ? "galeria" : null,
+      !S.rec ? "recados" : null,
+    ].filter(Boolean) as string[],
+  };
+}
 
 const V = "#7C3AED";
 const MUT = "#6E6E76";
@@ -24,9 +82,6 @@ const STEP_NAMES = ["Festa", "Capa e estilo", "Conteúdo", "Confirmação", "Pre
 const TXTC = ["#FFFFFF", "#C4B5FD", "#E8C87A", "#FF9EC9"];
 const DETC = ["#C4B5FD", "#FF2D8D", "#E8C87A", "#FFFFFF"];
 const BTNC = ["#7C3AED", "#FF2D8D", "#C4B5FD", "#E8C87A"];
-const T_SIZES = [26, 34, 44];
-const D_SIZES = [9, 10.5, 12];
-const S_SIZES = [8, 9, 11];
 const RSVP_LABELS = [
   "Permitir acompanhantes",
   "Solicitar nome dos acompanhantes",
@@ -80,20 +135,6 @@ const INICIAL: State = {
   pixNome: "Renata Martins", pixChave: "renata.martins@email.com",
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
   published: false, copied: false, pvMode: "celular",
-};
-
-// Cada campo do editor aponta para uma seção da prévia — usado para destacar
-// "onde você está mexendo" a cada alteração.
-const FIELD_SEC: Partial<Record<keyof State, string>> = {
-  capaT: "capa", capaS: "capa", capaD: "capa",
-  corTxt: "capa", corDet: "capa", szT: "capa", szS: "capa", szD: "capa", overlay: "capa",
-  data: "info", hIni: "info", cep: "info", local: "info", endereco: "info", cidade: "info", uf: "info",
-  nome: "rodape", rodapeTx: "rodape",
-  pai: "pais", mae: "pais", paisOn: "pais", paisTx: "pais",
-  traje: "traje", trajeOn: "traje",
-  abT: "msg", abTx: "msg",
-  btnTx: "rsvp", btnDest: "rsvp", rsvp: "rsvp", maxComp: "rsvp", rsvpOpts: "rsvp", theme: "rsvp", corBtn: "rsvp",
-  pixNome: "gifts", pixChave: "gifts", gifts: "gifts", free: "gifts", giftHidden: "gifts",
 };
 
 const inputCls = "w-full rounded-[11px] border bg-white px-3 py-2.5 text-[14px] text-[#17171B]";
@@ -157,55 +198,21 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
 export function CriarConvite() {
   const router = useRouter();
   const [S, setS] = useState<State>(INICIAL);
+  // Persistencia: id do convite ja gravado (idempotente), link publico apos
+  // publicar, erro da gravacao e estado "gravando".
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
+  const [erroPub, setErroPub] = useState<string | null>(null);
+  const [gravando, iniciarGravacao] = useTransition();
   const [maisDetalhes, setMaisDetalhes] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [pvHl, setPvHl] = useState<string | null>(null);
   const svTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Refs das seções da prévia (para a prévia acompanhar o passo).
-  const pvScroll = useRef<HTMLDivElement>(null);
-  const rCapa = useRef<HTMLDivElement>(null);
-  const rMsg = useRef<HTMLDivElement>(null);
-  const rPais = useRef<HTMLDivElement>(null);
-  const rInfo = useRef<HTMLDivElement>(null);
-  const rTraje = useRef<HTMLDivElement>(null);
-  const rRsvp = useRef<HTMLDivElement>(null);
-  const rGifts = useRef<HTMLDivElement>(null);
-  const rRodape = useRef<HTMLDivElement>(null);
-  const hlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastAim = useRef<string | null>(null);
-
-  // Aponta a prévia para uma seção: rola até ela e a destaca por um instante.
-  const scrollToSec = (key: string) => {
-    const map: Record<string, React.RefObject<HTMLDivElement | null>> = {
-      capa: rCapa, msg: rMsg, pais: rPais, info: rInfo, traje: rTraje, rsvp: rRsvp, gifts: rGifts, rodape: rRodape,
-    };
-    const el = map[key]?.current;
-    const c = pvScroll.current;
-    if (!el || !c) return;
-    const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    c.scrollTo({ top: Math.max(0, el.offsetTop - 74), behavior: reduce ? "auto" : "smooth" });
-  };
-  const aim = (key: string | null | undefined) => {
-    if (!key) return;
-    setPvHl(key);
-    if (hlTimer.current) clearTimeout(hlTimer.current);
-    hlTimer.current = setTimeout(() => setPvHl(null), 1700);
-    // Só rola quando a seção-alvo MUDA (digitar no mesmo campo não fica rolando).
-    if (lastAim.current !== key) {
-      lastAim.current = key;
-      requestAnimationFrame(() => scrollToSec(key));
-    }
-  };
 
   const upd = (patch: Partial<State>) => {
     if (svTimer.current) clearTimeout(svTimer.current);
     setS((s) => ({ ...s, ...patch, sv: "salvando" }));
     svTimer.current = setTimeout(() => setS((s) => ({ ...s, sv: "salvo" })), 900);
-    // Aponta a prévia para a seção do campo alterado.
-    const alvo = (Object.keys(patch) as (keyof State)[]).map((k) => FIELD_SEC[k]).find(Boolean);
-    if (alvo) aim(alvo);
   };
   const inp = (key: keyof State) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     upd({ [key]: e.target.value } as Partial<State>);
@@ -237,9 +244,6 @@ export function CriarConvite() {
   const slugOk = slugValid && !slugTaken;
   const reqOk = req(S.nome) && req(S.data) && req(S.hIni) && req(S.local) && req(S.cidade) && req(S.uf) && slugOk;
 
-  const corTxt = TXTC[S.corTxt];
-  const corDet = DETC[S.corDet];
-  const btnColor = S.theme === 1 ? BTNC[S.corBtn] : V;
 
   const next = () => {
     if (S.step === 1 && !reqOk) return setS((s) => ({ ...s, showErr: true }));
@@ -248,29 +252,68 @@ export function CriarConvite() {
   const prev = () => setS((s) => ({ ...s, step: Math.max(1, s.step - 1), showErr: false }));
   const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false }));
 
+  const linkPublico = pubInfo?.url ?? `https://${S.slug}.seuconvite.orivya.com`;
+  const hostPublico = pubInfo?.host ?? `${S.slug}.seuconvite.orivya.com`;
+
   const copyLink = () => {
-    navigator.clipboard?.writeText(`${S.slug}.seuconvite.orivya.com`).catch(() => {});
+    navigator.clipboard?.writeText(linkPublico).catch(() => {});
     setS((s) => ({ ...s, copied: true }));
     if (copyTimer.current) clearTimeout(copyTimer.current);
     copyTimer.current = setTimeout(() => setS((s) => ({ ...s, copied: false })), 1500);
   };
 
-  // A prévia acompanha o passo (e o acordeão do passo 3): rola até a seção
-  // correspondente e a destaca por um instante.
-  useEffect(() => {
-    let key = "capa";
-    if (S.step === 1) key = "info";
-    else if (S.step === 2) key = "capa";
-    else if (S.step === 3) key = ["msg", "msg", "pais", "info", "traje", "rsvp", "rodape"][S.acc] ?? "msg";
-    else if (S.step === 4) key = "rsvp";
-    else if (S.step === 5) key = "gifts";
-    else key = "rodape";
-    lastAim.current = null; // troca de passo/aba/aparelho sempre rola
-    aim(key);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [S.step, S.acc, S.pvMode]);
+  // Estado do editor -> payload da server action (so o que o template consome
+  // hoje; capa/estilo detalhados e RSVP dinamico ligam nas proximas fatias).
+  const montarPayload = () => ({
+    id: eventId ?? undefined,
+    title: S.nome,
+    date: ddmmParaISO(S.data),
+    time: S.hIni,
+    local: S.local,
+    endereco: [S.endereco, S.cidade, S.uf]
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .join(", "),
+    traje: S.trajeOn ? S.traje : undefined,
+    slug: S.slug,
+    mensagem: S.abTx,
+    aberturaTitulo: S.abT,
+    pixNome: S.gifts ? S.pixNome : undefined,
+    pixChave: S.gifts ? S.pixChave : undefined,
+    presentes: S.gifts
+      ? GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => ({
+          titulo: g.n,
+          descricao: g.desc,
+          valor: g.v,
+        }))
+      : [],
+    recursosOff: [
+      !S.rsvp ? "rsvp" : null,
+      !S.gifts ? "presentes" : null,
+      !S.gal ? "galeria" : null,
+      !S.rec ? "recados" : null,
+    ].filter(Boolean) as string[],
+    pais: S.paisOn ? { pai: S.pai, mae: S.mae, texto: S.paisTx } : undefined,
+  });
 
-  const sec = (k: string) => `pv-sec${pvHl === k ? " on" : ""}`;
+  // Grava no banco: rascunho (publicar=false) ou publica (site no ar).
+  const enviar = (publicar: boolean) => {
+    setErroPub(null);
+    iniciarGravacao(async () => {
+      const r = await criarConvite(montarPayload(), publicar);
+      if (!r.ok) {
+        setErroPub(r.error);
+        return;
+      }
+      setEventId(r.id);
+      if (publicar) {
+        setPubInfo({ host: r.host, url: r.url });
+        setS((s) => ({ ...s, published: true }));
+      } else {
+        setS((s) => ({ ...s, sv: "salvo" }));
+      }
+    });
+  };
 
   const rsvpFieldNames: string[] = [];
   if (S.rsvpOpts[0]) rsvpFieldNames.push(`Quantos acompanhantes? (até ${S.maxComp})`);
@@ -310,187 +353,7 @@ export function CriarConvite() {
 
   const svText = S.sv === "salvo" ? "Tudo salvo." : "Salvando suas alterações...";
   const svColor = S.sv === "salvo" ? "#34A177" : V;
-  const isDesktop = S.pvMode === "desktop";
-  const pvOvA = S.overlay ? 0.3 : 0.42;
-  const pvOvB = S.overlay ? 0.92 : 0.62;
-  const heroBg = `linear-gradient(165deg,rgba(124,58,237,${pvOvA}),rgba(13,10,20,${pvOvB}) 85%),linear-gradient(15deg,rgba(255,45,141,0.10),transparent 55%)`;
 
-  // ---- PRÉVIA · versão CELULAR (fiel ao design, 264px) ----
-  const inviteMobile = (
-    <>
-      <div ref={rCapa} style={{ background: heroBg }} className={`flex min-h-[250px] flex-col items-center justify-center gap-2 px-4 py-[26px] text-center ${sec("capa")}`}>
-        <div style={{ fontSize: S_SIZES[S.szS], letterSpacing: "0.34em", color: corDet }} className="uppercase">{S.capaS}</div>
-        <div style={{ fontSize: T_SIZES[S.szT], color: corTxt, lineHeight: 1.05 }} className="font-[family-name:var(--font-playfair)]">{S.capaT}</div>
-        <div style={{ fontSize: D_SIZES[S.szD], maxWidth: 230, lineHeight: 1.6 }} className="text-white/65">{S.capaD}</div>
-        <div className="mt-1 text-[9.5px] text-white/55">{S.data} · {S.hIni}</div>
-      </div>
-      <div className="flex flex-col gap-[18px] px-[18px] pb-[22px] pt-[18px]">
-        <div ref={rMsg} className={`p-1 text-center ${sec("msg")}`}>
-          <div className="mb-1.5 text-[12.5px] font-bold text-white">{S.abT}</div>
-          <div className="text-[10px] leading-[1.7] text-white/65">{S.abTx}</div>
-        </div>
-        {S.paisOn && (
-          <div ref={rPais} className={`border-t border-white/[0.08] p-1 pt-4 text-center ${sec("pais")}`}>
-            <div className="text-[9.5px] italic leading-[1.7] text-white/60">{S.paisTx}</div>
-            <div style={{ color: corDet }} className="mt-1.5 text-[10.5px]">{S.pai} · {S.mae}</div>
-          </div>
-        )}
-        <div ref={rInfo} className={`rounded-xl border border-white/[0.08] bg-white/[0.05] px-3.5 py-3.5 text-center ${sec("info")}`}>
-          <div style={{ color: corDet }} className="mb-1.5 text-[8.5px] uppercase tracking-[0.26em]">A festa</div>
-          <div className="text-[10.5px] leading-[1.9] text-white/80">
-            <b className="text-white">{S.data}</b> · {S.hIni}
-            <br />{S.local}
-            <br />{S.endereco}
-            <br />{S.cidade} — {S.uf}
-          </div>
-        </div>
-        {S.trajeOn && !!S.traje && (
-          <div ref={rTraje} className={`p-1 text-center ${sec("traje")}`}>
-            <div style={{ color: corDet }} className="mb-1 text-[8.5px] uppercase tracking-[0.26em]">Traje</div>
-            <div className="text-[10.5px] text-white/80">{S.traje}</div>
-          </div>
-        )}
-        {S.rsvp && (
-          <div ref={rRsvp} className={sec("rsvp")}>
-            {S.step === 4 ? (
-              <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.05] p-3.5">
-                <div className="mb-0.5 text-center text-[11px] font-bold text-white">Confirme sua presença</div>
-                <div className="text-center text-[8.5px] text-white/50">até 10/11/2026</div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.07] px-2.5 py-2 text-[9.5px] text-white/45">Nome completo</div>
-                <div className="flex gap-1.5">
-                  <span style={{ background: btnColor }} className="flex-1 rounded-lg py-2 text-center text-[9px] font-bold text-white">Sim, estarei presente</span>
-                  <span className="flex-1 rounded-lg border border-white/[0.18] py-2 text-center text-[9px] text-white/70">Não poderei comparecer</span>
-                </div>
-                {rsvpFieldNames.map((f) => (
-                  <div key={f} className="rounded-lg border border-white/10 bg-white/[0.07] px-2.5 py-2 text-[9.5px] text-white/45">{f}</div>
-                ))}
-                <div style={{ background: btnColor }} className="mt-0.5 rounded-full py-2 text-center text-[10px] font-bold text-white">Enviar confirmação</div>
-              </div>
-            ) : (
-              <div style={{ background: btnColor }} className="rounded-full py-2.5 text-center text-[10.5px] font-bold text-white">{S.btnTx}</div>
-            )}
-          </div>
-        )}
-        {S.gifts && S.step >= 5 && (
-          <div ref={rGifts} className={`border-t border-white/[0.08] pt-4 ${sec("gifts")}`}>
-            <div style={{ color: corDet }} className="mb-2.5 text-center text-[8.5px] uppercase tracking-[0.26em]">Lista de presentes</div>
-            <div className="flex flex-col gap-1.5">
-              {GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => (
-                <div key={g.n} className="flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.05] px-2.5 py-2">
-                  <div style={{ background: `linear-gradient(140deg,${g.c1},${g.c2})` }} className="size-7 flex-none rounded-[7px]" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[10px] font-semibold text-white">{g.n}</div>
-                    <div className="text-[8.5px] text-white/45">{g.q} disponíveis</div>
-                  </div>
-                  <span style={{ color: corDet }} className="text-[10px] font-bold">{g.v}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.05] p-3 text-center">
-              <div className="mx-auto flex size-[74px] items-center justify-center rounded-lg bg-white"><QrMock size={58} /></div>
-              <div className="mt-2 text-[9px] text-white/70">Pix para <b className="text-white">{S.pixNome}</b></div>
-              <div className="mt-1.5 inline-block rounded-full border border-white/[0.18] px-3 py-1 text-[8.5px] text-white/75">Copiar chave Pix</div>
-            </div>
-          </div>
-        )}
-        <div ref={rRodape} className={`border-t border-white/[0.08] p-1 pt-3.5 text-center ${sec("rodape")}`}>
-          <div className="text-[9.5px] italic text-white/60">{S.rodapeTx}</div>
-          <div className="mt-1.5 font-[family-name:var(--font-playfair)] text-[15px] text-white">{S.nome}</div>
-          <div className="mt-0.5 text-[8px] text-white/40">{S.data}</div>
-          <div className="mt-3 text-[7.5px] text-white/30">Criado com seuconvite · uma marca Orivya</div>
-        </div>
-      </div>
-    </>
-  );
-
-  // ---- PRÉVIA · versão DESKTOP (ocupa a tela do MacBook; hero full-bleed +
-  // corpo largo + tipografia de desktop; é como um visitante veria no PC) ----
-  const inviteDesktop = (
-    <>
-      <div ref={rCapa} style={{ background: heroBg }} className={`flex min-h-[330px] flex-col items-center justify-center gap-3 px-12 py-16 text-center ${sec("capa")}`}>
-        <div style={{ fontSize: S_SIZES[S.szS] * 1.6, letterSpacing: "0.34em", color: corDet }} className="uppercase">{S.capaS}</div>
-        <div style={{ fontSize: T_SIZES[S.szT] * 1.8, color: corTxt, lineHeight: 1.03 }} className="font-[family-name:var(--font-playfair)]">{S.capaT}</div>
-        <div style={{ fontSize: D_SIZES[S.szD] * 1.5, maxWidth: 400, lineHeight: 1.6 }} className="text-white/70">{S.capaD}</div>
-        <div className="mt-1.5 text-[13px] text-white/55">{S.data} · {S.hIni}</div>
-      </div>
-      <div className="mx-auto flex max-w-[480px] flex-col gap-7 px-8 py-10">
-        <div ref={rMsg} className={`text-center ${sec("msg")}`}>
-          <div className="mb-2 text-[17px] font-bold text-white">{S.abT}</div>
-          <div className="text-[13px] leading-[1.75] text-white/65">{S.abTx}</div>
-        </div>
-        {S.paisOn && (
-          <div ref={rPais} className={`border-t border-white/[0.08] pt-6 text-center ${sec("pais")}`}>
-            <div className="text-[12.5px] italic leading-[1.7] text-white/60">{S.paisTx}</div>
-            <div style={{ color: corDet }} className="mt-2 text-[13px]">{S.pai} · {S.mae}</div>
-          </div>
-        )}
-        <div ref={rInfo} className={`rounded-2xl border border-white/[0.08] bg-white/[0.05] px-7 py-6 text-center ${sec("info")}`}>
-          <div style={{ color: corDet }} className="mb-2 text-[11px] uppercase tracking-[0.26em]">A festa</div>
-          <div className="text-[13.5px] leading-[2] text-white/80">
-            <b className="text-white">{S.data}</b> · {S.hIni}
-            <br />{S.local}
-            <br />{S.endereco}
-            <br />{S.cidade} — {S.uf}
-          </div>
-        </div>
-        {S.trajeOn && !!S.traje && (
-          <div ref={rTraje} className={`text-center ${sec("traje")}`}>
-            <div style={{ color: corDet }} className="mb-1 text-[11px] uppercase tracking-[0.26em]">Traje</div>
-            <div className="text-[13.5px] text-white/80">{S.traje}</div>
-          </div>
-        )}
-        {S.rsvp && (
-          <div ref={rRsvp} className={sec("rsvp")}>
-            {S.step === 4 ? (
-              <div className="mx-auto flex max-w-[380px] flex-col gap-2.5 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-5">
-                <div className="text-center text-[14px] font-bold text-white">Confirme sua presença</div>
-                <div className="text-center text-[10.5px] text-white/50">até 10/11/2026</div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2.5 text-[11px] text-white/45">Nome completo</div>
-                <div className="flex gap-2">
-                  <span style={{ background: btnColor }} className="flex-1 rounded-lg py-2.5 text-center text-[11px] font-bold text-white">Sim, estarei presente</span>
-                  <span className="flex-1 rounded-lg border border-white/[0.18] py-2.5 text-center text-[11px] text-white/70">Não poderei</span>
-                </div>
-                {rsvpFieldNames.map((f) => (
-                  <div key={f} className="rounded-lg border border-white/10 bg-white/[0.07] px-3 py-2.5 text-[11px] text-white/45">{f}</div>
-                ))}
-                <div style={{ background: btnColor }} className="mt-1 rounded-full py-2.5 text-center text-[12px] font-bold text-white">Enviar confirmação</div>
-              </div>
-            ) : (
-              <div style={{ background: btnColor }} className="mx-auto max-w-[300px] rounded-full py-3 text-center text-[13px] font-bold text-white">{S.btnTx}</div>
-            )}
-          </div>
-        )}
-        {S.gifts && S.step >= 5 && (
-          <div ref={rGifts} className={`border-t border-white/[0.08] pt-6 ${sec("gifts")}`}>
-            <div style={{ color: corDet }} className="mb-3 text-center text-[11px] uppercase tracking-[0.26em]">Lista de presentes</div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => (
-                <div key={g.n} className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 py-2.5">
-                  <div style={{ background: `linear-gradient(140deg,${g.c1},${g.c2})` }} className="size-9 flex-none rounded-lg" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12px] font-semibold text-white">{g.n}</div>
-                    <div className="text-[10px] text-white/45">{g.q} disponíveis</div>
-                  </div>
-                  <span style={{ color: corDet }} className="text-[12px] font-bold">{g.v}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mx-auto mt-4 max-w-[320px] rounded-2xl border border-white/[0.08] bg-white/[0.05] p-4 text-center">
-              <div className="mx-auto flex size-[92px] items-center justify-center rounded-lg bg-white"><QrMock size={74} /></div>
-              <div className="mt-2.5 text-[11px] text-white/70">Pix para <b className="text-white">{S.pixNome}</b></div>
-              <div className="mt-2 inline-block rounded-full border border-white/[0.18] px-3.5 py-1.5 text-[10px] text-white/75">Copiar chave Pix</div>
-            </div>
-          </div>
-        )}
-        <div ref={rRodape} className={`border-t border-white/[0.08] pt-6 text-center ${sec("rodape")}`}>
-          <div className="text-[12.5px] italic text-white/60">{S.rodapeTx}</div>
-          <div className="mt-2 font-[family-name:var(--font-playfair)] text-[22px] text-white">{S.nome}</div>
-          <div className="mt-1 text-[10px] text-white/40">{S.data}</div>
-          <div className="mt-4 text-[9px] text-white/30">Criado com seuconvite · uma marca Orivya</div>
-        </div>
-      </div>
-    </>
-  );
 
   return (
     <div className="flex min-h-full flex-col">
@@ -523,7 +386,7 @@ export function CriarConvite() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 items-start gap-6 ${isDesktop ? "lg:grid-cols-[minmax(0,1fr)_560px]" : "lg:grid-cols-[minmax(0,1fr)_400px]"}`}>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_500px] xl:grid-cols-[minmax(0,1fr)_620px] 2xl:grid-cols-[minmax(0,1fr)_760px]">
           {/* ===================== FORM COLUMN ===================== */}
           <div className="flex flex-col gap-4">
             {/* STEP 1 — despoluído: essenciais visíveis, opcionais recolhidos */}
@@ -1144,22 +1007,18 @@ export function CriarConvite() {
           </div>
 
           {/* ===================== PREVIEW COLUMN ===================== */}
-          <div className="lg:sticky lg:top-0">
+          {/* Prévia = SITE REAL (mesmos componentes do publicado), reagindo ao
+              editor. Segue o passo: capa/home, evento, presentes, galeria. */}
+          <div className="scv lg:sticky lg:top-0">
             <div className={`${cardCls} p-4`}>
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b8b93]">
-                  {S.step === 4 ? "Prévia · formulário de confirmação" : S.step === 5 ? "Prévia · presentes e Pix" : "Prévia do convite"}
-                </span>
-                <div className="flex gap-0.5 rounded-[9px] border border-[#ECECF0] bg-[#F4F4F6] p-0.5">
-                  <span onClick={() => setS((s) => ({ ...s, pvMode: "celular" }))} style={{ background: S.pvMode === "celular" ? "#fff" : "transparent", color: S.pvMode === "celular" ? "#17171B" : MUT }} className="cursor-pointer rounded-[7px] px-2.5 py-1 text-[11.5px] font-semibold">iPhone</span>
-                  <span onClick={() => setS((s) => ({ ...s, pvMode: "desktop" }))} style={{ background: S.pvMode === "desktop" ? "#fff" : "transparent", color: S.pvMode === "desktop" ? "#17171B" : MUT }} className="cursor-pointer rounded-[7px] px-2.5 py-1 text-[11.5px] font-semibold">MacBook</span>
-                </div>
-              </div>
-              {/* preview device — iPhone (celular) ou MacBook (computador) */}
-              <DeviceFrame isDesktop={isDesktop} scrollRef={pvScroll}>
-                {isDesktop ? inviteDesktop : inviteMobile}
-              </DeviceFrame>
-              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia acompanha o que você edita · {S.slug}.seuconvite.orivya.com</div>
+              <PreviewSite
+                rascunhoJson={JSON.stringify(montarRascunho(S))}
+                pagina={paginaDoPasso(S.step)}
+                host={hostPublico}
+                rotulo="É assim que os convidados vão ver"
+                altura={700}
+              />
+              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia é o site de verdade · {S.slug}.seuconvite.orivya.com</div>
             </div>
           </div>
         </div>
@@ -1168,15 +1027,20 @@ export function CriarConvite() {
       {/* ACTION BAR */}
       <div className="sticky bottom-0 z-30 flex items-center gap-2.5 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
         <div className="hidden text-[12.5px] text-[#8b8b93] sm:block">Etapa {S.step} de 6 · {STEP_NAMES[S.step - 1]}</div>
+        {erroPub && (
+          <div className="text-[12.5px] font-semibold text-[#d9376e]" role="alert">
+            {erroPub}
+          </div>
+        )}
         <div className="flex-1" />
         {S.step > 1 && (
-          <button onClick={prev} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">Voltar</button>
+          <button onClick={prev} disabled={gravando} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50">Voltar</button>
         )}
-        <button className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] sm:block">Salvar rascunho</button>
+        <button onClick={() => enviar(false)} disabled={gravando} className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50 sm:block">{gravando ? "Salvando…" : "Salvar rascunho"}</button>
         {S.step < 6 ? (
           <button onClick={next} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Continuar</button>
         ) : (
-          <button onClick={() => setS((s) => ({ ...s, published: true }))} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9]">Publicar convite</button>
+          <button onClick={() => enviar(true)} disabled={gravando} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60">{gravando ? "Publicando…" : "Publicar convite"}</button>
         )}
       </div>
 
@@ -1190,10 +1054,11 @@ export function CriarConvite() {
             <div className="text-[22px] font-extrabold tracking-[-0.02em]">Seu convite está no ar</div>
             <div className="mb-5 mt-2 text-[13.5px] leading-relaxed text-[#6e6e76]">Compartilhe o link com os convidados e acompanhe tudo pelo painel.</div>
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-3 py-2.5">
-              <span className="flex-1 text-left text-[13px] font-semibold text-[#7C3AED]">{S.slug}.seuconvite.orivya.com</span>
+              <span className="flex-1 truncate text-left text-[13px] font-semibold text-[#7C3AED]">{hostPublico}</span>
               <button onClick={copyLink} className="cursor-pointer rounded-lg border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">{S.copied ? "Copiado!" : "Copiar"}</button>
             </div>
-            <button onClick={() => router.push("/painel")} className="w-full cursor-pointer rounded-xl bg-[#7C3AED] py-3 text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Voltar ao dashboard</button>
+            <a href={linkPublico} target="_blank" rel="noopener noreferrer" className="mb-2 block w-full cursor-pointer rounded-xl bg-[#7C3AED] py-3 text-center text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Ver meu convite ↗</a>
+            <button onClick={() => router.push("/painel")} className="w-full cursor-pointer rounded-xl border border-[#E4E4EA] bg-white py-3 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">Voltar ao dashboard</button>
           </div>
         </div>
       )}
@@ -1201,63 +1066,7 @@ export function CriarConvite() {
   );
 }
 
-// Molduras realistas da prévia: iPhone (Dynamic Island + botões + barra de
-// gesto) e MacBook (tela c/ notch + base/dobradiça). No MacBook o convite
-// ocupa a tela inteira (layout de desktop).
-function DeviceFrame({
-  isDesktop,
-  scrollRef,
-  children,
-}: {
-  isDesktop: boolean;
-  scrollRef: React.RefObject<HTMLDivElement | null>;
-  children: React.ReactNode;
-}) {
-  if (isDesktop) {
-    return (
-      <div className="mx-auto w-full" style={{ maxWidth: 560 }}>
-        {/* tampa / tela */}
-        <div style={{ background: "linear-gradient(145deg,#3a3a3d,#141416)" }} className="rounded-[16px] p-[10px] shadow-[0_22px_48px_rgba(23,23,27,0.28)]">
-          <div className="relative overflow-hidden rounded-[8px] bg-[#0d0a14]">
-            <div className="pointer-events-none absolute left-1/2 top-0 z-30 h-[13px] w-[116px] -translate-x-1/2 rounded-b-[8px] bg-black" />
-            <div ref={scrollRef} className="dash-scroll relative overflow-y-auto" style={{ height: 384 }}>
-              {children}
-            </div>
-          </div>
-        </div>
-        {/* base / dobradiça (um pouco mais larga que a tela) */}
-        <div className="relative mx-auto h-[13px] rounded-b-[11px]" style={{ width: "calc(100% + 36px)", marginLeft: -18, background: "linear-gradient(180deg,#d3d3d8,#9a9aa0)" }}>
-          <div className="absolute left-1/2 top-0 h-[6px] w-[86px] -translate-x-1/2 rounded-b-[7px] bg-[#8b8b91]" />
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="relative mx-auto w-[264px]">
-      {/* botões laterais */}
-      <span className="absolute -left-[3px] top-[96px] h-[24px] w-[3px] rounded-l-sm bg-[#26262a]" />
-      <span className="absolute -left-[3px] top-[130px] h-[44px] w-[3px] rounded-l-sm bg-[#26262a]" />
-      <span className="absolute -left-[3px] top-[182px] h-[44px] w-[3px] rounded-l-sm bg-[#26262a]" />
-      <span className="absolute -right-[3px] top-[150px] h-[64px] w-[3px] rounded-r-sm bg-[#26262a]" />
-      {/* corpo (titânio) */}
-      <div style={{ background: "linear-gradient(145deg,#3a3a3d,#141416)" }} className="rounded-[46px] p-[11px] shadow-[0_22px_48px_rgba(23,23,27,0.30)]">
-        <div className="relative overflow-hidden rounded-[36px] bg-[#0d0a14]">
-          {/* Dynamic Island */}
-          <div className="pointer-events-none absolute left-1/2 top-[10px] z-30 flex h-[22px] w-[88px] -translate-x-1/2 items-center justify-end rounded-full bg-black pr-2.5">
-            <span className="size-[7px] rounded-full bg-[#15151c]" />
-          </div>
-          {/* barra de gesto */}
-          <div className="pointer-events-none absolute bottom-[9px] left-1/2 z-30 h-[5px] w-[104px] -translate-x-1/2 rounded-full bg-white/45" />
-          <div ref={scrollRef} className="dash-scroll relative overflow-y-auto" style={{ height: 560 }}>
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Mini QR decorativo (mesmo do design).
+// Mini QR decorativo (usado no passo "Presentes e Pix" do formulario).
 function QrMock({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 90 90" aria-hidden>

@@ -100,11 +100,15 @@ export default async function PreviewEventoPage({
 
   return (
     <div
-      className={`evt${fonteCaps} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none`}
+      className={`evt${fonteCaps} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none [&_header_a]:pointer-events-auto [&_header_button]:pointer-events-auto`}
       style={{ ...varsDoTema(tema), ...varsDaFonte(fonteKey) }}
     >
       <SiteAtmosphere fotoUrl={evento.fotoUrl} particleColors={particleColors} />
-      <SiteNav nome={evento.primeiroNome} recursos={recursos} />
+      <SiteNav
+        nome={evento.primeiroNome}
+        recursos={recursos}
+        preview={{ s: typeof s === "string" ? s : "", pagina }}
+      />
       {corpo}
       <SiteFooter
         nome={evento.primeiroNome}

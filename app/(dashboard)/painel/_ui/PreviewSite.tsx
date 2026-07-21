@@ -34,15 +34,18 @@ type Device = "iphone" | "mac";
 const VIEWPORT_PHONE = 390; // celular real — o site responde como mobile
 const PHONE_SCREEN_H = 844; // tela do iPhone (390x844 ~ 19.5:9) — ALTO e FINO
 const PHONE_BEZEL = 12; // bezel fino e uniforme
-const VIEWPORT_MAC = 1280; // desktop real — o site cai no layout de computador
+// Viewport do desktop no preview: 1024 (breakpoint `lg`) = desktop de verdade,
+// porém renderiza o site "menos encolhido" na coluna → texto LEGÍVEL (a 1280 as
+// letras ficavam minúsculas). Aspecto da tela mantido em 16:10 (BAR + SITE_H).
+const VIEWPORT_MAC = 1024; // desktop real (lg) — o site cai no layout de computador
 // MacBook (px de projeto) — usados no frame E no cálculo de escala do pai.
-const MAC_BAR = 44; // barra do Safari (bolinhas + endereço)
-const MAC_SITE_H = 764; // altura útil do site (a tela 16:10 = BAR + SITE_H)
+const MAC_BAR = 40; // barra do Safari (bolinhas + endereço)
+const MAC_SITE_H = 600; // altura útil do site (tela 16:10 ≈ 1024×640 = BAR + SITE_H)
 const MAC_BEZEL = 10; // aro preto ao redor da tela
 const MAC_BEZEL_BOT = 12; // "queixo" um tico maior
 const MAC_HINGE = 8; // dobradiça
 const MAC_BASE = 18; // base de alumínio (vista de frente)
-const MAC_OVERHANG = 120; // a base é mais larga que a tela
+const MAC_OVERHANG = 56; // a base é mais larga que a tela
 
 /**
  * Tela com DOUBLE-BUFFER: dois iframes empilhados; quando o `src` muda, o novo
@@ -263,10 +266,15 @@ export function PreviewSite({
     device === "iphone"
       ? PHONE_SCREEN_H + PHONE_BEZEL * 2
       : MAC_BAR + MAC_SITE_H + MAC_BEZEL + MAC_BEZEL_BOT + MAC_HINGE + MAC_BASE;
+  // O CELULAR tem orçamento de altura PRÓPRIO (não cresce junto com o Mac): fica
+  // no tamanho aprovado, alinhado ao topo. Só o Mac usa a `altura` cheia — assim
+  // dá pra deixar o Mac grande e centralizado sem mexer no celular.
+  const isMac = device === "mac";
+  const budgetH = isMac ? altura : Math.min(altura, 560);
   const fit =
     colW > 0
-      ? Math.min(1, colW / deviceW, altura / deviceH)
-      : Math.min(1, altura / deviceH);
+      ? Math.min(1, colW / deviceW, budgetH / deviceH)
+      : Math.min(1, budgetH / deviceH);
 
   return (
     <div>
@@ -314,7 +322,11 @@ export function PreviewSite({
         </div>
       </div>
 
-      <div ref={areaRef} className="flex w-full justify-center">
+      <div
+        ref={areaRef}
+        className={`flex w-full justify-center ${isMac ? "items-center" : ""}`}
+        style={isMac ? { minHeight: altura } : undefined}
+      >
         <div style={{ width: deviceW * fit, height: deviceH * fit }}>
           <div
             style={{
