@@ -7,7 +7,8 @@ import Link from "next/link";
 
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 import { acentoDoTema, TEMA_PADRAO } from "@/lib/temas";
 import { coresParticulas } from "@/lib/cor";
 
@@ -44,7 +45,7 @@ export default async function ObrigadaPage({
     return <SiteIndisponivel motivo={visivel.motivo ?? "inexistente"} />;
   }
 
-  const evento = lerEventoFesta(event);
+  const evento = comFotosDemo(event);
   const cores =
     evento.tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(evento.tema));
 

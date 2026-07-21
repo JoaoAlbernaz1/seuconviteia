@@ -6,7 +6,8 @@
 // gate do tenant. O chrome (atmosfera/nav/rodape) e o tema ficam no layout.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { PaginaInicio } from "@/components/evt/paginas/PaginaInicio";
 
@@ -28,7 +29,7 @@ export default async function EventSitePage({
 
   return (
     <PaginaInicio
-      evento={lerEventoFesta(event)}
+      evento={comFotosDemo(event)}
       nicho={event.type}
       recursos={recursosDoSite(event.plan, event.customization)}
     />

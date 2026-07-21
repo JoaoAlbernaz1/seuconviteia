@@ -3,7 +3,8 @@
 // (preview = site de verdade). Aqui fica so o carregar/gate do tenant.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { PaginaEvento } from "@/components/evt/paginas/PaginaEvento";
 
@@ -25,7 +26,7 @@ export default async function EventoPage({
 
   return (
     <PaginaEvento
-      evento={lerEventoFesta(event)}
+      evento={comFotosDemo(event)}
       nicho={event.type}
       recursos={recursosDoSite(event.plan, event.customization)}
     />

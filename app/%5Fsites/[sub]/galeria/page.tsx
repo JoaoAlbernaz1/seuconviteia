@@ -4,7 +4,8 @@
 // aviso "as fotos chegam em breve". O chrome/tema ficam no layout aninhado.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 
 import { PaginaGaleria } from "@/components/evt/paginas/PaginaGaleria";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
@@ -38,7 +39,7 @@ export default async function GaleriaPage({
 
   return (
     <PaginaGaleria
-      evento={lerEventoFesta(event)}
+      evento={comFotosDemo(event)}
       nicho={event.type}
       recursos={recursosDoSite(event.plan, event.customization)}
     />

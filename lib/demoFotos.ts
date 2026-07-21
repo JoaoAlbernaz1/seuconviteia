@@ -9,15 +9,26 @@
 // preview usa o EMPTY-STATE elegante de cada template (gradiente/inicial) — nunca
 // a foto da Maria. Este é um SEAM: trocar aqui não mexe no resto.
 
-import type { EventoFesta } from "@/lib/eventoFesta";
-import type { TemplateOccasion } from "@/lib/templates";
+import { lerEventoFesta, type EventoFesta } from "@/lib/eventoFesta";
+import { ocasiaoDoNicho, type TemplateOccasion } from "@/lib/templates";
 
 type ConjuntoDemo = { capa: string; capaDesktop: string; album: string[] };
 
-/** Fotos demo por ocasião. VAZIO por enquanto (sem a Maria; aguardando set CC0). */
+const Q15 = "/templates-demo/quinze-anos";
+
+/**
+ * Fotos demo por ocasião — arte ORIGINAL, livre de direitos (gerada no projeto,
+ * `public/templates-demo/<ocasiao>/`). O 15 anos já tem um conjunto rosé-glamour
+ * (capa cinematográfica + 6 tiles de galeria) p/ o template NUNCA ficar sem
+ * graça. Casamento/aniversário seguem vazios (empty-state) até ganharem o seu.
+ */
 const POR_OCASIAO: Record<TemplateOccasion, ConjuntoDemo> = {
   casamento: { capa: "", capaDesktop: "", album: [] },
-  "quinze-anos": { capa: "", capaDesktop: "", album: [] },
+  "quinze-anos": {
+    capa: `${Q15}/capa.jpg`,
+    capaDesktop: `${Q15}/capa-desktop.jpg`,
+    album: [1, 2, 3, 4, 5, 6].map((n) => `${Q15}/g${n}.jpg`),
+  },
   aniversario: { capa: "", capaDesktop: "", album: [] },
 };
 
@@ -27,9 +38,10 @@ export function capaDemo(ocasiao: TemplateOccasion = "casamento"): string {
 }
 
 /**
- * Preenche capa/álbum vazios com fotos de exemplo, SÓ no preview. Enquanto o set
- * demo estiver vazio, retorna o evento inalterado (o template mostra o próprio
- * empty-state). NUNCA injeta a foto da Maria.
+ * Preenche capa/álbum vazios com as imagens-padrão da ocasião (arte livre).
+ * Usado no preview E no site publicado (o cliente que não subiu foto ainda vê o
+ * template povoado, nunca "sem graça"). Se o evento já tem foto/álbum próprios
+ * (ex.: Maria Clara), fica inalterado. Sem set demo → empty-state do template.
  */
 export function preencherFotosDemo(
   evento: EventoFesta,
@@ -50,4 +62,15 @@ export function preencherFotosDemo(
     presentesFotoUrl: evento.presentesFotoUrl ?? fotoUrl,
     fotos: semAlbum ? demo.album : evento.fotos,
   };
+}
+
+/**
+ * Atalho para o site publicado: `lerEventoFesta` + preenche as fotos-padrão da
+ * ocasião. Use no lugar de `lerEventoFesta` nas páginas/layout do site do evento
+ * para o convite sem foto própria já sair bonito (só 15 anos tem set hoje).
+ */
+export function comFotosDemo(
+  event: Parameters<typeof lerEventoFesta>[0],
+): EventoFesta {
+  return preencherFotosDemo(lerEventoFesta(event), ocasiaoDoNicho(event.type));
 }

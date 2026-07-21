@@ -4,7 +4,8 @@
 // primeiro). O chrome/tema ficam no layout aninhado.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 
 import { SectionHeading } from "@/components/evt/SectionHeading";
 import { Reveal } from "@/components/evt/Reveal";
@@ -39,7 +40,7 @@ export default async function RecadosPage({
     );
   }
 
-  const evento = lerEventoFesta(event);
+  const evento = comFotosDemo(event);
   const nome = evento.primeiroNome;
   const recados = await listarRecadosAprovados(event.id);
 

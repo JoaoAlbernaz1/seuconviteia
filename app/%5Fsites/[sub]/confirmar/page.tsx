@@ -6,7 +6,8 @@
 // layout aninhado; o RsvpConvite traz seu proprio fundo (foto clara) + particulas.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 import { RsvpConvite } from "@/components/evt/RsvpConvite";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { recursosDoSite } from "@/lib/recursos";
@@ -37,7 +38,7 @@ export default async function ConfirmarPage({
     );
   }
 
-  const evento = lerEventoFesta(event);
+  const evento = comFotosDemo(event);
 
   return (
     <RsvpConvite

@@ -7,7 +7,8 @@ import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { SiteAtmosphere } from "@/components/evt/SiteAtmosphere";
 import { SiteNav } from "@/components/evt/SiteNav";
 import { SiteFooter } from "@/components/evt/SiteFooter";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
 import { fonteDupla, lerFonteKey, varsDaFonte } from "@/lib/fontes";
@@ -35,7 +36,7 @@ export default async function EventSiteLayout({
     return <>{children}</>;
   }
 
-  const dados = lerEventoFesta(event);
+  const dados = comFotosDemo(event);
   const tema = dados.tema;
   // Particulas: no tema "rose" usa o trio EXATO do festa (default do componente);
   // nos demais presets, deriva as faiscas do acento p/ re-tingir.

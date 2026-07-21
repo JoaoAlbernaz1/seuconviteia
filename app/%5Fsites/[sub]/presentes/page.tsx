@@ -4,7 +4,8 @@
 // Pix do customization). Pix DIRETO (copiar chave) — sem checkout/taxa.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
@@ -39,7 +40,7 @@ export default async function PresentesPage({
 
   return (
     <PaginaPresentes
-      evento={lerEventoFesta(event)}
+      evento={comFotosDemo(event)}
       nicho={event.type}
       recursos={recursosDoSite(event.plan, event.customization)}
     />
