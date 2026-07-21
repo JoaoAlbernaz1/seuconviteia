@@ -48,7 +48,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       <section className={`${PAD} pb-[clamp(4rem,9vw,7rem)] pt-32`} style={{ background: "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)" }}>
         <div className="mx-auto max-w-[680px] text-center">
           <Reveal>
-            <Heading eyebrow="O convite" title="Vem comemorar comigo" />
+            <Heading eyebrow={evento.secoes.abertura.eyebrow} title={evento.secoes.abertura.titulo} />
           </Reveal>
           <Reveal delay={120} className="mt-10 space-y-5 text-center">
             {evento.conviteIntro && (
@@ -63,7 +63,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
             ))}
           </Reveal>
           <Reveal delay={200} className="mt-8 flex flex-col items-center gap-2">
-            <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">Com carinho,</p>
+            <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
             <p className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
               {assinatura}
             </p>

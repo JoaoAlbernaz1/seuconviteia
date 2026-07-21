@@ -22,6 +22,7 @@ import {
 } from "@/lib/convite";
 import { TEMA_PADRAO } from "@/lib/temas";
 import { lerTemplateId } from "@/lib/templates";
+import { lerSecoes, type SecoesConvite } from "@/lib/secoes";
 
 export type EventoFesta = {
   /** Nome em destaque na capa / nav / rodape (event.title). */
@@ -73,6 +74,8 @@ export type EventoFesta = {
   tema: string;
   /** Id do template de DESIGN do site (chave de `lib/templates.ts`). */
   templateId: string;
+  /** Copy editavel das secoes (cliente -> default do nicho). */
+  secoes: SecoesConvite;
 };
 
 /** Idade comemorada por nicho (quando ha uma). */
@@ -174,6 +177,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     logoUrl: texto(extras.logoUrl),
     tema: texto(extras.tema) ?? TEMA_PADRAO,
     templateId: lerTemplateId(event.customization),
+    secoes: lerSecoes(event.customization, event.type),
   };
 }
 

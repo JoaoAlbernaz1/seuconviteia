@@ -63,9 +63,9 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
         <div className="mx-auto max-w-[680px]">
           <Reveal>
             <div className="text-center">
-              <p className="eyebrow text-evt-rosa-ink">O convite</p>
+              <p className="eyebrow text-evt-rosa-ink">{evento.secoes.abertura.eyebrow}</p>
               <h2 className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
-                Vem comemorar comigo
+                {evento.secoes.abertura.titulo}
               </h2>
               <div className="mt-5 flex items-center justify-center" aria-hidden>
                 <Flourish className="h-4 w-24 text-evt-rosa" />
@@ -85,7 +85,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
             ))}
           </Reveal>
           <Reveal delay={200} className="mt-9 flex flex-col items-center gap-2 text-center">
-            <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">Com carinho,</p>
+            <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
             <p className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
               {assinatura}
             </p>
