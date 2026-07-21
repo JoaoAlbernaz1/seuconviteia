@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Clone aninhado acidental (checkout duplicado de 08/07) — nao faz parte do
+    // projeto; so poluia o lint com o .next dele. Ver HANDOFF.
+    "seuconviteia/**",
   ]),
 ]);
 
