@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
 import { PreviewSite } from "../_ui/PreviewSite";
+import { enviarUpload } from "../_ui/Uploads";
 
 /** "dd/mm/aaaa" -> "aaaa-mm-dd" (vazio se invalido; a action valida). */
 function ddmmParaISO(s: string): string {
@@ -28,12 +29,60 @@ function ddmmParaISO(s: string): string {
   return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
+// Rótulo de data IGUAL ao do site ("Sábado, 29 de agosto"), pra prévia ao vivo bater
+// com o que o reload renderiza (mesmo formatador; fuso -03:00 fixo — ver skill evt).
+const fmtDataLive = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+/** "dd/mm/aaaa" (+ "HH:MM") -> "Sábado, 29 de agosto"; "" se a data ainda não é válida. */
+function dataLabelLive(ddmm: string, hIni: string): string {
+  const iso = ddmmParaISO(ddmm);
+  if (!iso) return "";
+  const dt = new Date(`${iso}T${hIni || "20:00"}:00-03:00`);
+  if (Number.isNaN(dt.getTime())) return "";
+  const s = fmtDataLive.format(dt);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+/** "20:00" -> "20h"; "20:30" -> "20h30"; "" se inválido. */
+function horarioLive(hhmm: string): string {
+  const m = (hhmm || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return "";
+  return m[2] === "00" ? `${m[1]}h` : `${m[1]}h${m[2]}`;
+}
+
 /** Página do site que a prévia mostra em cada passo do editor. */
 function paginaDoPasso(step: number): string {
   if (step === 5) return "presentes";
   if (step === 6) return "galeria";
   if (step === 3 || step === 4) return "evento";
   return "inicio";
+}
+
+// Passo 3 (Conteúdo) tem accordions (accDefs, na ordem abaixo). Cada um aponta
+// para a seção do site que a prévia deve rolar até e destacar.
+const ACC_SEC = ["carta-titulo", "carta-texto", "quando", "traje", "cta", "cta"];
+
+/** Tipo do accordion (a.kind) → seção do site para a prévia focar. */
+const KIND_SEC: Record<string, string> = {
+  abertura: "carta-titulo",
+  abaixo: "capa",
+  pais: "carta-texto",
+  local: "quando",
+  traje: "traje",
+  botao: "cta",
+  rodape: "cta",
+};
+
+/** Seção do site em edição — a prévia rola até ela e destaca ("onde você mexe"). */
+function focoDoPasso(step: number, acc: number): string {
+  if (step === 3) return ACC_SEC[acc] ?? "carta";
+  if (step === 4) return "cta";
+  if (step === 5) return "presentes";
+  if (step === 6) return "galeria";
+  return "capa"; // passos 1 (Festa) e 2 (Capa e estilo)
 }
 
 /**
@@ -53,6 +102,11 @@ function montarRascunho(S: State) {
     fontes: "classica",
     template: "quinze-anos-glamour-rose",
     title: S.nome,
+    fotoUrl: S.capaFoto || undefined,
+    idade: S.idade ? Number(S.idade) : undefined,
+    monograma: S.monograma,
+    logoUrl: S.monogramaFoto || undefined,
+    animacoes: S.animacoes,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     mensagem: S.abTx,
@@ -60,12 +114,12 @@ function montarRascunho(S: State) {
     local: S.local,
     endereco,
     traje: S.trajeOn ? S.traje : "",
+    pixNome: S.gifts ? S.pixNome : undefined,
+    pixChave: S.gifts ? S.pixChave : undefined,
     presentes: S.gifts
-      ? GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => ({
-          titulo: g.n,
-          descricao: g.desc,
-          valor: g.v,
-        }))
+      ? S.giftList
+          .filter((g) => g.n.trim())
+          .map((g) => ({ titulo: g.n, descricao: g.desc, valor: g.v }))
       : [],
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
@@ -74,6 +128,30 @@ function montarRascunho(S: State) {
       !S.rec ? "recados" : null,
     ].filter(Boolean) as string[],
   };
+}
+
+/**
+ * Mapa de patch AO VIVO da prévia (por tecla, sem recarregar): chave = `data-live`
+ * no template, valor = texto. Chave AUSENTE = não mexe naquele elemento (por isso
+ * data/horário só entram quando já são válidos — evita "apagar" a prévia digitando).
+ */
+function liveMapa(S: State): Record<string, string> {
+  const m: Record<string, string> = {
+    nome: S.nome,
+    idade: S.idade,
+    "carta-titulo": S.abT,
+    "carta-msg": S.abTx,
+    local: S.local,
+    endereco: [S.endereco, S.cidade, S.uf].map((x) => x.trim()).filter(Boolean).join(", "),
+    traje: S.trajeOn ? S.traje : "",
+    "pix-nome": S.gifts ? S.pixNome : "",
+    "pix-chave": S.gifts ? S.pixChave : "",
+  };
+  const d = dataLabelLive(S.data, S.hIni);
+  if (d) m.data = d;
+  const h = horarioLive(S.hIni);
+  if (h) m.horario = h;
+  return m;
 }
 
 const V = "#7C3AED";
@@ -106,23 +184,29 @@ type State = {
   step: number;
   sv: "salvo" | "salvando";
   showErr: boolean;
+  foco: string;
   nome: string; data: string; hIni: string; pai: string; mae: string;
   cep: string; local: string; endereco: string; cidade: string; uf: string; traje: string; slug: string;
+  capaFoto: string;
+  idade: string; monograma: boolean; monogramaFoto: string;
   capaT: string; capaS: string; capaD: string;
   szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
   paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; rodapeTx: string;
   rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
-  gifts: boolean; free: boolean; giftHidden: boolean[]; pixNome: string; pixChave: string;
+  gifts: boolean; free: boolean; giftList: { n: string; desc: string; v: string }[]; pixNome: string; pixChave: string;
   gal: boolean; rec: boolean; recSt: string[];
+  animacoes: boolean;
   published: boolean; copied: boolean; pvMode: "celular" | "desktop";
 };
 
 const INICIAL: State = {
-  step: 1, sv: "salvo", showErr: false,
+  step: 1, sv: "salvo", showErr: false, foco: "capa",
   nome: "Luiza", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Renata Martins",
   cep: "", local: "Espaço Villa Eventos", endereco: "Av. das Palmeiras, 1200", cidade: "São Paulo", uf: "SP",
   traje: "Esporte fino", slug: "luiza15",
+  capaFoto: "",
+  idade: "15", monograma: true, monogramaFoto: "",
   capaT: "Luiza", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
   szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: true,
   acc: 0, abT: "Vem comemorar comigo!",
@@ -131,9 +215,11 @@ const INICIAL: State = {
   trajeOn: true, btnTx: "Confirmar presença", btnDest: 0,
   rodapeTx: "Obrigada por fazer parte da minha história.",
   rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0, corBtn: 0,
-  gifts: true, free: true, giftHidden: [false, false, false, false],
+  gifts: true, free: true,
+  giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
   pixNome: "Renata Martins", pixChave: "renata.martins@email.com",
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
+  animacoes: false,
   published: false, copied: false, pvMode: "celular",
 };
 
@@ -206,6 +292,10 @@ export function CriarConvite() {
   const [gravando, iniciarGravacao] = useTransition();
   const [maisDetalhes, setMaisDetalhes] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [capaEnviando, setCapaEnviando] = useState(false);
+  const [capaErro, setCapaErro] = useState("");
+  const [monoEnviando, setMonoEnviando] = useState(false);
+  const [monoErro, setMonoErro] = useState("");
   const svTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -216,6 +306,44 @@ export function CriarConvite() {
   };
   const inp = (key: keyof State) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     upd({ [key]: e.target.value } as Partial<State>);
+
+  // Foco da prévia: quando o profissional clica/foca um campo, a prévia rola até
+  // a seção correspondente (o campo/grupo leva `data-foco="<secao>"`). Só muda o
+  // alvo da prévia (não marca "salvando").
+  const setFoco = (sec: string) => setS((s) => (s.foco === sec ? s : { ...s, foco: sec }));
+  const onFocoCampo = (e: React.FocusEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
+    const alvo = (e.target as HTMLElement).closest("[data-foco]");
+    const sec = alvo?.getAttribute("data-foco");
+    if (sec) setFoco(sec);
+  };
+
+  // Foto da capa → /api/upload (storage local em dev, Blob em prod) → grava a URL.
+  const subirCapa = async (file: File | undefined) => {
+    if (!file) return;
+    setCapaErro("");
+    setCapaEnviando(true);
+    try {
+      upd({ capaFoto: await enviarUpload(file) });
+    } catch (e) {
+      setCapaErro(e instanceof Error ? e.message : "Não consegui enviar a foto. Tente de novo.");
+    } finally {
+      setCapaEnviando(false);
+    }
+  };
+
+  // Monograma (logo da barra) → mesmo /api/upload.
+  const subirMonograma = async (file: File | undefined) => {
+    if (!file) return;
+    setMonoErro("");
+    setMonoEnviando(true);
+    try {
+      upd({ monogramaFoto: await enviarUpload(file), monograma: true });
+    } catch (e) {
+      setMonoErro(e instanceof Error ? e.message : "Não consegui enviar o monograma. Tente de novo.");
+    } finally {
+      setMonoEnviando(false);
+    }
+  };
 
   // CEP → ViaCEP (API pública grátis) preenche endereço, cidade e estado.
   const onCep = async (raw: string) => {
@@ -247,10 +375,17 @@ export function CriarConvite() {
 
   const next = () => {
     if (S.step === 1 && !reqOk) return setS((s) => ({ ...s, showErr: true }));
-    setS((s) => ({ ...s, step: Math.min(6, s.step + 1), showErr: false }));
+    setS((s) => {
+      const step = Math.min(6, s.step + 1);
+      return { ...s, step, showErr: false, foco: focoDoPasso(step, s.acc) };
+    });
   };
-  const prev = () => setS((s) => ({ ...s, step: Math.max(1, s.step - 1), showErr: false }));
-  const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false }));
+  const prev = () =>
+    setS((s) => {
+      const step = Math.max(1, s.step - 1);
+      return { ...s, step, showErr: false, foco: focoDoPasso(step, s.acc) };
+    });
+  const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false, foco: focoDoPasso(n, s.acc) }));
 
   const linkPublico = pubInfo?.url ?? `https://${S.slug}.seuconvite.orivya.com`;
   const hostPublico = pubInfo?.host ?? `${S.slug}.seuconvite.orivya.com`;
@@ -267,6 +402,11 @@ export function CriarConvite() {
   const montarPayload = () => ({
     id: eventId ?? undefined,
     title: S.nome,
+    fotoUrl: S.capaFoto || undefined,
+    idade: S.idade ? Number(S.idade) : undefined,
+    monograma: S.monograma,
+    logoUrl: S.monogramaFoto || undefined,
+    animacoes: S.animacoes,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     local: S.local,
@@ -281,11 +421,9 @@ export function CriarConvite() {
     pixNome: S.gifts ? S.pixNome : undefined,
     pixChave: S.gifts ? S.pixChave : undefined,
     presentes: S.gifts
-      ? GIFTS.filter((_, i) => !S.giftHidden[i]).map((g) => ({
-          titulo: g.n,
-          descricao: g.desc,
-          valor: g.v,
-        }))
+      ? S.giftList
+          .filter((g) => g.n.trim())
+          .map((g) => ({ titulo: g.n, descricao: g.desc, valor: g.v }))
       : [],
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
@@ -325,7 +463,6 @@ export function CriarConvite() {
 
   const accDefs = [
     { name: "Mensagem de abertura", tag: "", kind: "abertura", st: "Preenchida", ok: true },
-    { name: "Mensagem abaixo da capa", tag: "· opcional", kind: "abaixo", st: "Preenchida", ok: true },
     { name: "Pais e família", tag: "· opcional", kind: "pais", st: S.paisOn ? "Visível" : "Oculta", ok: S.paisOn },
     { name: "Local da festa", tag: "", kind: "local", st: "Sincronizada", ok: true },
     { name: "Traje", tag: "· opcional", kind: "traje", st: S.trajeOn ? "Visível" : "Oculta", ok: S.trajeOn },
@@ -335,11 +472,11 @@ export function CriarConvite() {
 
   const checklist = [
     { name: "Informações da festa preenchidas", ok: reqOk, note: "" },
-    { name: "Foto da capa adicionada", ok: true, note: "" },
+    { name: "Foto da capa adicionada", ok: !!S.capaFoto, note: S.capaFoto ? "" : "usando imagem padrão" },
     { name: "Textos revisados", ok: true, note: "" },
     { name: "Localização configurada", ok: req(S.local), note: "" },
     { name: "Confirmação configurada", ok: S.rsvp, note: S.rsvp ? "" : "desativada" },
-    { name: "Presentes configurados", ok: S.gifts, note: S.gifts ? "4 presentes" : "desativados" },
+    { name: "Presentes configurados", ok: S.gifts, note: S.gifts ? `${S.giftList.filter((g) => g.n.trim()).length} presentes` : "desativados" },
     { name: "QR Code do Pix adicionado", ok: S.gifts, note: "opcional" },
     { name: "Galeria revisada", ok: S.gal, note: "opcional" },
     { name: "Recados configurados", ok: S.rec, note: "opcional" },
@@ -388,7 +525,9 @@ export function CriarConvite() {
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_500px] xl:grid-cols-[minmax(0,1fr)_620px] 2xl:grid-cols-[minmax(0,1fr)_760px]">
           {/* ===================== FORM COLUMN ===================== */}
-          <div className="flex flex-col gap-4">
+          {/* onFocus/onClick borbulham: ao tocar num campo com `data-foco`, a
+              prévia rola até aquela seção do site ("vai para onde estou mexendo"). */}
+          <div className="flex flex-col gap-4" onFocus={onFocoCampo} onClick={onFocoCampo}>
             {/* STEP 1 — despoluído: essenciais visíveis, opcionais recolhidos */}
             {S.step === 1 && (
               <>
@@ -396,12 +535,17 @@ export function CriarConvite() {
                   <div className="text-[18px] font-bold tracking-[-0.02em]">Conte-nos sobre a festa</div>
                   <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">O essencial primeiro. Os detalhes opcionais podem ficar para depois.</div>
 
-                  <Sub>A festa</Sub>
-                  <div className="flex flex-col gap-3.5">
+                  <Sub>A debutante</Sub>
+                  <div data-foco="capa-nome" className="flex flex-col gap-3.5">
                     <div>
                       <Label>Nome da debutante</Label>
                       <input value={S.nome} onChange={inp("nome")} style={{ borderColor: S.showErr && !req(S.nome) ? "#FF2D8D" : "#E4E4EA" }} className={`${inputCls} text-[15px] font-semibold`} />
                     </div>
+                  </div>
+
+                  <div className="my-5 h-px bg-[#F0F0F3]" />
+                  <Sub>Quando e onde</Sub>
+                  <div data-foco="quando" className="flex flex-col gap-3.5">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Data da festa</Label>
@@ -412,11 +556,6 @@ export function CriarConvite() {
                         <input value={S.hIni} onChange={inp("hIni")} style={{ borderColor: S.showErr && !req(S.hIni) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="my-5 h-px bg-[#F0F0F3]" />
-                  <Sub>Onde vai ser</Sub>
-                  <div className="flex flex-col gap-3.5">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
                       <div>
                         <Label>CEP</Label>
@@ -512,55 +651,140 @@ export function CriarConvite() {
 
             {/* STEP 2 */}
             {S.step === 2 && (
-              <div className={cardCls}>
+              <div data-foco="capa" className={cardCls}>
                 <div className="text-[18px] font-bold tracking-[-0.02em]">Personalize a capa</div>
                 <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">Ajuste a foto, os textos e as cores principais do convite.</div>
                 <div className="mb-2.5 text-[13.5px] font-bold">Foto da capa</div>
                 <div className="flex items-stretch gap-3.5">
-                  <div className="flex h-[100px] w-[150px] flex-none items-center justify-center rounded-xl bg-[linear-gradient(160deg,#1a1426,#3b2a63_70%,#7C3AED)]">
-                    <span className="font-[family-name:var(--font-playfair)] text-[20px] text-white">{S.capaT}</span>
+                  <div
+                    className="flex h-[100px] w-[150px] flex-none items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(160deg,#1a1426,#3b2a63_70%,#7C3AED)] bg-cover bg-center"
+                    style={S.capaFoto ? { backgroundImage: `url('${S.capaFoto}')` } : undefined}
+                  >
+                    {!S.capaFoto && (
+                      <span className="font-[family-name:var(--font-playfair)] text-[20px] text-white">{S.nome}</span>
+                    )}
                   </div>
-                  <div className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
+                  <label className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={capaEnviando}
+                      onChange={(e) => {
+                        void subirCapa(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
                     <Ic d={IC.upload} size={18} stroke="currentColor" width={1.8} />
-                    <span className="text-[12.5px] font-semibold">Trocar foto</span>
-                    <span className="text-[11px] text-[#A6A6AE]">JPG ou PNG · até 10 MB</span>
-                  </div>
+                    <span className="text-[12.5px] font-semibold">
+                      {capaEnviando ? "Enviando…" : S.capaFoto ? "Trocar foto" : "Enviar foto"}
+                    </span>
+                    <span className="text-[11px] text-[#A6A6AE]">JPG, PNG ou WebP · até 6 MB</span>
+                  </label>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button className="cursor-pointer rounded-[9px] border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#3F3F46] hover:bg-[#F4F4F6]">Reposicionar</button>
-                  <button className="cursor-pointer rounded-[9px] border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#3F3F46] hover:bg-[#F4F4F6]">Ponto principal</button>
-                  <button className="cursor-pointer rounded-[9px] border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12.5px] text-[#A6A6AE] hover:bg-[#F4F4F6]">Remover</button>
-                  <div className="flex flex-1 items-center gap-2.5 pl-2">
-                    <span className="text-[12px] text-[#6e6e76]">Zoom</span>
-                    <input type="range" min={1} max={2} step={0.05} className="flex-1" />
+                {(capaErro || S.capaFoto) && (
+                  <div className="mt-2 text-[12px]">
+                    {capaErro ? (
+                      <span className="text-[#E11D48]">{capaErro}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => upd({ capaFoto: "" })}
+                        className="cursor-pointer font-semibold text-[#6e6e76] hover:text-[#E11D48]"
+                      >
+                        Remover foto
+                      </button>
+                    )}
                   </div>
-                </div>
+                )}
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 <div className="mb-3 text-[13.5px] font-bold">Textos da capa</div>
                 <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
-                    <div>
-                      <Label>Texto principal</Label>
-                      <input value={S.capaT} onChange={inp("capaT")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                    </div>
-                    <div>
-                      <Label>Subtítulo</Label>
-                      <input value={S.capaS} onChange={inp("capaS")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                    </div>
+                  <div data-foco="capa-nome">
+                    <Label>Nome da debutante (na capa)</Label>
+                    <input value={S.nome} onChange={inp("nome")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} text-[15px] font-semibold`} />
+                    <div className="mt-1 text-[11.5px] text-[#A6A6AE]">É o nome que aparece em destaque na capa.</div>
                   </div>
-                  <div>
-                    <Label>Texto abaixo da capa</Label>
-                    <textarea rows={2} value={S.capaD} onChange={inp("capaD")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
+                    <div data-foco="capa-idade">
+                      <Label>Idade</Label>
+                      <input
+                        value={S.idade}
+                        onChange={(e) => upd({ idade: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+                        inputMode="numeric"
+                        placeholder="15"
+                        style={{ borderColor: "#E4E4EA" }}
+                        className={inputCls}
+                      />
+                      <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Aparece na capa (ex.: “15 ANOS”).</div>
+                    </div>
                   </div>
                 </div>
+
+                <div className="my-5 h-px bg-[#F0F0F3]" />
+                {/* Monograma da barra — subir ou não */}
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13.5px] font-bold">Monograma na barra</div>
+                    <div className="text-[12px] text-[#6e6e76]">A marquinha no topo do site. Sem imagem, usa as iniciais do nome.</div>
+                  </div>
+                  <Toggle on={S.monograma} onClick={() => upd({ monograma: !S.monograma })} />
+                </div>
+                {S.monograma && (
+                  <>
+                    <div className="flex items-stretch gap-3.5">
+                      <div
+                        className="grid h-[72px] w-[72px] flex-none place-items-center overflow-hidden rounded-xl border border-[#ECECF0] bg-[#F4F4F6] bg-contain bg-center bg-no-repeat"
+                        style={S.monogramaFoto ? { backgroundImage: `url('${S.monogramaFoto}')` } : undefined}
+                      >
+                        {!S.monogramaFoto && (
+                          <span className="font-[family-name:var(--font-playfair)] text-[18px] text-[#7C3AED]">
+                            {(S.nome.trim()[0] ?? "M").toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <label className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={monoEnviando}
+                          onChange={(e) => {
+                            void subirMonograma(e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                        <Ic d={IC.upload} size={16} stroke="currentColor" width={1.8} />
+                        <span className="text-[12.5px] font-semibold">
+                          {monoEnviando ? "Enviando…" : S.monogramaFoto ? "Trocar monograma" : "Enviar monograma"}
+                        </span>
+                        <span className="text-[11px] text-[#A6A6AE]">PNG com fundo transparente · até 6 MB</span>
+                      </label>
+                    </div>
+                    {(monoErro || S.monogramaFoto) && (
+                      <div className="mt-2 text-[12px]">
+                        {monoErro ? (
+                          <span className="text-[#E11D48]">{monoErro}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => upd({ monogramaFoto: "" })}
+                            className="cursor-pointer font-semibold text-[#6e6e76] hover:text-[#E11D48]"
+                          >
+                            Remover monograma (usar iniciais)
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 <div className="mb-3 text-[13.5px] font-bold">Tamanho dos textos</div>
                 <div className="flex flex-col gap-2.5">
                   {(
                     [
                       ["Texto principal", "szT"],
-                      ["Subtítulo", "szS"],
-                      ["Texto abaixo da capa", "szD"],
                     ] as const
                   ).map(([label, key]) => (
                     <div key={key} className="flex items-center gap-3">
@@ -600,9 +824,10 @@ export function CriarConvite() {
                 </div>
                 {accDefs.map((a, i) => {
                   const open = S.acc === i;
+                  const sec = KIND_SEC[a.kind] ?? "carta";
                   return (
-                    <div key={a.name} className="overflow-hidden rounded-2xl border border-[#ECECF0] bg-white shadow-[0_2px_8px_rgba(23,23,27,0.03)]">
-                      <div onClick={() => setS((s) => ({ ...s, acc: open ? -1 : i }))} className="flex cursor-pointer items-center gap-3 px-5 py-4 hover:bg-[#FBFBFC]">
+                    <div key={a.name} data-foco={sec} className="overflow-hidden rounded-2xl border border-[#ECECF0] bg-white shadow-[0_2px_8px_rgba(23,23,27,0.03)]">
+                      <div onClick={() => setS((s) => ({ ...s, acc: open ? -1 : i, foco: sec }))} className="flex cursor-pointer items-center gap-3 px-5 py-4 hover:bg-[#FBFBFC]">
                         <span className="flex-1 text-[14px] font-semibold">
                           {a.name} {a.tag && <span className="text-[12px] font-normal text-[#A6A6AE]">{a.tag}</span>}
                         </span>
@@ -615,25 +840,13 @@ export function CriarConvite() {
                         <div className="border-t border-[#F0F0F3] px-5 pb-5 pt-3.5">
                           {a.kind === "abertura" && (
                             <div className="flex flex-col gap-3">
-                              <div>
+                              <div data-foco="carta-titulo">
                                 <Label>Título</Label>
                                 <input value={S.abT} onChange={inp("abT")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                               </div>
-                              <div>
+                              <div data-foco="carta-texto">
                                 <Label>Texto</Label>
                                 <textarea rows={3} value={S.abTx} onChange={inp("abTx")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
-                              </div>
-                            </div>
-                          )}
-                          {a.kind === "abaixo" && (
-                            <div className="flex flex-col gap-3">
-                              <div>
-                                <Label opt>Subtítulo</Label>
-                                <input placeholder="Ex.: Uma noite especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                              </div>
-                              <div>
-                                <Label>Texto</Label>
-                                <textarea rows={2} value={S.capaD} onChange={inp("capaD")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
                               </div>
                             </div>
                           )}
@@ -751,7 +964,7 @@ export function CriarConvite() {
 
             {/* STEP 4 */}
             {S.step === 4 && (
-              <div className={cardCls}>
+              <div data-foco="cta" className={cardCls}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[18px] font-bold tracking-[-0.02em]">Configure as confirmações</div>
@@ -834,41 +1047,53 @@ export function CriarConvite() {
                           <input defaultValue="Escolha um presente e ajude a tornar essa noite ainda mais especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                         </div>
                       </div>
-                      <div>
-                        <div className="hidden grid-cols-[40px_2fr_0.9fr_0.6fr_1fr_70px] gap-2.5 border-b border-[#F0F0F3] px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#8b8b93] sm:grid">
-                          <span />
-                          <span>Presente</span>
-                          <span>Valor</span>
-                          <span>Qtd.</span>
-                          <span>Status</span>
-                          <span />
-                        </div>
-                        {GIFTS.map((g, i) => {
-                          const hid = S.giftHidden[i];
-                          return (
-                            <div key={g.n} className="grid grid-cols-[40px_1fr_auto] items-center gap-2.5 border-b border-[#F5F5F7] px-3 py-2.5 sm:grid-cols-[40px_2fr_0.9fr_0.6fr_1fr_70px]">
-                              <div style={{ background: `linear-gradient(140deg,${g.c1},${g.c2})` }} className="size-[34px] rounded-[9px]" />
-                              <div>
-                                <div style={{ color: hid ? "#A6A6AE" : "#17171B" }} className="text-[13.5px] font-semibold">{g.n}</div>
-                                <div className="text-[11.5px] text-[#A6A6AE]">{g.desc}</div>
+                      <div data-foco="presentes" className="flex flex-col gap-3">
+                        {S.giftList.map((g, i) => (
+                          <div key={i} className="rounded-2xl border border-[#ECECF0] bg-white p-3.5 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
+                            <div className="flex items-start gap-2.5">
+                              <span className="mt-2 grid size-6 flex-none place-items-center rounded-full bg-[#F3EFFE] text-[11px] font-bold text-[#7C3AED]">{i + 1}</span>
+                              <div className="flex-1">
+                                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_120px]">
+                                  <input
+                                    value={g.n}
+                                    onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, n: e.target.value } : x)) })}
+                                    placeholder="Nome do presente"
+                                    style={{ borderColor: "#E4E4EA" }}
+                                    className={`${inputCls} font-semibold`}
+                                  />
+                                  <input
+                                    value={g.v}
+                                    onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, v: e.target.value } : x)) })}
+                                    inputMode="numeric"
+                                    placeholder="R$ 0"
+                                    style={{ borderColor: "#E4E4EA" }}
+                                    className={`${inputCls} text-center`}
+                                  />
+                                </div>
+                                <input
+                                  value={g.desc}
+                                  onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, desc: e.target.value } : x)) })}
+                                  placeholder="Descrição (opcional)"
+                                  style={{ borderColor: "#E4E4EA" }}
+                                  className={`${inputCls} mt-2.5 text-[13px]`}
+                                />
                               </div>
-                              <span style={{ color: hid ? "#A6A6AE" : "#17171B" }} className="hidden text-[13px] font-semibold sm:block">{g.v}</span>
-                              <span className="hidden text-[13px] text-[#6e6e76] sm:block">{g.q}</span>
-                              <span className="hidden sm:block">
-                                <span style={{ background: hid ? "#F0F0F3" : "rgba(52,161,119,0.12)", color: hid ? "#8B8B93" : "#2E8A66" }} className="rounded-full px-2.5 py-1 text-[11px] font-semibold">
-                                  {hid ? "Oculto" : "Visível"}
-                                </span>
-                              </span>
-                              <div className="flex justify-end gap-1">
-                                <span onClick={() => { const giftHidden = [...S.giftHidden]; giftHidden[i] = !giftHidden[i]; upd({ giftHidden }); }} title="Ocultar" className="grid size-[27px] cursor-pointer place-items-center rounded-lg text-[#8b8b93] hover:bg-[#F4F4F6] hover:text-[#17171B]">
-                                  <Ic d={IC.eye} size={13} stroke="currentColor" />
-                                </span>
-                                <span className="grid size-[27px] cursor-pointer place-items-center rounded-lg text-[#8b8b93] hover:bg-[#F4F4F6] hover:text-[#17171B]">⋯</span>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => upd({ giftList: S.giftList.filter((_, j) => j !== i) })}
+                                title="Remover presente"
+                                className="mt-1 grid size-8 flex-none cursor-pointer place-items-center rounded-lg text-[#A6A6AE] hover:bg-[#FDECEF] hover:text-[#E11D48]"
+                              >
+                                <Ic d={IC.x} size={15} stroke="currentColor" width={2} />
+                              </button>
                             </div>
-                          );
-                        })}
-                        <button className="mt-2.5 w-full cursor-pointer rounded-[11px] border-[1.5px] border-dashed border-[#D5D5DC] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#7C3AED] hover:border-[#7C3AED] hover:bg-[#FBFAFE]">
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => upd({ giftList: [...S.giftList, { n: "", desc: "", v: "" }] })}
+                          className="w-full cursor-pointer rounded-[11px] border-[1.5px] border-dashed border-[#D5D5DC] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#7C3AED] hover:border-[#7C3AED] hover:bg-[#FBFAFE]"
+                        >
                           + Adicionar presente
                         </button>
                       </div>
@@ -990,6 +1215,17 @@ export function CriarConvite() {
                   )}
                 </div>
                 <div className={cardCls}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[14.5px] font-bold">Animações ao abrir o site</div>
+                      <div className="mt-1 text-[12.5px] text-[#6e6e76]">
+                        Efeitos de entrada quando a página carrega (foto com leve zoom, textos que surgem). Desligado, o site aparece pronto na hora.
+                      </div>
+                    </div>
+                    <Toggle on={S.animacoes} onClick={() => upd({ animacoes: !S.animacoes })} />
+                  </div>
+                </div>
+                <div className={cardCls}>
                   <div className="mb-2 text-[14.5px] font-bold">Antes de publicar</div>
                   {checklist.map((c) => (
                     <div key={c.name} className="flex items-center gap-3 border-b border-[#F5F5F7] py-2.5">
@@ -1014,6 +1250,8 @@ export function CriarConvite() {
               <PreviewSite
                 rascunhoJson={JSON.stringify(montarRascunho(S))}
                 pagina={paginaDoPasso(S.step)}
+                foco={S.foco}
+                live={liveMapa(S)}
                 host={hostPublico}
                 rotulo="É assim que os convidados vão ver"
                 altura={700}

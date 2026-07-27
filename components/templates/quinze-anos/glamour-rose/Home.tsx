@@ -59,12 +59,12 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       />
 
       {/* ═══ O CONVITE (carta + assinatura) ═══ */}
-      <section className={`${PAD} ${RHYTHM}`} style={{ background: BLUSH_55 }}>
+      <section data-sec="carta" className={`${PAD} ${RHYTHM}`} style={{ background: BLUSH_55 }}>
         <div className="mx-auto max-w-[680px]">
           <Reveal>
             <div className="text-center">
               <p className="eyebrow text-evt-rosa-ink">{evento.secoes.abertura.eyebrow}</p>
-              <h2 className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
+              <h2 data-sec="carta-titulo" data-live="carta-titulo" className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
                 {evento.secoes.abertura.titulo}
               </h2>
               <div className="mt-5 flex items-center justify-center" aria-hidden>
@@ -72,17 +72,24 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
               </div>
             </div>
           </Reveal>
-          <Reveal delay={120} className="mt-10 space-y-5 text-center">
+          <Reveal delay={120} dataSec="carta-texto" className="mt-10 space-y-5 text-center">
             {evento.conviteIntro && (
               <p className="font-evt-body text-[clamp(1.4rem,4.6vw,1.72rem)] font-medium italic leading-snug text-evt-rosa-ink">
                 {evento.conviteIntro}
               </p>
             )}
-            {paragrafos.map((p, i) => (
-              <p key={i} className="font-evt-body text-[1.2rem] leading-relaxed text-evt-ink">
-                {p}
-              </p>
-            ))}
+            <div
+              className="space-y-5"
+              data-live="carta-msg"
+              data-live-multi=""
+              data-live-class="font-evt-body text-[1.2rem] leading-relaxed text-evt-ink"
+            >
+              {paragrafos.map((p, i) => (
+                <p key={i} className="font-evt-body text-[1.2rem] leading-relaxed text-evt-ink">
+                  {p}
+                </p>
+              ))}
+            </div>
           </Reveal>
           <Reveal delay={200} className="mt-9 flex flex-col items-center gap-2 text-center">
             <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
@@ -97,27 +104,27 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       </section>
 
       {/* ═══ QUANDO & ONDE + Confirmar presença ═══ */}
-      <section className={`bg-transparent ${PAD} ${RHYTHM}`}>
+      <section data-sec="quando" className={`bg-transparent ${PAD} ${RHYTHM}`}>
         <div className={WRAP}>
           <Reveal>
             <Card className="mx-auto max-w-[760px] p-[clamp(1.75rem,5vw,2.75rem)]">
               <div className="grid gap-8 sm:grid-cols-2">
                 <div className="text-center sm:text-left">
                   <p className="eyebrow text-evt-rosa-ink">Quando</p>
-                  <p className="mt-3 font-evt-body text-[clamp(1.7rem,5.2vw,2.15rem)] leading-tight text-evt-ink">
+                  <p data-live="data" className="mt-3 font-evt-body text-[clamp(1.7rem,5.2vw,2.15rem)] leading-tight text-evt-ink">
                     {evento.data}
                   </p>
-                  <p className="font-evt-display text-[clamp(2rem,6vw,2.7rem)] tracking-[0.04em] text-evt-rosa-ink">
+                  <p data-live="horario" className="font-evt-display text-[clamp(2rem,6vw,2.7rem)] tracking-[0.04em] text-evt-rosa-ink">
                     {evento.horario}
                   </p>
                 </div>
                 <div className="text-center sm:border-l sm:border-[var(--line)] sm:pl-8 sm:text-left">
                   <p className="eyebrow text-evt-rosa-ink">Onde</p>
-                  <p className="mt-3 font-evt-body text-[clamp(1.7rem,5.2vw,2.15rem)] leading-tight text-evt-ink">
+                  <p data-live="local" className="mt-3 font-evt-body text-[clamp(1.7rem,5.2vw,2.15rem)] leading-tight text-evt-ink">
                     {evento.local ?? "O local"}
                   </p>
                   {evento.endereco && (
-                    <p className="mt-1 font-evt-body text-lg text-evt-ink-soft">{evento.endereco}</p>
+                    <p data-live="endereco" className="mt-1 font-evt-body text-lg text-evt-ink-soft">{evento.endereco}</p>
                   )}
                 </div>
               </div>
@@ -146,7 +153,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       </section>
 
       {/* ═══ TRAJE + TEASERS ═══ */}
-      <section className={`${PAD} ${RHYTHM}`} style={{ background: BLUSH_55 }}>
+      <section data-sec="traje" className={`${PAD} ${RHYTHM}`} style={{ background: BLUSH_55 }}>
         <div className={WRAP}>
           {evento.traje && (
             <Reveal className="flex flex-col items-center gap-3 text-center">
