@@ -15,6 +15,8 @@ export function CapaGlamour({
   idade,
   fotoUrl,
   fotoDesktopUrl,
+  escala,
+  overlay,
 }: {
   nome: string;
   idade?: number;
@@ -25,16 +27,28 @@ export function CapaGlamour({
   local?: string;
   fotoUrl?: string;
   fotoDesktopUrl?: string;
+  /** Multiplicador do tamanho do lockup (nome/idade juntos). 1 = padrão. */
+  escala?: number;
+  /** Escurecer a foto p/ melhorar a leitura do nome. */
+  overlay?: boolean;
 }) {
   const fotoMobile = fotoUrl || fotoDesktopUrl || "";
   const fotoDesktop = fotoDesktopUrl || fotoUrl || "";
+  const esc = escala && escala > 0 ? escala : 1;
 
   return (
-    <section className="relative min-h-[100svh] w-full overflow-hidden bg-[#160C12] text-[var(--ev-ivory)]">
+    <section
+      data-sec="capa"
+      className="relative min-h-[100svh] w-full overflow-hidden bg-[#160C12] text-[var(--ev-ivory)]"
+      style={{ "--capa-escala": String(esc) } as import("react").CSSProperties}
+    >
       {/* ── FOTO (fade + Ken Burns por CSS) ── */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="qgr-hero-photo absolute inset-x-[-4%] top-[-4%] bottom-0 md:inset-[-4%]" aria-hidden />
       </div>
+
+      {/* ── Escurecimento opcional da foto (melhora a leitura do nome) ── */}
+      {overlay && <div className="pointer-events-none absolute inset-0 bg-black/35" aria-hidden />}
 
       {/* ── Scrims MOBILE (lockup embaixo) ── */}
       <div className="pointer-events-none absolute inset-0 md:hidden">
@@ -56,7 +70,9 @@ export function CapaGlamour({
 
         {/* nome — cursiva (Milton) */}
         <h1
-          className="qgr-hero-rise text-center font-evt-script text-[clamp(3.2rem,13.5vw,4.8rem)] leading-[1.05] text-[var(--ev-ivory)] drop-shadow-[0_2px_22px_rgba(0,0,0,0.9)] md:text-left md:text-[clamp(4.5rem,6.5vw,7.2rem)]"
+          data-sec="capa-nome"
+          data-live="nome"
+          className="qgr-hero-rise qgr-nome text-center font-evt-script leading-[1.05] text-[var(--ev-ivory)] drop-shadow-[0_2px_22px_rgba(0,0,0,0.9)] md:text-left"
           style={{ animationDelay: "0.15s" }}
         >
           {nome}
@@ -65,19 +81,19 @@ export function CapaGlamour({
         {idade != null && (
           <>
             {/* MOBILE: N grande empilhado + anos */}
-            <div className="qgr-hero-rise mt-3 flex flex-col items-center md:hidden" style={{ animationDelay: "0.3s" }}>
-              <span className="font-evt-display text-[clamp(3.6rem,14vw,4.6rem)] leading-none drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] text-[var(--ev-blush)]">
+            <div data-sec="capa-idade" className="qgr-hero-rise mt-3 flex flex-col items-center md:hidden" style={{ animationDelay: "0.3s" }}>
+              <span data-live="idade" className="qgr-idade-m font-evt-display leading-none drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] text-[var(--ev-blush)]">
                 {idade}
               </span>
-              <span className="mt-1.5 font-evt-body text-[0.72rem] font-semibold uppercase tracking-[0.48em]" style={{ color: SILVER }}>
+              <span className="qgr-anos-m mt-1.5 font-evt-body font-semibold uppercase tracking-[0.48em]" style={{ color: SILVER }}>
                 anos
               </span>
             </div>
 
             {/* DESKTOP: N ANOS (alinhado à esquerda) + filete */}
-            <div className="qgr-hero-rise mt-6 hidden items-center gap-4 md:flex" style={{ animationDelay: "0.3s" }}>
-              <span className="font-evt-display text-[clamp(3rem,4.4vw,4rem)] leading-none tracking-[0.06em] text-[var(--ev-blush)]">
-                {idade} ANOS
+            <div data-sec="capa-idade" className="qgr-hero-rise mt-6 hidden items-center gap-4 md:flex" style={{ animationDelay: "0.3s" }}>
+              <span className="qgr-idade-d font-evt-display leading-none tracking-[0.06em] text-[var(--ev-blush)]">
+                <span data-live="idade">{idade}</span> ANOS
               </span>
               <span className="rotate-45 text-[0.6rem]" style={{ color: SILVER }}>◆</span>
               <span className="h-px w-16" style={{ background: `${SILVER}80` }} />
@@ -124,6 +140,15 @@ export function CapaGlamour({
         }
         .qgr-hero-rise { opacity: 0; animation: qgrHeroRise 1s cubic-bezier(0.16,1,0.3,1) both; }
         .qgr-scroll-cue { animation: qgrHeroFade 1.2s ease 1.8s both; }
+        /* Tamanho do lockup — escala uniforme (nome+idade juntos) via --capa-escala,
+           multiplicando os tamanhos responsivos (clamp) p/ ficar ajustado em qualquer tela. */
+        .qgr-nome   { font-size: calc(clamp(3.2rem,13.5vw,4.8rem) * var(--capa-escala, 1)); }
+        .qgr-idade-m{ font-size: calc(clamp(3.6rem,14vw,4.6rem) * var(--capa-escala, 1)); }
+        .qgr-anos-m { font-size: calc(0.72rem * var(--capa-escala, 1)); }
+        .qgr-idade-d{ font-size: calc(clamp(3rem,4.4vw,4rem) * var(--capa-escala, 1)); }
+        @media (min-width: 768px) {
+          .qgr-nome { font-size: calc(clamp(4.5rem,6.5vw,7.2rem) * var(--capa-escala, 1)); }
+        }
         @media (prefers-reduced-motion: reduce) {
           .qgr-hero-photo { opacity: 1 !important; animation: none !important; transform: none !important; }
           .qgr-hero-rise, .qgr-scroll-cue { opacity: 1 !important; animation: none !important; transform: none !important; filter: none !important; }

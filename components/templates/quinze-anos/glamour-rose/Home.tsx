@@ -56,6 +56,8 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
         local={evento.local}
         fotoUrl={evento.fotoUrl}
         fotoDesktopUrl={evento.fotoDesktopUrl}
+        escala={evento.capaEscala}
+        overlay={evento.capaOverlay}
       />
 
       {/* ═══ O CONVITE (carta + assinatura) ═══ */}

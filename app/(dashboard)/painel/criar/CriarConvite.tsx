@@ -20,6 +20,12 @@ import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
 import { PreviewSite } from "../_ui/PreviewSite";
 import { enviarUpload } from "../_ui/Uploads";
+import { paletasSeletor } from "@/lib/temas";
+
+// Passo 2: o controle "Tamanho dos textos" (Pequeno/Médio/Grande) vira este
+// multiplicador do lockup da capa — mexe no nome e na idade JUNTOS (uniforme),
+// mantendo o responsivo. Índice = valor do <Seg>.
+const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
 
 /** "dd/mm/aaaa" -> "aaaa-mm-dd" (vazio se invalido; a action valida). */
 function ddmmParaISO(s: string): string {
@@ -98,7 +104,7 @@ function montarRascunho(S: State) {
     .join(", ");
   return {
     type: "QUINZE_ANOS",
-    tema: "rose",
+    tema: S.tema,
     fontes: "classica",
     template: "quinze-anos-glamour-rose",
     title: S.nome,
@@ -107,6 +113,8 @@ function montarRascunho(S: State) {
     monograma: S.monograma,
     logoUrl: S.monogramaFoto || undefined,
     animacoes: S.animacoes,
+    capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
+    capaOverlay: S.overlay,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     mensagem: S.abTx,
@@ -157,8 +165,6 @@ function liveMapa(S: State): Record<string, string> {
 const V = "#7C3AED";
 const MUT = "#6E6E76";
 const STEP_NAMES = ["Festa", "Capa e estilo", "Conteúdo", "Confirmação", "Presentes e Pix", "Galeria e publicação"];
-const TXTC = ["#FFFFFF", "#C4B5FD", "#E8C87A", "#FF9EC9"];
-const DETC = ["#C4B5FD", "#FF2D8D", "#E8C87A", "#FFFFFF"];
 const BTNC = ["#7C3AED", "#FF2D8D", "#C4B5FD", "#E8C87A"];
 const RSVP_LABELS = [
   "Permitir acompanhantes",
@@ -190,6 +196,7 @@ type State = {
   capaFoto: string;
   idade: string; monograma: boolean; monogramaFoto: string;
   capaT: string; capaS: string; capaD: string;
+  tema: string;
   szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
   paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; rodapeTx: string;
@@ -208,7 +215,8 @@ const INICIAL: State = {
   capaFoto: "",
   idade: "15", monograma: true, monogramaFoto: "",
   capaT: "Luiza", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
-  szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: true,
+  tema: "rose",
+  szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: false,
   acc: 0, abT: "Vem comemorar comigo!",
   abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
   paisOn: true, paisTx: "Com a alegria dos meus pais, convido você para celebrar este momento comigo.",
@@ -269,6 +277,36 @@ function Swatches({ colors, value, onChange }: { colors: string[]; value: number
       {colors.map((c, i) => (
         <span key={i} onClick={() => onChange(i)} style={{ background: c, borderColor: value === i ? V : "#E4E4EA" }} className="size-7 cursor-pointer rounded-full border-2 shadow-[inset_0_0_0_2px_#fff]" />
       ))}
+    </div>
+  );
+}
+
+// Seletor de PALETA de cores — as 6 paletas reais de lib/temas (re-tingem o site
+// inteiro). Cada opção mostra 4 bolinhas da paleta + o nome. Valor = chave do tema.
+function Paletas({ value, onChange }: { value: string; onChange: (k: string) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {paletasSeletor().map((p) => {
+        const on = value === p.key;
+        return (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => onChange(p.key)}
+            style={{ borderColor: on ? V : "#E4E4EA", background: on ? "#F6F3FE" : "#fff" }}
+            className="flex items-center gap-2.5 rounded-xl border-[1.5px] px-3 py-2.5 text-left transition-colors hover:border-[#B69CF4]"
+          >
+            <span className="flex flex-none">
+              {p.dots.map((c, i) => (
+                <span key={i} style={{ background: c, marginLeft: i ? -6 : 0 }} className="size-[18px] rounded-full border-2 border-white" />
+              ))}
+            </span>
+            <span className="text-[12.5px] font-semibold" style={{ color: on ? "#6D28D9" : "#3a3a42" }}>
+              {p.label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -407,6 +445,9 @@ export function CriarConvite() {
     monograma: S.monograma,
     logoUrl: S.monogramaFoto || undefined,
     animacoes: S.animacoes,
+    tema: S.tema,
+    capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
+    capaOverlay: S.overlay,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     local: S.local,
@@ -682,6 +723,9 @@ export function CriarConvite() {
                     <span className="text-[11px] text-[#A6A6AE]">JPG, PNG ou WebP · até 6 MB</span>
                   </label>
                 </div>
+                <div className="mt-2.5 rounded-xl border border-[#ECECF0] bg-[#FAFAFC] px-3.5 py-2.5 text-[11.5px] leading-[1.5] text-[#6e6e76]">
+                  <span className="font-semibold text-[#3a3a42]">Medida ideal da foto</span> — use uma foto <b>vertical (em pé)</b>, de pelo menos <b>1080 × 1350&nbsp;px</b> (ideal <b>1600 × 2000</b>). No <b>celular</b> ela aparece em pé; no <b>computador</b> a mesma foto é cortada mais larga, então deixe a pessoa <b>mais ao centro</b> pra ficar bem enquadrada nos dois.
+                </div>
                 {(capaErro || S.capaFoto) && (
                   <div className="mt-2 text-[12px]">
                     {capaErro ? (
@@ -780,37 +824,23 @@ export function CriarConvite() {
                 )}
 
                 <div className="my-5 h-px bg-[#F0F0F3]" />
-                <div className="mb-3 text-[13.5px] font-bold">Tamanho dos textos</div>
-                <div className="flex flex-col gap-2.5">
-                  {(
-                    [
-                      ["Texto principal", "szT"],
-                    ] as const
-                  ).map(([label, key]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <span className="w-[130px] text-[12.5px] text-[#6e6e76]">{label}</span>
-                      <Seg value={S[key] as number} onChange={(i) => upd({ [key]: i } as Partial<State>)} />
-                    </div>
-                  ))}
-                </div>
+                <div className="mb-1 text-[13.5px] font-bold">Tamanho dos textos da capa</div>
+                <div className="mb-3 text-[12px] text-[#6e6e76]">Deixa o nome e a idade maiores ou menores juntos — sempre ajustado no celular e no computador.</div>
+                <Seg value={S.szT} onChange={(i) => upd({ szT: i })} />
                 <div className="my-5 h-px bg-[#F0F0F3]" />
-                <div className="mb-3 text-[13.5px] font-bold">Cores</div>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Texto principal</span>
-                    <Swatches colors={TXTC} value={S.corTxt} onChange={(i) => upd({ corTxt: i })} />
+                {/* data-foco="quando": ao trocar a cor, a prévia rola até o cartão
+                    "Quando/Onde" + botão, onde o acento aparece forte (fica óbvio). */}
+                <div data-foco="quando">
+                  <div className="mb-1 text-[13.5px] font-bold">Paleta de cores</div>
+                  <div className="mb-3 text-[12px] text-[#6e6e76]">Muda a cor do convite inteiro. Escolha a que mais combina com a festa.</div>
+                  <Paletas value={S.tema} onChange={(k) => upd({ tema: k })} />
+                </div>
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
+                  <div>
+                    <div className="text-[13px] font-semibold">Escurecer a foto da capa</div>
+                    <div className="text-[12px] text-[#6e6e76]">Ajuda a ler o nome quando a foto é clara.</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Detalhes</span>
-                    <Swatches colors={DETC} value={S.corDet} onChange={(i) => upd({ corDet: i })} />
-                  </div>
-                  <div className="mt-1 flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
-                    <div>
-                      <div className="text-[13px] font-semibold">Escurecer foto para melhorar a leitura</div>
-                      <div className="text-[12px] text-[#6e6e76]">Recomendado quando a foto é clara</div>
-                    </div>
-                    <Toggle on={S.overlay} onClick={() => upd({ overlay: !S.overlay })} />
-                  </div>
+                  <Toggle on={S.overlay} onClick={() => upd({ overlay: !S.overlay })} />
                 </div>
               </div>
             )}

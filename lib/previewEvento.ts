@@ -33,6 +33,8 @@ const rascunhoSchema = z
     mensagem: z.string().max(2200),
     aberturaTitulo: z.string().max(140),
     presentesTexto: z.string().max(600),
+    pixNome: z.string().max(140),
+    pixChave: z.string().max(200),
     local: z.string().max(220),
     endereco: z.string().max(320),
     traje: z.string().max(140),
@@ -52,6 +54,14 @@ const rascunhoSchema = z
     presentesFotoUrl: urlish,
     fotos: z.array(urlish).max(40),
     recursosOff: z.array(z.string().max(20)).max(10),
+    idade: z.coerce.number().int().min(1).max(120),
+    monograma: z.boolean(),
+    animacoes: z.boolean(),
+    logoUrl: urlish,
+    /** Multiplicador do tamanho do lockup da capa (0.9 / 1 / 1.15). */
+    capaEscala: z.coerce.number().min(0.5).max(2),
+    /** Escurecer a foto da capa p/ melhorar a leitura. */
+    capaOverlay: z.boolean(),
   })
   .partial();
 
@@ -117,6 +127,10 @@ export function rascunhoDoEvento(event: {
     presentesFotoUrl: s("presentesFotoUrl"),
     fotos: (event.photos ?? []).slice(0, 40).map((p) => p.url),
     recursosOff: recursosOff.length ? recursosOff : undefined,
+    idade: typeof c.idade === "number" ? c.idade : undefined,
+    monograma: typeof c.monograma === "boolean" ? c.monograma : undefined,
+    animacoes: typeof c.animacoes === "boolean" ? c.animacoes : undefined,
+    logoUrl: s("logoUrl"),
   };
 }
 
@@ -169,6 +183,8 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
     secoes: aberturaTitulo ? { abertura: { titulo: aberturaTitulo } } : undefined,
     mensagem: texto(r.mensagem),
     presentesTexto: texto(r.presentesTexto),
+    pixNome: texto(r.pixNome),
+    pixChave: texto(r.pixChave),
     local,
     endereco,
     mapsUrl,
@@ -177,6 +193,12 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
     programacao: programacao.length ? programacao : undefined,
     fotoUrl: texto(r.fotoUrl),
     presentesFotoUrl: texto(r.presentesFotoUrl),
+    idade: r.idade,
+    monograma: r.monograma,
+    animacoes: r.animacoes,
+    logoUrl: texto(r.logoUrl),
+    capaEscala: r.capaEscala,
+    capaOverlay: r.capaOverlay,
   });
 
   return {

@@ -70,8 +70,16 @@ export type EventoFesta = {
   footerInfo: string;
   /** Monograma/logo do evento (opcional; a nav usa as iniciais do nome se ausente). */
   logoUrl?: string;
+  /** Mostrar o monograma na barra do site (default: true). */
+  monograma: boolean;
+  /** Animações de entrada ao carregar a página (default: true). */
+  animacoes: boolean;
   /** Preset de cor do site (chave de `lib/temas.ts`). */
   tema: string;
+  /** Multiplicador do tamanho do lockup da capa (1 = padrão). */
+  capaEscala: number;
+  /** Escurecer a foto da capa para melhorar a leitura (default: não). */
+  capaOverlay: boolean;
   /** Id do template de DESIGN do site (chave de `lib/templates.ts`). */
   templateId: string;
   /** Copy editavel das secoes (cliente -> default do nicho). */
@@ -89,6 +97,12 @@ const extrasSchema = z
   .object({
     tema: z.string(),
     logoUrl: z.string(),
+    /** Idade comemorada, editável (sobrepõe o padrão do nicho). */
+    idade: z.coerce.number().int().min(1).max(120),
+    /** Mostrar o monograma/logo na barra (default: mostra). */
+    monograma: z.boolean(),
+    /** Animações de entrada do site ao carregar (default: ligadas). */
+    animacoes: z.boolean(),
     conviteIntro: z.string(),
     assinatura: z.string(),
     cidade: z.string(),
@@ -97,6 +111,10 @@ const extrasSchema = z
     presentesTexto: z.string(),
     mapsEmbedUrl: z.string(),
     pixQrUrl: z.string(),
+    /** Multiplicador do tamanho do lockup da capa (0.9 / 1 / 1.15). */
+    capaEscala: z.coerce.number().min(0.5).max(2),
+    /** Escurecer a foto da capa p/ melhorar a leitura. */
+    capaOverlay: z.boolean(),
   })
   .partial();
 
@@ -141,7 +159,9 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
   const extrasParsed = extrasSchema.safeParse(event.customization);
   const extras = extrasParsed.success ? extrasParsed.data : {};
 
-  const idade = IDADE_POR_NICHO[event.type as NichoEvento];
+  // Idade: valor editável do cliente (extras.idade) tem prioridade sobre o
+  // padrão do nicho (15 p/ quinze anos). Assim dá pra comemorar outra idade.
+  const idade = extras.idade ?? IDADE_POR_NICHO[event.type as NichoEvento];
 
   // Rodapé: "DD . MM . AAAA · Local · Cidade" (partes vazias somem).
   const footerInfo = [dataPontilhada(event.eventDate), c.local, texto(extras.cidade)]
@@ -175,7 +195,11 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     fotos: c.fotos,
     footerInfo,
     logoUrl: texto(extras.logoUrl),
+    monograma: extras.monograma ?? true,
+    animacoes: extras.animacoes ?? true,
     tema: texto(extras.tema) ?? TEMA_PADRAO,
+    capaEscala: extras.capaEscala ?? 1,
+    capaOverlay: extras.capaOverlay ?? false,
     templateId: lerTemplateId(event.customization),
     secoes: lerSecoes(event.customization, event.type),
   };

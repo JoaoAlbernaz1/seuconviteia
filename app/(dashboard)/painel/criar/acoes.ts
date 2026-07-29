@@ -22,7 +22,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
-import { acentoDoTema } from "@/lib/temas";
+import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { limiteEventos, rotuloPlano } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
 
@@ -58,6 +58,21 @@ const payloadSchema = z.object({
   endereco: z.string().trim().max(320).optional(),
   traje: z.string().trim().max(120).optional(),
   slug: z.string().trim().max(80).optional(),
+  /** Foto da capa — caminho interno (`/uploads/...` no dev, URL do Blob em prod). */
+  fotoUrl: z.string().trim().max(400).optional(),
+  /** Idade comemorada (editável; sobrepõe o padrão do nicho). */
+  idade: z.coerce.number().int().min(1).max(120).optional(),
+  /** Monograma na barra: mostrar? + imagem opcional do monograma. */
+  monograma: z.boolean().optional(),
+  logoUrl: z.string().trim().max(400).optional(),
+  /** Animações de entrada do site ao carregar. */
+  animacoes: z.boolean().optional(),
+  /** Preset de cor do site (chave de lib/temas; validado no server). */
+  tema: z.string().trim().max(20).optional(),
+  /** Multiplicador do tamanho do lockup da capa (0.9 / 1 / 1.15). */
+  capaEscala: z.coerce.number().min(0.5).max(2).optional(),
+  /** Escurecer a foto da capa p/ melhorar a leitura. */
+  capaOverlay: z.boolean().optional(),
   mensagem: z.string().trim().max(2200).optional(),
   aberturaTitulo: z.string().trim().max(140).optional(),
   pixNome: z.string().trim().max(140).optional(),
@@ -151,11 +166,21 @@ export async function criarConvite(
       ? { pai: txt(d.pais.pai), mae: txt(d.pais.mae), texto: txt(d.pais.texto) }
       : undefined;
 
+  // Paleta escolhida (validada contra os presets; cai p/ "rose" se desconhecida).
+  const tema = d.tema && d.tema in TEMAS ? d.tema : "rose";
+
   // Patch do customization — os campos que o template `glamour-rose` consome.
   const patch: Record<string, unknown> = {
-    tema: "rose",
-    accent: acentoDoTema("rose"),
+    tema,
+    accent: acentoDoTema(tema),
     template: "quinze-anos-glamour-rose",
+    fotoUrl: txt(d.fotoUrl),
+    idade: d.idade,
+    monograma: d.monograma,
+    animacoes: d.animacoes,
+    logoUrl: txt(d.logoUrl),
+    capaEscala: d.capaEscala,
+    capaOverlay: d.capaOverlay,
     mensagem: txt(d.mensagem),
     secoes: txt(d.aberturaTitulo) ? { abertura: { titulo: txt(d.aberturaTitulo) } } : undefined,
     local: txt(d.local),
