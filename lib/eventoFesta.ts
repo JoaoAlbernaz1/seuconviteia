@@ -80,6 +80,12 @@ export type EventoFesta = {
   capaEscala: number;
   /** Escurecer a foto da capa para melhorar a leitura (default: não). */
   capaOverlay: boolean;
+  /** Rótulo do botão principal (CTA). Ausente = "Confirmar presença". */
+  ctaLabel?: string;
+  /** Destino do botão principal (rota interna). Ausente = "/confirmar". */
+  ctaHref?: string;
+  /** Linha acima do botão principal. Ausente = padrão de cada página. */
+  ctaLead?: string;
   /** Id do template de DESIGN do site (chave de `lib/templates.ts`). */
   templateId: string;
   /** Copy editavel das secoes (cliente -> default do nicho). */
@@ -115,8 +121,23 @@ const extrasSchema = z
     capaEscala: z.coerce.number().min(0.5).max(2),
     /** Escurecer a foto da capa p/ melhorar a leitura. */
     capaOverlay: z.boolean(),
+    /** Pais — vira a linha "Os pais convidam..." + a assinatura da carta. */
+    pais: z.object({ pai: z.string(), mae: z.string(), texto: z.string() }).partial(),
+    /** Botão principal (CTA): rótulo, destino e linha acima. */
+    ctaLabel: z.string(),
+    ctaHref: z.string(),
+    ctaLead: z.string(),
   })
   .partial();
+
+/** Rotas internas permitidas p/ o destino do botão principal (evita href arbitrário). */
+const CTA_HREFS_OK = new Set(["/confirmar", "/evento", "/presentes"]);
+
+/** Junta nomes em pt-BR: ["A","B","C"] -> "A, B e C". */
+function juntarNomes(nomes: string[]): string {
+  if (nomes.length <= 1) return nomes[0] ?? "";
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
 
 const formatadorHora = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -168,6 +189,15 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     .filter(Boolean)
     .join(" · ");
 
+  // Pais -> linha de convite (texto) + assinatura (pai, mãe e a debutante).
+  const paisNomes = [texto(extras.pais?.pai), texto(extras.pais?.mae)].filter(
+    Boolean,
+  ) as string[];
+  const conviteIntroPais = texto(extras.pais?.texto);
+  const assinaturaPais = paisNomes.length
+    ? juntarNomes([...paisNomes, c.titulo])
+    : undefined;
+
   return {
     primeiroNome: c.titulo,
     nichoLabel: c.nichoLabel,
@@ -176,8 +206,8 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     horario: horarioBR(event.eventDate),
     dataAlvoISO: c.dataISO,
     mensagemBoasVindas: c.mensagem,
-    conviteIntro: texto(extras.conviteIntro),
-    assinatura: texto(extras.assinatura),
+    conviteIntro: texto(extras.conviteIntro) ?? conviteIntroPais,
+    assinatura: texto(extras.assinatura) ?? assinaturaPais,
     local: c.local,
     endereco: c.endereco,
     mapsLinkUrl: c.mapsUrl,
@@ -200,6 +230,10 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     tema: texto(extras.tema) ?? TEMA_PADRAO,
     capaEscala: extras.capaEscala ?? 1,
     capaOverlay: extras.capaOverlay ?? false,
+    ctaLabel: texto(extras.ctaLabel),
+    ctaHref:
+      extras.ctaHref && CTA_HREFS_OK.has(extras.ctaHref) ? extras.ctaHref : undefined,
+    ctaLead: texto(extras.ctaLead),
     templateId: lerTemplateId(event.customization),
     secoes: lerSecoes(event.customization, event.type),
   };

@@ -145,10 +145,10 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
                 <span className="rotate-45 text-[0.5rem]">◆</span>
                 <span className="h-px w-12 bg-evt-rosa/50" />
               </span>
-              <p className="font-evt-script text-[clamp(3.3rem,8.8vw,4.1rem)] text-evt-rosa-ink">
-                Faça parte dessa noite
+              <p data-live="cta-lead" className="font-evt-script text-[clamp(3.3rem,8.8vw,4.1rem)] text-evt-rosa-ink">
+                {evento.ctaLead ?? "Faça parte dessa noite"}
               </p>
-              <ConfirmCTA />
+              <ConfirmCTA label={evento.ctaLabel} href={evento.ctaHref} />
             </Reveal>
           )}
         </div>

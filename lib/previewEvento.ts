@@ -62,6 +62,14 @@ const rascunhoSchema = z
     capaEscala: z.coerce.number().min(0.5).max(2),
     /** Escurecer a foto da capa p/ melhorar a leitura. */
     capaOverlay: z.boolean(),
+    /** Pais (para "Os pais convidam..." + assinatura). */
+    pais: z
+      .object({ pai: z.string().max(140), mae: z.string().max(140), texto: z.string().max(600) })
+      .partial(),
+    /** Botão principal (CTA): rótulo, destino e linha acima. */
+    ctaLabel: z.string().max(120),
+    ctaHref: z.string().max(120),
+    ctaLead: z.string().max(200),
   })
   .partial();
 
@@ -199,6 +207,10 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
     logoUrl: texto(r.logoUrl),
     capaEscala: r.capaEscala,
     capaOverlay: r.capaOverlay,
+    pais: r.pais,
+    ctaLabel: texto(r.ctaLabel),
+    ctaHref: texto(r.ctaHref),
+    ctaLead: texto(r.ctaLead),
   });
 
   return {

@@ -27,6 +27,10 @@ import { paletasSeletor } from "@/lib/temas";
 // mantendo o responsivo. Índice = valor do <Seg>.
 const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
 
+// Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real.
+// Ordem = ["Confirmar presença", "Ver localização", "Ver presentes"].
+const BTN_HREFS = ["/confirmar", "/evento", "/presentes"] as const;
+
 /** "dd/mm/aaaa" -> "aaaa-mm-dd" (vazio se invalido; a action valida). */
 function ddmmParaISO(s: string): string {
   const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -115,6 +119,10 @@ function montarRascunho(S: State) {
     animacoes: S.animacoes,
     capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
     capaOverlay: S.overlay,
+    pais: S.paisOn ? { pai: S.pai, mae: S.mae, texto: S.paisTx } : undefined,
+    ctaLabel: S.btnTx || undefined,
+    ctaHref: BTN_HREFS[S.btnDest] ?? "/confirmar",
+    ctaLead: S.btnAcima || undefined,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     mensagem: S.abTx,
@@ -159,6 +167,8 @@ function liveMapa(S: State): Record<string, string> {
   if (d) m.data = d;
   const h = horarioLive(S.hIni);
   if (h) m.horario = h;
+  if (S.btnTx.trim()) m["cta-label"] = S.btnTx;
+  if (S.btnAcima.trim()) m["cta-lead"] = S.btnAcima;
   return m;
 }
 
@@ -199,7 +209,7 @@ type State = {
   tema: string;
   szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
-  paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; rodapeTx: string;
+  paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; btnAcima: string; rodapeTx: string;
   rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
   gifts: boolean; free: boolean; giftList: { n: string; desc: string; v: string }[]; pixNome: string; pixChave: string;
   gal: boolean; rec: boolean; recSt: string[];
@@ -220,7 +230,7 @@ const INICIAL: State = {
   acc: 0, abT: "Vem comemorar comigo!",
   abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
   paisOn: true, paisTx: "Com a alegria dos meus pais, convido você para celebrar este momento comigo.",
-  trajeOn: true, btnTx: "Confirmar presença", btnDest: 0,
+  trajeOn: true, btnTx: "Confirmar presença", btnDest: 0, btnAcima: "",
   rodapeTx: "Obrigada por fazer parte da minha história.",
   rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0, corBtn: 0,
   gifts: true, free: true,
@@ -448,6 +458,9 @@ export function CriarConvite() {
     tema: S.tema,
     capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
     capaOverlay: S.overlay,
+    ctaLabel: S.btnTx || undefined,
+    ctaHref: BTN_HREFS[S.btnDest] ?? "/confirmar",
+    ctaLead: S.btnAcima || undefined,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     local: S.local,
@@ -916,10 +929,6 @@ export function CriarConvite() {
                                 Esses dados vêm da etapa 1.{" "}
                                 <span onClick={() => goStep(1)} className="cursor-pointer font-semibold text-[#7C3AED]">Editar informações</span>
                               </div>
-                              <div>
-                                <Label>Texto de apresentação da seção</Label>
-                                <input defaultValue="Esperamos você para celebrar com a gente" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                              </div>
                             </div>
                           )}
                           {a.kind === "traje" && (
@@ -928,15 +937,9 @@ export function CriarConvite() {
                                 <span className="text-[13px] font-semibold">Mostrar seção de traje</span>
                                 <Toggle on={S.trajeOn} onClick={() => upd({ trajeOn: !S.trajeOn })} />
                               </div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_2fr]">
-                                <div>
-                                  <Label>Título</Label>
-                                  <input defaultValue="Traje" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                                </div>
-                                <div>
-                                  <Label>Descrição</Label>
-                                  <input value={S.traje} onChange={inp("traje")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                                </div>
+                              <div>
+                                <Label>Descrição (ex.: Traje social · Esporte fino)</Label>
+                                <input value={S.traje} onChange={inp("traje")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                               </div>
                             </div>
                           )}
@@ -945,7 +948,7 @@ export function CriarConvite() {
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
                                   <Label opt>Texto acima do botão</Label>
-                                  <input defaultValue="Sua presença é o maior presente" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                  <input value={S.btnAcima} onChange={inp("btnAcima")} placeholder="Ex.: Faça parte dessa noite" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                                 </div>
                                 <div>
                                   <Label>Texto do botão</Label>
@@ -964,10 +967,6 @@ export function CriarConvite() {
                           )}
                           {a.kind === "rodape" && (
                             <div className="flex flex-col gap-3">
-                              <div>
-                                <Label>Mensagem pessoal</Label>
-                                <input value={S.rodapeTx} onChange={inp("rodapeTx")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                              </div>
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
                                   <Label>Nome exibido</Label>

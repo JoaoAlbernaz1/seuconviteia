@@ -73,6 +73,10 @@ const payloadSchema = z.object({
   capaEscala: z.coerce.number().min(0.5).max(2).optional(),
   /** Escurecer a foto da capa p/ melhorar a leitura. */
   capaOverlay: z.boolean().optional(),
+  /** Botão principal (CTA): rótulo, destino (rota interna) e linha acima. */
+  ctaLabel: z.string().trim().max(120).optional(),
+  ctaHref: z.enum(["/confirmar", "/evento", "/presentes"]).optional(),
+  ctaLead: z.string().trim().max(200).optional(),
   mensagem: z.string().trim().max(2200).optional(),
   aberturaTitulo: z.string().trim().max(140).optional(),
   pixNome: z.string().trim().max(140).optional(),
@@ -181,6 +185,9 @@ export async function criarConvite(
     logoUrl: txt(d.logoUrl),
     capaEscala: d.capaEscala,
     capaOverlay: d.capaOverlay,
+    ctaLabel: txt(d.ctaLabel),
+    ctaHref: d.ctaHref,
+    ctaLead: txt(d.ctaLead),
     mensagem: txt(d.mensagem),
     secoes: txt(d.aberturaTitulo) ? { abertura: { titulo: txt(d.aberturaTitulo) } } : undefined,
     local: txt(d.local),
