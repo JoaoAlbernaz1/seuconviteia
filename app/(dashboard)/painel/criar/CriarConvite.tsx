@@ -31,6 +31,9 @@ const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
 // Ordem = ["Confirmar presença", "Ver localização", "Ver presentes"].
 const BTN_HREFS = ["/confirmar", "/evento", "/presentes"] as const;
 
+// Rascunho salvo no navegador (resume ao reabrir a página).
+const RASCUNHO_KEY = "sc-editor-rascunho";
+
 /** "dd/mm/aaaa" -> "aaaa-mm-dd" (vazio se invalido; a action valida). */
 function ddmmParaISO(s: string): string {
   const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -352,6 +355,10 @@ export function CriarConvite() {
   const lastSavedRef = useRef<string | null>(null);
   const savingRef = useRef(false);
   const primeiroRender = useRef(true);
+  // Resume: restaura o rascunho do localStorage ao reabrir; só persiste depois
+  // que o usuário muda algo (não guarda o demo intocado).
+  const restauradoRef = useRef(false);
+  const dadosInicialRef = useRef("");
 
   const upd = (patch: Partial<State>) => setS((s) => ({ ...s, ...patch }));
   const inp = (key: keyof State) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -506,6 +513,9 @@ export function CriarConvite() {
       if (publicar) {
         setPubInfo({ host: r.host, url: r.url });
         setS((s) => ({ ...s, published: true }));
+        try {
+          localStorage.removeItem(RASCUNHO_KEY);
+        } catch {}
       } else {
         setS((s) => ({ ...s, sv: "salvo" }));
       }
@@ -549,8 +559,10 @@ export function CriarConvite() {
     if (primeiroRender.current) {
       primeiroRender.current = false;
       lastSavedRef.current = dadosStr;
+      dadosInicialRef.current = dadosStr;
       return;
     }
+    if (!restauradoRef.current) return; // espera restaurar o rascunho do navegador
     if (S.published) return; // depois de publicar não fica salvando por cima
     if (!req(S.nome)) return; // só persiste quando já há nome (garante slug bom)
     if (dadosStr === lastSavedRef.current) return;
@@ -571,6 +583,33 @@ export function CriarConvite() {
     window.addEventListener("beforeunload", antesDeSair);
     return () => window.removeEventListener("beforeunload", antesDeSair);
   }, []);
+
+  // RESUME: ao reabrir a página, restaura o rascunho salvo no navegador.
+  // setState no mount é o padrão canônico aqui (initializer preguiçoso quebraria
+  // a hidratação do SSR), então a regra de cascading-render não se aplica.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RASCUNHO_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { S?: Partial<State>; eventId?: string | null };
+        if (saved?.S) setS((s) => ({ ...s, ...saved.S, sv: "salvo", showErr: false }));
+        if (saved?.eventId) setEventId(saved.eventId);
+      }
+    } catch {}
+    restauradoRef.current = true;
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Guarda o rascunho no navegador a cada alteração (após restaurar; nunca o demo intocado).
+  useEffect(() => {
+    if (!restauradoRef.current) return;
+    if (dadosStr === dadosInicialRef.current) return;
+    try {
+      localStorage.setItem(RASCUNHO_KEY, JSON.stringify({ S, eventId }));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dadosStr, S.step, eventId]);
 
   const rsvpFieldNames: string[] = [];
   if (S.rsvpOpts[0]) rsvpFieldNames.push(`Quantos acompanhantes? (até ${S.maxComp})`);
