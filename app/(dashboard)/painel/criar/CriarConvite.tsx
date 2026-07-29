@@ -63,12 +63,12 @@ function horarioLive(hhmm: string): string {
   return m[2] === "00" ? `${m[1]}h` : `${m[1]}h${m[2]}`;
 }
 
-/** Página do site que a prévia mostra em cada passo do editor. */
+/** Página do site que a prévia mostra em cada passo do editor (8 passos). */
 function paginaDoPasso(step: number): string {
-  if (step === 5) return "presentes";
-  if (step === 6) return "galeria";
-  if (step === 3 || step === 4) return "evento";
-  return "inicio";
+  if (step === 6) return "presentes";
+  if (step === 7) return "galeria";
+  if (step === 3 || step === 5) return "evento"; // Conteúdo, Confirmação
+  return "inicio"; // Festa, Capa, Data e local, Revisar
 }
 
 // Passo 3 (Conteúdo) tem accordions (accDefs, na ordem abaixo). Cada um aponta
@@ -89,10 +89,11 @@ const KIND_SEC: Record<string, string> = {
 /** Seção do site em edição — a prévia rola até ela e destaca ("onde você mexe"). */
 function focoDoPasso(step: number, acc: number): string {
   if (step === 3) return ACC_SEC[acc] ?? "carta";
-  if (step === 4) return "cta";
-  if (step === 5) return "presentes";
-  if (step === 6) return "galeria";
-  return "capa"; // passos 1 (Festa) e 2 (Capa e estilo)
+  if (step === 4) return "quando"; // Data e local
+  if (step === 5) return "cta"; // Confirmação
+  if (step === 6) return "presentes";
+  if (step === 7) return "galeria";
+  return "capa"; // 1 (Festa), 2 (Capa), 8 (Revisar)
 }
 
 /**
@@ -174,7 +175,7 @@ function liveMapa(S: State): Record<string, string> {
 
 const V = "#7C3AED";
 const MUT = "#6E6E76";
-const STEP_NAMES = ["Festa", "Capa e estilo", "Conteúdo", "Confirmação", "Presentes e Pix", "Galeria e publicação"];
+const STEP_NAMES = ["Festa", "Capa", "Conteúdo", "Data e local", "Confirmação", "Presentes e Pix", "Galeria e recados", "Revisar e publicar"];
 const BTNC = ["#7C3AED", "#FF2D8D", "#C4B5FD", "#E8C87A"];
 const RSVP_LABELS = [
   "Permitir acompanhantes",
@@ -419,13 +420,16 @@ export function CriarConvite() {
   const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
   const slugTaken = ["maria15", "festa15"].includes(S.slug);
   const slugOk = slugValid && !slugTaken;
-  const reqOk = req(S.nome) && req(S.data) && req(S.hIni) && req(S.local) && req(S.cidade) && req(S.uf) && slugOk;
-
+  // Obrigatórios por passo: nome no passo 1 (Festa); data/local no passo 4.
+  const reqFesta = req(S.nome) && slugOk;
+  const reqDataLocal = req(S.data) && req(S.hIni) && req(S.local) && req(S.cidade) && req(S.uf);
+  const reqOk = reqFesta && reqDataLocal;
 
   const next = () => {
-    if (S.step === 1 && !reqOk) return setS((s) => ({ ...s, showErr: true }));
+    if (S.step === 1 && !reqFesta) return setS((s) => ({ ...s, showErr: true }));
+    if (S.step === 4 && !reqDataLocal) return setS((s) => ({ ...s, showErr: true }));
     setS((s) => {
-      const step = Math.min(6, s.step + 1);
+      const step = Math.min(STEP_NAMES.length, s.step + 1);
       return { ...s, step, showErr: false, foco: focoDoPasso(step, s.acc) };
     });
   };
@@ -628,7 +632,7 @@ export function CriarConvite() {
                       {label}
                     </span>
                   </div>
-                  {n < 6 && <div style={{ background: done ? "#C4B5FD" : "#E4E4EA" }} className="mx-2.5 h-[1.5px] w-[30px]" />}
+                  {n < STEP_NAMES.length && <div style={{ background: done ? "#C4B5FD" : "#E4E4EA" }} className="mx-2.5 h-[1.5px] w-[30px]" />}
                 </div>
               );
             })}
@@ -669,49 +673,6 @@ export function CriarConvite() {
                   </div>
 
                   <div className="my-5 h-px bg-[#F0F0F3]" />
-                  <Sub>Quando e onde</Sub>
-                  <div data-foco="quando" className="flex flex-col gap-3.5">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>Data da festa</Label>
-                        <input value={S.data} onChange={inp("data")} style={{ borderColor: S.showErr && !req(S.data) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                      </div>
-                      <div>
-                        <Label>Horário de início</Label>
-                        <input value={S.hIni} onChange={inp("hIni")} style={{ borderColor: S.showErr && !req(S.hIni) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
-                      <div>
-                        <Label>CEP</Label>
-                        <div className="relative">
-                          <input value={S.cep} onChange={(e) => onCep(e.target.value)} inputMode="numeric" placeholder="00000-000" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                          {cepLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2"><Ic d={IC.help} size={15} stroke="#7C3AED" className="ai-spin" /></span>}
-                        </div>
-                        <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Preenchemos o endereço pra você.</div>
-                      </div>
-                      <div>
-                        <Label>Nome do local</Label>
-                        <input value={S.local} onChange={inp("local")} style={{ borderColor: S.showErr && !req(S.local) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Endereço</Label>
-                      <input value={S.endereco} onChange={inp("endereco")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                    </div>
-                    <div className="grid grid-cols-[1.6fr_0.6fr] gap-3">
-                      <div>
-                        <Label>Cidade</Label>
-                        <input value={S.cidade} onChange={inp("cidade")} style={{ borderColor: S.showErr && !req(S.cidade) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                      </div>
-                      <div>
-                        <Label>UF</Label>
-                        <input value={S.uf} onChange={inp("uf")} style={{ borderColor: S.showErr && !req(S.uf) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="my-5 h-px bg-[#F0F0F3]" />
                   <button onClick={() => setMaisDetalhes((v) => !v)} className="flex w-full items-center gap-2 text-[13px] font-semibold text-[#7C3AED]">
                     <span style={{ transform: `rotate(${maisDetalhes ? 180 : 0}deg)` }} className="transition-transform">
                       <Ic d={IC.chevronDown} size={15} stroke="#7C3AED" width={2.2} />
@@ -730,25 +691,9 @@ export function CriarConvite() {
                           <input value={S.mae} onChange={inp("mae")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label opt>Horário de término</Label>
-                          <input placeholder="—" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                        <div>
-                          <Label opt>Complemento</Label>
-                          <input placeholder="Salão 2…" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label opt>Link do mapa</Label>
-                          <input placeholder="https://maps.app…" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                        <div>
-                          <Label opt>Traje</Label>
-                          <input value={S.traje} onChange={inp("traje")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
+                      <div>
+                        <Label opt>Traje</Label>
+                        <input value={S.traje} onChange={inp("traje")} placeholder="Ex.: Traje social" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                       </div>
                     </div>
                   )}
@@ -998,7 +943,7 @@ export function CriarConvite() {
                               </div>
                               <div className="text-[12px] text-[#A6A6AE]">
                                 Esses dados vêm da etapa 1.{" "}
-                                <span onClick={() => goStep(1)} className="cursor-pointer font-semibold text-[#7C3AED]">Editar informações</span>
+                                <span onClick={() => goStep(4)} className="cursor-pointer font-semibold text-[#7C3AED]">Editar informações</span>
                               </div>
                             </div>
                           )}
@@ -1064,6 +1009,58 @@ export function CriarConvite() {
 
             {/* STEP 4 */}
             {S.step === 4 && (
+              <div className={cardCls}>
+                <div className="text-[18px] font-bold tracking-[-0.02em]">Data e local</div>
+                <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">Quando e onde a festa vai acontecer.</div>
+                <div data-foco="quando" className="flex flex-col gap-3.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Data da festa</Label>
+                      <input value={S.data} onChange={inp("data")} style={{ borderColor: S.showErr && !req(S.data) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                    </div>
+                    <div>
+                      <Label>Horário de início</Label>
+                      <input value={S.hIni} onChange={inp("hIni")} style={{ borderColor: S.showErr && !req(S.hIni) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+                    <div>
+                      <Label>CEP</Label>
+                      <div className="relative">
+                        <input value={S.cep} onChange={(e) => onCep(e.target.value)} inputMode="numeric" placeholder="00000-000" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        {cepLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2"><Ic d={IC.help} size={15} stroke="#7C3AED" className="ai-spin" /></span>}
+                      </div>
+                      <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Preenchemos o endereço pra você.</div>
+                    </div>
+                    <div>
+                      <Label>Nome do local</Label>
+                      <input value={S.local} onChange={inp("local")} style={{ borderColor: S.showErr && !req(S.local) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Endereço</Label>
+                    <input value={S.endereco} onChange={inp("endereco")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                  </div>
+                  <div className="grid grid-cols-[1.6fr_0.6fr] gap-3">
+                    <div>
+                      <Label>Cidade</Label>
+                      <input value={S.cidade} onChange={inp("cidade")} style={{ borderColor: S.showErr && !req(S.cidade) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                    </div>
+                    <div>
+                      <Label>UF</Label>
+                      <input value={S.uf} onChange={inp("uf")} style={{ borderColor: S.showErr && !req(S.uf) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+                {S.showErr && (
+                  <div className="mt-4 rounded-[11px] border border-[#FF2D8D]/25 bg-[#FDF0F5] px-3.5 py-2.5 text-[13px] text-[#C2185B]">
+                    Preencha os campos destacados para continuar.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {S.step === 5 && (
               <div data-foco="cta" className={cardCls}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -1125,7 +1122,7 @@ export function CriarConvite() {
             )}
 
             {/* STEP 5 */}
-            {S.step === 5 && (
+            {S.step === 6 && (
               <>
                 <div className={cardCls}>
                   <div className="flex items-center justify-between">
@@ -1259,11 +1256,11 @@ export function CriarConvite() {
             )}
 
             {/* STEP 6 */}
-            {S.step === 6 && (
+            {S.step === 7 && (
               <>
                 <div>
-                  <div className="text-[18px] font-bold tracking-[-0.02em]">Finalize seu convite</div>
-                  <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Revise a galeria, os recados e publique quando estiver tudo pronto.</div>
+                  <div className="text-[18px] font-bold tracking-[-0.02em]">Galeria e recados</div>
+                  <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">As fotos da festa e os recados dos convidados.</div>
                 </div>
                 <div className={cardCls}>
                   <div className="mb-3.5 flex items-center justify-between">
@@ -1325,6 +1322,15 @@ export function CriarConvite() {
                     <Toggle on={S.animacoes} onClick={() => upd({ animacoes: !S.animacoes })} />
                   </div>
                 </div>
+              </>
+            )}
+
+            {S.step === 8 && (
+              <>
+                <div>
+                  <div className="text-[18px] font-bold tracking-[-0.02em]">Revisar e publicar</div>
+                  <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Confira se está tudo certo e publique o convite.</div>
+                </div>
                 <div className={cardCls}>
                   <div className="mb-2 text-[14.5px] font-bold">Antes de publicar</div>
                   {checklist.map((c) => (
@@ -1364,7 +1370,7 @@ export function CriarConvite() {
 
       {/* ACTION BAR */}
       <div className="sticky bottom-0 z-30 flex items-center gap-2.5 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
-        <div className="hidden text-[12.5px] text-[#8b8b93] sm:block">Etapa {S.step} de 6 · {STEP_NAMES[S.step - 1]}</div>
+        <div className="hidden text-[12.5px] text-[#8b8b93] sm:block">Etapa {S.step} de {STEP_NAMES.length} · {STEP_NAMES[S.step - 1]}</div>
         {erroPub && (
           <div className="text-[12.5px] font-semibold text-[#d9376e]" role="alert">
             {erroPub}
@@ -1375,7 +1381,7 @@ export function CriarConvite() {
           <button onClick={prev} disabled={gravando} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50">Voltar</button>
         )}
         <button onClick={() => enviar(false)} disabled={gravando} className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50 sm:block">{gravando ? "Salvando…" : "Salvar rascunho"}</button>
-        {S.step < 6 ? (
+        {S.step < STEP_NAMES.length ? (
           <button onClick={next} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Continuar</button>
         ) : (
           <button onClick={() => enviar(true)} disabled={gravando} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60">{gravando ? "Publicando…" : "Publicar convite"}</button>
