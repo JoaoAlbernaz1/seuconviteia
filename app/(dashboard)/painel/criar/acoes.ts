@@ -48,8 +48,9 @@ const RECURSO_KEYS = [
 const payloadSchema = z.object({
   /** Presente => atualiza o evento existente; ausente => cria um novo. */
   id: z.string().max(40).optional(),
-  title: z.string().trim().min(2, "Informe o nome da debutante.").max(120),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data valida."),
+  // Rascunho (autosave) grava incompleto; o rigor fica no PUBLICAR (ver abaixo).
+  title: z.string().trim().max(120).optional(),
+  date: z.string().max(10).optional(),
   time: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horario invalido.")
@@ -149,14 +150,28 @@ export async function criarConvite(
   }
   const d = parsed.data;
 
-  // Data + hora fixas em -03:00 (Brasilia) — server roda UTC.
-  const eventDate = new Date(`${d.date}T${d.time || "20:00"}:00-03:00`);
+  // Nome + data só são OBRIGATÓRIOS para PUBLICAR. No rascunho (autosave) valem
+  // placeholders — assim nunca se perde o trabalho com o convite incompleto.
+  const titulo = txt(d.title);
+  const dateOk = !!d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date);
+  if (publicar && (!titulo || titulo.length < 2)) {
+    return { ok: false, error: "Informe o nome da debutante." };
+  }
+  if (publicar && !dateOk) {
+    return { ok: false, error: "Informe uma data valida." };
+  }
+
+  // Data + hora fixas em -03:00 (Brasilia) — server roda UTC. Sem data válida
+  // (rascunho), usa um alvo futuro provisório (só vai pro ar ao PUBLICAR).
+  const agora = new Date();
+  const eventDate = dateOk
+    ? new Date(`${d.date}T${d.time || "20:00"}:00-03:00`)
+    : new Date(agora.getTime() + 30 * 24 * 60 * 60 * 1000);
   if (Number.isNaN(eventDate.getTime())) {
     return { ok: false, error: "Data ou horario invalido." };
   }
-  const agora = new Date();
   const expiresAt = calcularExpiracao(eventDate);
-  if (expiresAt.getTime() <= agora.getTime()) {
+  if (publicar && expiresAt.getTime() <= agora.getTime()) {
     return { ok: false, error: "Com essa data o site ja estaria expirado. Escolha uma data futura." };
   }
 
@@ -213,7 +228,7 @@ export async function criarConvite(
     const ev = await prisma.event.update({
       where: { id: owned.id },
       data: {
-        title: d.title,
+        title: titulo ?? owned.title,
         eventDate,
         expiresAt,
         status: publicar ? "PUBLISHED" : owned.status,
@@ -234,10 +249,10 @@ export async function criarConvite(
         };
       }
     }
-    if (d.date < dataDeHojeSP(agora)) {
+    if (publicar && d.date && d.date < dataDeHojeSP(agora)) {
       return { ok: false, error: "A data nao pode estar no passado. Confira o ano." };
     }
-    const sub = await gerarSlugUnico(d.slug || d.title, async (s) =>
+    const sub = await gerarSlugUnico(d.slug || titulo || "convite", async (s) =>
       Boolean(await prisma.event.findUnique({ where: { subdomain: s } })),
     );
     const ev = await prisma.event.create({
@@ -245,7 +260,7 @@ export async function criarConvite(
         professionalId,
         type: "QUINZE_ANOS",
         templateId: null,
-        title: d.title,
+        title: titulo ?? "Convite sem título",
         subdomain: sub,
         eventDate,
         expiresAt,

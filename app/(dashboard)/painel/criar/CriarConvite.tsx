@@ -14,7 +14,7 @@
 // (IA de imagem/texto fica para a próxima fatia — a pedido do João.)
 //
 // Estado 100% local — a gravação no banco é a próxima fatia.
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
@@ -198,7 +198,7 @@ const RECADOS = [
 
 type State = {
   step: number;
-  sv: "salvo" | "salvando";
+  sv: "salvo" | "salvando" | "erro";
   showErr: boolean;
   foco: string;
   nome: string; data: string; hIni: string; pai: string; mae: string;
@@ -344,14 +344,15 @@ export function CriarConvite() {
   const [capaErro, setCapaErro] = useState("");
   const [monoEnviando, setMonoEnviando] = useState(false);
   const [monoErro, setMonoErro] = useState("");
-  const svTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // AUTOSAVE (rascunho): refs pra salvar sem fechar sobre estado velho.
+  const salvarRef = useRef<() => Promise<void>>(async () => {});
+  const dadosRef = useRef("");
+  const lastSavedRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
+  const primeiroRender = useRef(true);
 
-  const upd = (patch: Partial<State>) => {
-    if (svTimer.current) clearTimeout(svTimer.current);
-    setS((s) => ({ ...s, ...patch, sv: "salvando" }));
-    svTimer.current = setTimeout(() => setS((s) => ({ ...s, sv: "salvo" })), 900);
-  };
+  const upd = (patch: Partial<State>) => setS((s) => ({ ...s, ...patch }));
   const inp = (key: keyof State) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     upd({ [key]: e.target.value } as Partial<State>);
 
@@ -507,6 +508,66 @@ export function CriarConvite() {
     });
   };
 
+  // ── AUTOSAVE do rascunho ──────────────────────────────────────────────────
+  // "Impressão digital" do conteúdo: muda a cada alteração real do convite.
+  const dadosStr = JSON.stringify(montarRascunho(S));
+
+  // A função de salvar mora num ref e é reescrita a cada render, então ela sempre
+  // enxerga o estado MAIS NOVO (sem "stale closure"). Salva como rascunho (false).
+  useEffect(() => {
+    dadosRef.current = dadosStr;
+    salvarRef.current = async () => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      const snapshot = dadosStr;
+      setS((s) => ({ ...s, sv: "salvando" }));
+      try {
+        const r = await criarConvite({ ...montarPayload(), id: eventId ?? undefined }, false);
+        if (r.ok) {
+          setEventId(r.id);
+          lastSavedRef.current = snapshot;
+          setS((s) => ({ ...s, sv: "salvo" }));
+        } else {
+          setS((s) => ({ ...s, sv: "erro" }));
+        }
+      } catch {
+        setS((s) => ({ ...s, sv: "erro" }));
+      } finally {
+        savingRef.current = false;
+        // mudou durante o save? salva de novo o que ficou pra trás.
+        if (dadosRef.current !== lastSavedRef.current) void salvarRef.current();
+      }
+    };
+  });
+
+  // Debounce: dispara o save ~800ms depois da última alteração.
+  useEffect(() => {
+    if (primeiroRender.current) {
+      primeiroRender.current = false;
+      lastSavedRef.current = dadosStr;
+      return;
+    }
+    if (S.published) return; // depois de publicar não fica salvando por cima
+    if (!req(S.nome)) return; // só persiste quando já há nome (garante slug bom)
+    if (dadosStr === lastSavedRef.current) return;
+    setS((s) => (s.sv === "salvando" ? s : { ...s, sv: "salvando" }));
+    const t = setTimeout(() => void salvarRef.current(), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dadosStr]);
+
+  // Evita perder trabalho: avisa ao fechar/sair com alteração ainda não salva.
+  useEffect(() => {
+    const antesDeSair = (e: BeforeUnloadEvent) => {
+      if (savingRef.current || dadosRef.current !== lastSavedRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", antesDeSair);
+    return () => window.removeEventListener("beforeunload", antesDeSair);
+  }, []);
+
   const rsvpFieldNames: string[] = [];
   if (S.rsvpOpts[0]) rsvpFieldNames.push(`Quantos acompanhantes? (até ${S.maxComp})`);
   if (S.rsvpOpts[1]) rsvpFieldNames.push("Nome dos acompanhantes");
@@ -542,8 +603,9 @@ export function CriarConvite() {
     oculto: { s: "Oculto", sBg: "#F0F0F3", sColor: "#8B8B93" },
   };
 
-  const svText = S.sv === "salvo" ? "Tudo salvo." : "Salvando suas alterações...";
-  const svColor = S.sv === "salvo" ? "#34A177" : V;
+  const svText =
+    S.sv === "salvo" ? "Alterações salvas" : S.sv === "erro" ? "Não foi possível salvar" : "Salvando…";
+  const svColor = S.sv === "salvo" ? "#34A177" : S.sv === "erro" ? "#E11D48" : V;
 
 
   return (
@@ -574,6 +636,15 @@ export function CriarConvite() {
           <div style={{ color: svColor }} className="flex shrink-0 items-center gap-2 text-[12.5px] font-medium">
             <span style={{ background: svColor }} className={`size-[7px] rounded-full ${S.sv === "salvando" ? "sc-pulse" : ""}`} />
             {svText}
+            {S.sv === "erro" && (
+              <button
+                type="button"
+                onClick={() => void salvarRef.current()}
+                className="cursor-pointer font-semibold text-[#E11D48] underline underline-offset-2"
+              >
+                Tentar de novo
+              </button>
+            )}
           </div>
         </div>
 
