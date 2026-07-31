@@ -86,6 +86,27 @@ export default async function PreviewEventoPage({
       ? p
       : "inicio";
 
+  // Presentear na PRÉVIA: reflete os modos (fixo/cotas/a partir de) do rascunho.
+  // Nada arrecadado ainda (é preview) e os botões ficam inertes no preview.
+  const presentearPreview = {
+    eventId: "preview",
+    itens: (rascunho.presentes ?? []).map((p, i) => {
+      const reais = parseFloat((p.valor ?? "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+      const priceCents = Math.round(reais * 100);
+      return {
+        id: `preview-${i}`,
+        titulo: p.titulo,
+        valorLabel: undefined,
+        pricingMode: p.modo ?? ("FIXO" as const),
+        priceCents,
+        quotaCount: p.cotas ?? null,
+        cotasVendidas: 0,
+        arrecadadoCents: 0,
+        esgotado: false,
+      };
+    }),
+  };
+
   let corpo: React.ReactNode;
   if (pagina === "evento") {
     corpo = (
@@ -93,7 +114,7 @@ export default async function PreviewEventoPage({
     );
   } else if (pagina === "presentes") {
     corpo = recursos.presentes ? (
-      <PaginaPresentes evento={evento} nicho={sintetico.type} recursos={recursos} />
+      <PaginaPresentes evento={evento} nicho={sintetico.type} recursos={recursos} presentear={presentearPreview} />
     ) : (
       <RecursoIndisponivel
         titulo="Lista de presentes"

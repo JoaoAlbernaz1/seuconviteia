@@ -35,6 +35,8 @@ const giftSchema = z.object({
   titulo: z.string().trim().min(1).max(140),
   descricao: z.string().trim().max(240).optional(),
   valor: z.string().trim().max(20).optional(),
+  modo: z.enum(["FIXO", "COTAS", "LIVRE"]).optional(),
+  cotas: z.coerce.number().int().min(2).max(1000).optional(),
 });
 
 const RECURSO_KEYS = [
@@ -332,19 +334,27 @@ export async function criarConvite(
   }
 
   // Lista de presentes (substitui a lista inteira quando enviada).
+  // PROTEÇÃO DO LEDGER: se o evento já recebeu contribuições, NÃO reescreve a
+  // lista — o `deleteMany` cascatearia (onDelete: Cascade) e apagaria as
+  // contribuições/histórico. Edição de presentes com histórico vem depois.
   if (d.presentes) {
-    await prisma.giftItem.deleteMany({ where: { eventId } });
-    const itens = d.presentes.filter((g) => g.titulo.trim());
-    if (itens.length) {
-      await prisma.giftItem.createMany({
-        data: itens.map((g) => ({
-          eventId,
-          title: g.titulo,
-          description: txt(g.descricao) ?? null,
-          priceCents: brlParaCents(g.valor ?? "") ?? 0,
-          mode: "PIX" as const,
-        })),
-      });
+    const temContrib = await prisma.giftContribution.count({ where: { eventId } });
+    if (temContrib === 0) {
+      await prisma.giftItem.deleteMany({ where: { eventId } });
+      const itens = d.presentes.filter((g) => g.titulo.trim());
+      if (itens.length) {
+        await prisma.giftItem.createMany({
+          data: itens.map((g) => ({
+            eventId,
+            title: g.titulo,
+            description: txt(g.descricao) ?? null,
+            priceCents: brlParaCents(g.valor ?? "") ?? 0,
+            mode: "PIX" as const,
+            pricingMode: g.modo ?? "FIXO",
+            quotaCount: g.modo === "COTAS" ? (g.cotas ?? null) : null,
+          })),
+        });
+      }
     }
   }
 
