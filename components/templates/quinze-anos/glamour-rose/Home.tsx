@@ -93,9 +93,9 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
               ))}
             </div>
           </Reveal>
-          <Reveal delay={200} className="mt-9 flex flex-col items-center gap-2 text-center">
+          <Reveal delay={200} dataSec="assinatura" className="mt-9 flex flex-col items-center gap-2 text-center">
             <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
-            <p className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
+            <p data-live="assinatura" className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
               {assinatura}
             </p>
             <Button href="/evento" variant="ghost" className="mt-5">
@@ -120,7 +120,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
                     {evento.horario}
                   </p>
                 </div>
-                <div className="text-center sm:border-l sm:border-[var(--line)] sm:pl-8 sm:text-left">
+                <div data-sec="onde" className="text-center sm:border-l sm:border-[var(--line)] sm:pl-8 sm:text-left">
                   <p className="eyebrow text-evt-rosa-ink">Onde</p>
                   <p data-live="local" className="mt-3 font-evt-body text-[clamp(1.7rem,5.2vw,2.15rem)] leading-tight text-evt-ink">
                     {evento.local ?? "O local"}

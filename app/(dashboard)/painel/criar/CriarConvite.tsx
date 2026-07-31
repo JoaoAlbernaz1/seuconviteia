@@ -20,16 +20,31 @@ import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
 import { PreviewSite } from "../_ui/PreviewSite";
 import { enviarUpload } from "../_ui/Uploads";
-import { paletasSeletor } from "@/lib/temas";
+import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
+import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 
 // Passo 2: o controle "Tamanho dos textos" (Pequeno/Médio/Grande) vira este
 // multiplicador do lockup da capa — mexe no nome e na idade JUNTOS (uniforme),
 // mantendo o responsivo. Índice = valor do <Seg>.
 const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
 
-// Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real.
-// Ordem = ["Confirmar presença", "Ver localização", "Ver presentes"].
+// Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
+// o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
 const BTN_HREFS = ["/confirmar", "/evento", "/presentes"] as const;
+const BTN_LABELS = ["Confirmar presença", "Ver localização", "Ver presentes"] as const;
+
+/** Junta nomes em pt-BR — MESMA regra do adapter (lib/eventoFesta). */
+function juntarNomes(nomes: string[]): string {
+  const ns = nomes.map((n) => n.trim()).filter(Boolean);
+  if (ns.length <= 1) return ns[0] ?? "";
+  return `${ns.slice(0, -1).join(", ")} e ${ns[ns.length - 1]}`;
+}
+
+/** "aaaa-mm-dd" (valor do <input type="date">) -> "dd/mm/aaaa". */
+function isoParaDDMM(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
 
 // Rascunho salvo no navegador (resume ao reabrir a página).
 const RASCUNHO_KEY = "sc-editor-rascunho";
@@ -66,37 +81,37 @@ function horarioLive(hhmm: string): string {
   return m[2] === "00" ? `${m[1]}h` : `${m[1]}h${m[2]}`;
 }
 
-/** Página do site que a prévia mostra em cada passo do editor (8 passos). */
-function paginaDoPasso(step: number): string {
-  if (step === 6) return "presentes";
-  if (step === 7) return "galeria";
-  if (step === 3 || step === 5) return "evento"; // Conteúdo, Confirmação
-  return "inicio"; // Festa, Capa, Data e local, Revisar
+/** Página do site que a prévia mostra em cada passo do editor (6 passos). */
+function paginaDoPasso(step: number, foco?: string): string {
+  // Confirmação (passo 3): as mensagens pós-confirmação mostram a página /obrigada.
+  if (step === 3) return foco === "obrigada-sim" || foco === "obrigada-nao" ? "obrigada" : "confirmar";
+  if (step === 4) return "presentes";
+  if (step === 5) return foco === "recados" ? "recados" : "galeria"; // Galeria e recados
+  if (step === 2) return "evento"; // Conteúdo (carta/assinatura/data e local/traje/botão)
+  return "inicio"; // Capa, Revisar
 }
 
 // Passo 3 (Conteúdo) tem accordions (accDefs, na ordem abaixo). Cada um aponta
 // para a seção do site que a prévia deve rolar até e destacar.
-const ACC_SEC = ["carta-titulo", "carta-texto", "quando", "traje", "cta", "cta"];
+const ACC_SEC = ["carta-titulo", "assinatura", "quando", "traje", "cta", "rodape"];
 
 /** Tipo do accordion (a.kind) → seção do site para a prévia focar. */
 const KIND_SEC: Record<string, string> = {
   abertura: "carta-titulo",
-  abaixo: "capa",
-  pais: "carta-texto",
+  pais: "assinatura",
   local: "quando",
   traje: "traje",
   botao: "cta",
-  rodape: "cta",
+  rodape: "rodape",
 };
 
 /** Seção do site em edição — a prévia rola até ela e destaca ("onde você mexe"). */
 function focoDoPasso(step: number, acc: number): string {
-  if (step === 3) return ACC_SEC[acc] ?? "carta";
-  if (step === 4) return "quando"; // Data e local
-  if (step === 5) return "cta"; // Confirmação
-  if (step === 6) return "presentes";
-  if (step === 7) return "galeria";
-  return "capa"; // 1 (Festa), 2 (Capa), 8 (Revisar)
+  if (step === 2) return ACC_SEC[acc] ?? "carta"; // Conteúdo (accordions)
+  if (step === 3) return "rsvp"; // Confirmação -> destaca o formulário
+  if (step === 4) return "presentes";
+  if (step === 5) return "galeria";
+  return "capa"; // 1 (Capa), 6 (Revisar)
 }
 
 /**
@@ -105,6 +120,26 @@ function focoDoPasso(step: number, acc: number): string {
  * rosé, mesmos componentes) reagindo ao que o usuário edita. Foto/álbum ficam
  * vazios de propósito — o preview povoa com fotos de exemplo (U5 liga o upload).
  */
+// Config do formulário de confirmação (RSVP) a partir do passo 5. Índices de
+// rsvpOpts: 0 permitir acompanhantes · 1 pedir nomes · 2 telefone · 3 e-mail ·
+// 4 restrição · 5 recado. corBotao só quando "Personalizar cores".
+function rsvpConfigDe(S: State) {
+  const permitir = S.rsvpOpts[0];
+  return {
+    permitirAcompanhantes: permitir,
+    pedirNomeAcompanhantes: S.rsvpOpts[1],
+    maxAcompanhantes: permitir ? Math.max(0, Math.min(20, Number(S.maxComp) || 0)) : 0,
+    pedirTelefone: S.rsvpOpts[2],
+    pedirEmail: S.rsvpOpts[3],
+    pedirRestricao: S.rsvpOpts[4],
+    permitirRecado: S.rsvpOpts[5],
+    corBotao: S.theme === 1 && /^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao) ? S.rsvpCorBotao : undefined,
+    dataLimite: S.rsvpDataLimite || undefined,
+    msgConfirma: S.rsvpMsgSim.trim() || undefined,
+    msgRecusa: S.rsvpMsgNao.trim() || undefined,
+  };
+}
+
 function montarRascunho(S: State) {
   const endereco = [S.endereco, S.cidade, S.uf]
     .map((x) => x.trim())
@@ -113,20 +148,23 @@ function montarRascunho(S: State) {
   return {
     type: "QUINZE_ANOS",
     tema: S.tema,
-    fontes: "classica",
+    temaCor: S.tema === "custom" ? S.corCustom : undefined,
+    fontes: S.fonte,
     template: "quinze-anos-glamour-rose",
     title: S.nome,
     fotoUrl: S.capaFoto || undefined,
+    fotoDesktopUrl: S.capaDoisFotos ? S.capaFotoDesktop || undefined : undefined,
     idade: S.idade ? Number(S.idade) : undefined,
     monograma: S.monograma,
     logoUrl: S.monogramaFoto || undefined,
     animacoes: S.animacoes,
     capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
     capaOverlay: S.overlay,
-    pais: S.paisOn ? { pai: S.pai, mae: S.mae, texto: S.paisTx } : undefined,
+    pais: S.paisOn ? { pai: S.pai, mae: S.mae } : undefined,
     ctaLabel: S.btnTx || undefined,
     ctaHref: BTN_HREFS[S.btnDest] ?? "/confirmar",
     ctaLead: S.btnAcima || undefined,
+    rodapeMsg: S.rodapeTx || undefined,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     mensagem: S.abTx,
@@ -136,11 +174,13 @@ function montarRascunho(S: State) {
     traje: S.trajeOn ? S.traje : "",
     pixNome: S.gifts ? S.pixNome : undefined,
     pixChave: S.gifts ? S.pixChave : undefined,
+    presentesTexto: S.gifts ? S.presentesTexto || undefined : undefined,
     presentes: S.gifts
       ? S.giftList
           .filter((g) => g.n.trim())
           .map((g) => ({ titulo: g.n, descricao: g.desc, valor: g.v }))
       : [],
+    rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
       !S.gifts ? "presentes" : null,
@@ -161,11 +201,20 @@ function liveMapa(S: State): Record<string, string> {
     idade: S.idade,
     "carta-titulo": S.abT,
     "carta-msg": S.abTx,
+    // Assinatura = "pai, mãe e a debutante" (ou só a debutante) — MESMA regra do
+    // adapter, pra a caixa "Pais e família" refletir os nomes ao vivo.
+    assinatura:
+      S.paisOn && (S.pai.trim() || S.mae.trim())
+        ? juntarNomes([S.pai, S.mae, S.nome])
+        : S.nome,
+    "rodape-msg": S.rodapeTx.trim() || "Feito com carinho.",
     local: S.local,
     endereco: [S.endereco, S.cidade, S.uf].map((x) => x.trim()).filter(Boolean).join(", "),
     traje: S.trajeOn ? S.traje : "",
     "pix-nome": S.gifts ? S.pixNome : "",
     "pix-chave": S.gifts ? S.pixChave : "",
+    "obrigada-msg-sim": S.rsvpMsgSim,
+    "obrigada-msg-nao": S.rsvpMsgNao,
   };
   const d = dataLabelLive(S.data, S.hIni);
   if (d) m.data = d;
@@ -176,10 +225,37 @@ function liveMapa(S: State): Record<string, string> {
   return m;
 }
 
+// Assinatura do que EXIGE recarregar a prévia (muda → recarrega o iframe). De
+// FORA ficam os textos que já refletem AO VIVO via [data-live]: o TÍTULO da carta,
+// o rodapé, endereço/local/cidade/UF, o traje e as mensagens de confirmação —
+// mexer neles NÃO recarrega (não "pula" nem re-rola).
+// A MENSAGEM da carta (abTx) fica no reload: é `data-live-multi` (multi-parágrafo),
+// que o patch ao vivo não atualiza de forma confiável — reload garante que aparece.
+// Ver PreviewSite.
+function estruturalDoEditor(S: State): string {
+  return JSON.stringify([
+    S.nome, S.idade, S.tema, S.tema === "custom" ? S.corCustom : "", S.fonte,
+    S.capaFoto, S.capaDoisFotos ? S.capaFotoDesktop : "", S.capaDoisFotos,
+    S.monograma, S.monogramaFoto, S.szT, S.overlay, S.animacoes,
+    S.abTx,
+    S.paisOn, S.pai, S.mae,
+    S.btnDest, S.btnTx, S.btnAcima,
+    S.data, S.hIni,
+    S.gifts, S.free,
+    S.gifts ? S.giftList.map((g) => `${g.n}${g.v}${g.desc}`).join("") : "",
+    S.gifts ? S.pixNome : "", S.gifts ? S.pixChave : "", S.gifts ? S.presentesTexto : "",
+    S.gal, S.rec,
+    // Só o liga/desliga GERAL da confirmação fica no reload (some/adiciona a
+    // página inteira). As OPÇÕES do RSVP (acompanhantes/telefone/e-mail/restrição/
+    // recado/cor/data) vão AO VIVO por postMessage pro formulário — instantâneas,
+    // sem recarregar. Ver `liveRsvpConfig` no PreviewSite + RsvpConvite.
+    S.rsvp,
+  ]);
+}
+
 const V = "#7C3AED";
 const MUT = "#6E6E76";
-const STEP_NAMES = ["Festa", "Capa", "Conteúdo", "Data e local", "Confirmação", "Presentes e Pix", "Galeria e recados", "Revisar e publicar"];
-const BTNC = ["#7C3AED", "#FF2D8D", "#C4B5FD", "#E8C87A"];
+const STEP_NAMES = ["Capa", "Conteúdo", "Confirmação", "Presentes e Pix", "Galeria e recados", "Revisar e publicar"];
 const RSVP_LABELS = [
   "Permitir acompanhantes",
   "Solicitar nome dos acompanhantes",
@@ -194,6 +270,18 @@ const GIFTS = [
   { n: "Sessão de fotos", desc: "Registros para a vida toda", v: "R$ 320", q: 1, c1: "#101426", c2: "#5B8DEF" },
   { n: "Kit lembrancinhas", desc: "Para os convidados", v: "R$ 90", q: 8, c1: "#191114", c2: "#C97B7F" },
 ];
+// Sugestões de presente (adicionar com 1 toque no passo 6) — deixa a lista fácil.
+const SUGESTOES_PRESENTES = [
+  { n: "Buffet & jantar", v: "R$ 200", desc: "Ajude com a comida da noite" },
+  { n: "Decoração", v: "R$ 150", desc: "Flores e ambientação" },
+  { n: "Sessão de fotos", v: "R$ 300", desc: "Registros para a vida toda" },
+  { n: "DJ / Música", v: "R$ 250", desc: "A trilha da festa" },
+  { n: "Bolo & doces", v: "R$ 120", desc: "A mesa mais disputada" },
+  { n: "Cabelo & maquiagem", v: "R$ 180", desc: "Para ficar linda no grande dia" },
+  { n: "Vestido", v: "R$ 400", desc: "O look da debutante" },
+  { n: "Lembrancinhas", v: "R$ 90", desc: "Um carinho para os convidados" },
+];
+
 const RECADOS = [
   { n: "Tia Márcia", txt: "Que noite linda vai ser! Estamos contando os dias, minha querida.", d: "02/07" },
   { n: "Bia e Carol", txt: "Amiga, você merece o mundo! Te amamos!", d: "30/06" },
@@ -207,15 +295,16 @@ type State = {
   foco: string;
   nome: string; data: string; hIni: string; pai: string; mae: string;
   cep: string; local: string; endereco: string; cidade: string; uf: string; traje: string; slug: string;
-  capaFoto: string;
+  capaFoto: string; capaFotoDesktop: string; capaDoisFotos: boolean;
   idade: string; monograma: boolean; monogramaFoto: string;
   capaT: string; capaS: string; capaD: string;
-  tema: string;
+  tema: string; corCustom: string; fonte: string;
   szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
   paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; btnAcima: string; rodapeTx: string;
   rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
-  gifts: boolean; free: boolean; giftList: { n: string; desc: string; v: string }[]; pixNome: string; pixChave: string;
+  rsvpDataLimite: string; rsvpCorBotao: string; rsvpMsgSim: string; rsvpMsgNao: string;
+  gifts: boolean; free: boolean; giftList: { n: string; desc: string; v: string }[]; pixNome: string; pixChave: string; presentesTexto: string;
   gal: boolean; rec: boolean; recSt: string[];
   animacoes: boolean;
   published: boolean; copied: boolean; pvMode: "celular" | "desktop";
@@ -226,10 +315,10 @@ const INICIAL: State = {
   nome: "Luiza", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Renata Martins",
   cep: "", local: "Espaço Villa Eventos", endereco: "Av. das Palmeiras, 1200", cidade: "São Paulo", uf: "SP",
   traje: "Esporte fino", slug: "luiza15",
-  capaFoto: "",
+  capaFoto: "", capaFotoDesktop: "", capaDoisFotos: false,
   idade: "15", monograma: true, monogramaFoto: "",
   capaT: "Luiza", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
-  tema: "rose",
+  tema: "rose", corCustom: "#CE578B", fonte: "classica",
   szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: false,
   acc: 0, abT: "Vem comemorar comigo!",
   abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
@@ -237,9 +326,11 @@ const INICIAL: State = {
   trajeOn: true, btnTx: "Confirmar presença", btnDest: 0, btnAcima: "",
   rodapeTx: "Obrigada por fazer parte da minha história.",
   rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0, corBtn: 0,
+  rsvpDataLimite: "10/11/2026", rsvpCorBotao: "#CE578B",
+  rsvpMsgSim: MSG_CONFIRMA_PADRAO, rsvpMsgNao: MSG_RECUSA_PADRAO,
   gifts: true, free: true,
   giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
-  pixNome: "Renata Martins", pixChave: "renata.martins@email.com",
+  pixNome: "Renata Martins", pixChave: "renata.martins@email.com", presentesTexto: "",
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
   animacoes: false,
   published: false, copied: false, pvMode: "celular",
@@ -257,9 +348,6 @@ function Label({ children, opt }: { children: React.ReactNode; opt?: boolean }) 
   );
 }
 
-function Sub({ children }: { children: React.ReactNode }) {
-  return <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.09em] text-[#A6A6AE]">{children}</div>;
-}
 
 function Toggle({ on, onClick, size = "sm" }: { on: boolean; onClick: () => void; size?: "sm" | "lg" }) {
   const w = size === "lg" ? 42 : 38;
@@ -280,16 +368,6 @@ function Seg({ value, onChange }: { value: number; onChange: (i: number) => void
         <span key={l} onClick={() => onChange(i)} style={{ background: value === i ? "#fff" : "transparent", color: value === i ? "#17171B" : MUT, boxShadow: value === i ? "0 1px 3px rgba(0,0,0,0.1)" : "none", fontWeight: value === i ? 600 : 400 }} className="cursor-pointer rounded-lg px-4 py-1.5 text-[12px]">
           {l}
         </span>
-      ))}
-    </div>
-  );
-}
-
-function Swatches({ colors, value, onChange }: { colors: string[]; value: number; onChange: (i: number) => void }) {
-  return (
-    <div className="flex gap-2">
-      {colors.map((c, i) => (
-        <span key={i} onClick={() => onChange(i)} style={{ background: c, borderColor: value === i ? V : "#E4E4EA" }} className="size-7 cursor-pointer rounded-full border-2 shadow-[inset_0_0_0_2px_#fff]" />
       ))}
     </div>
   );
@@ -325,6 +403,58 @@ function Paletas({ value, onChange }: { value: string; onChange: (k: string) => 
   );
 }
 
+// Cor personalizada — o cliente escolhe QUALQUER cor (quick-picks das mais usadas
+// + seletor livre). Derivamos a família inteira do site por HSL (deriveTemaVars).
+function CorPersonalizada({ ativo, cor, onPick }: { ativo: boolean; cor: string; onPick: (hex: string) => void }) {
+  const QUICK = ["#CE578B", "#E23744", "#E8853A", "#E0B341", "#3FA05B", "#2F8F83", "#3B74E0", "#7C4CE0", "#B84A8E", "#111827"];
+  const hexOk = /^#[0-9a-fA-F]{6}$/.test(cor);
+  const fam = deriveTemaVars(hexOk ? cor : "#CE578B");
+  const strip = [fam["--ev-framboesa-deep"], fam["--ev-framboesa"], fam["--ev-rosa"], fam["--ev-rose"], fam["--ev-blush"], fam["--ev-ivory"]];
+  return (
+    <div
+      style={{ borderColor: ativo ? V : "#E4E4EA", background: ativo ? "#F6F3FE" : "#fff" }}
+      className="mt-2 rounded-xl border-[1.5px] px-3.5 py-3 transition-colors"
+    >
+      <div className="mb-2.5 flex items-center justify-between">
+        <span className="text-[12.5px] font-semibold" style={{ color: ativo ? "#6D28D9" : "#3a3a42" }}>
+          Cor personalizada{ativo && <span className="font-normal text-[#8b8b93]"> · {cor.toUpperCase()}</span>}
+        </span>
+        <span
+          className="relative inline-flex size-8 items-center justify-center overflow-hidden rounded-lg border border-[#E4E4EA]"
+          style={{ background: ativo ? cor : "conic-gradient(from 0deg,#ef4444,#eab308,#22c55e,#3b82f6,#a855f7,#ef4444)" }}
+          title="Escolher qualquer cor"
+        >
+          <input
+            type="color"
+            value={hexOk ? cor : "#CE578B"}
+            onChange={(e) => onPick(e.target.value)}
+            className="absolute inset-0 cursor-pointer opacity-0"
+            aria-label="Escolher qualquer cor"
+          />
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {QUICK.map((c) => (
+          <span
+            key={c}
+            onClick={() => onPick(c)}
+            style={{ background: c, borderColor: ativo && cor.toLowerCase() === c.toLowerCase() ? V : "#E4E4EA" }}
+            className="size-6 cursor-pointer rounded-full border-2 shadow-[inset_0_0_0_2px_#fff]"
+          />
+        ))}
+      </div>
+      {ativo && (
+        <div className="mt-2.5 flex overflow-hidden rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+          {strip.map((c, i) => (
+            <span key={i} style={{ background: c }} className="h-2.5 flex-1" />
+          ))}
+        </div>
+      )}
+      <div className="mt-2 text-[11px] text-[#A6A6AE]">O convite inteiro se ajusta à cor — nós criamos os tons que combinam.</div>
+    </div>
+  );
+}
+
 function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <span onClick={onClick} style={{ borderColor: active ? V : "#E4E4EA", background: active ? "#F3EFFE" : "#fff", color: active ? "#6D28D9" : MUT, fontWeight: active ? 600 : 400 }} className="cursor-pointer rounded-full border px-3.5 py-[7px] text-[12.5px]">
@@ -342,10 +472,11 @@ export function CriarConvite() {
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
   const [gravando, iniciarGravacao] = useTransition();
-  const [maisDetalhes, setMaisDetalhes] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [capaEnviando, setCapaEnviando] = useState(false);
   const [capaErro, setCapaErro] = useState("");
+  const [capaDeskEnviando, setCapaDeskEnviando] = useState(false);
+  const [capaDeskErro, setCapaDeskErro] = useState("");
   const [monoEnviando, setMonoEnviando] = useState(false);
   const [monoErro, setMonoErro] = useState("");
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -388,6 +519,20 @@ export function CriarConvite() {
     }
   };
 
+  // Foto da capa PARA O COMPUTADOR (paisagem) — opcional. Vazia = usa a do celular.
+  const subirCapaDesktop = async (file: File | undefined) => {
+    if (!file) return;
+    setCapaDeskErro("");
+    setCapaDeskEnviando(true);
+    try {
+      upd({ capaFotoDesktop: await enviarUpload(file) });
+    } catch (e) {
+      setCapaDeskErro(e instanceof Error ? e.message : "Não consegui enviar a foto. Tente de novo.");
+    } finally {
+      setCapaDeskEnviando(false);
+    }
+  };
+
   // Monograma (logo da barra) → mesmo /api/upload.
   const subirMonograma = async (file: File | undefined) => {
     if (!file) return;
@@ -427,14 +572,16 @@ export function CriarConvite() {
   const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
   const slugTaken = ["maria15", "festa15"].includes(S.slug);
   const slugOk = slugValid && !slugTaken;
-  // Obrigatórios por passo: nome no passo 1 (Festa); data/local no passo 4.
-  const reqFesta = req(S.nome) && slugOk;
+  // Obrigatórios por passo: nome na Capa (passo 1); data/local no Conteúdo (passo 2);
+  // link/endereço no Revisar (passo final, antes de publicar).
+  const reqNome = req(S.nome);
   const reqDataLocal = req(S.data) && req(S.hIni) && req(S.local) && req(S.cidade) && req(S.uf);
-  const reqOk = reqFesta && reqDataLocal;
+  const reqOk = reqNome && reqDataLocal && slugOk;
 
   const next = () => {
-    if (S.step === 1 && !reqFesta) return setS((s) => ({ ...s, showErr: true }));
-    if (S.step === 4 && !reqDataLocal) return setS((s) => ({ ...s, showErr: true }));
+    if (S.step === 1 && !reqNome) return setS((s) => ({ ...s, showErr: true }));
+    // Data/local moram no acordeão "Local" do Conteúdo: se faltar, abre-o e destaca.
+    if (S.step === 2 && !reqDataLocal) return setS((s) => ({ ...s, showErr: true, acc: 2, foco: "quando" }));
     setS((s) => {
       const step = Math.min(STEP_NAMES.length, s.step + 1);
       return { ...s, step, showErr: false, foco: focoDoPasso(step, s.acc) };
@@ -463,16 +610,20 @@ export function CriarConvite() {
     id: eventId ?? undefined,
     title: S.nome,
     fotoUrl: S.capaFoto || undefined,
+    fotoDesktopUrl: S.capaDoisFotos ? S.capaFotoDesktop || undefined : undefined,
     idade: S.idade ? Number(S.idade) : undefined,
     monograma: S.monograma,
     logoUrl: S.monogramaFoto || undefined,
     animacoes: S.animacoes,
     tema: S.tema,
+    temaCor: S.tema === "custom" ? S.corCustom : undefined,
+    fontes: S.fonte,
     capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
     capaOverlay: S.overlay,
     ctaLabel: S.btnTx || undefined,
     ctaHref: BTN_HREFS[S.btnDest] ?? "/confirmar",
     ctaLead: S.btnAcima || undefined,
+    rodapeMsg: S.rodapeTx || undefined,
     date: ddmmParaISO(S.data),
     time: S.hIni,
     local: S.local,
@@ -486,6 +637,7 @@ export function CriarConvite() {
     aberturaTitulo: S.abT,
     pixNome: S.gifts ? S.pixNome : undefined,
     pixChave: S.gifts ? S.pixChave : undefined,
+    presentesTexto: S.gifts ? S.presentesTexto || undefined : undefined,
     presentes: S.gifts
       ? S.giftList
           .filter((g) => g.n.trim())
@@ -497,11 +649,17 @@ export function CriarConvite() {
       !S.gal ? "galeria" : null,
       !S.rec ? "recados" : null,
     ].filter(Boolean) as string[],
-    pais: S.paisOn ? { pai: S.pai, mae: S.mae, texto: S.paisTx } : undefined,
+    pais: S.paisOn ? { pai: S.pai, mae: S.mae } : undefined,
+    rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
   });
 
   // Grava no banco: rascunho (publicar=false) ou publica (site no ar).
   const enviar = (publicar: boolean) => {
+    // Antes de publicar, o link precisa estar válido — está no passo final.
+    if (publicar && !slugOk) {
+      setS((s) => ({ ...s, step: STEP_NAMES.length, showErr: true }));
+      return;
+    }
     setErroPub(null);
     iniciarGravacao(async () => {
       const r = await criarConvite(montarPayload(), publicar);
@@ -622,7 +780,7 @@ export function CriarConvite() {
   const accDefs = [
     { name: "Mensagem de abertura", tag: "", kind: "abertura", st: "Preenchida", ok: true },
     { name: "Pais e família", tag: "· opcional", kind: "pais", st: S.paisOn ? "Visível" : "Oculta", ok: S.paisOn },
-    { name: "Local da festa", tag: "", kind: "local", st: "Sincronizada", ok: true },
+    { name: "Data e local", tag: "", kind: "local", st: reqDataLocal ? "Preenchido" : "Faltando", ok: reqDataLocal },
     { name: "Traje", tag: "· opcional", kind: "traje", st: S.trajeOn ? "Visível" : "Oculta", ok: S.trajeOn },
     { name: "Botão principal", tag: "", kind: "botao", st: "Configurado", ok: true },
     { name: "Rodapé", tag: "", kind: "rodape", st: "Preenchido", ok: true },
@@ -696,126 +854,135 @@ export function CriarConvite() {
           {/* onFocus/onClick borbulham: ao tocar num campo com `data-foco`, a
               prévia rola até aquela seção do site ("vai para onde estou mexendo"). */}
           <div className="flex flex-col gap-4" onFocus={onFocoCampo} onClick={onFocoCampo}>
-            {/* STEP 1 — despoluído: essenciais visíveis, opcionais recolhidos */}
+            {/* STEP 1 — Capa (o nome da debutante mora aqui) */}
             {S.step === 1 && (
-              <>
-                <div className={cardCls}>
-                  <div className="text-[18px] font-bold tracking-[-0.02em]">Conte-nos sobre a festa</div>
-                  <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">O essencial primeiro. Os detalhes opcionais podem ficar para depois.</div>
-
-                  <Sub>A debutante</Sub>
-                  <div data-foco="capa-nome" className="flex flex-col gap-3.5">
-                    <div>
-                      <Label>Nome da debutante</Label>
-                      <input value={S.nome} onChange={inp("nome")} style={{ borderColor: S.showErr && !req(S.nome) ? "#FF2D8D" : "#E4E4EA" }} className={`${inputCls} text-[15px] font-semibold`} />
-                    </div>
-                  </div>
-
-                  <div className="my-5 h-px bg-[#F0F0F3]" />
-                  <button onClick={() => setMaisDetalhes((v) => !v)} className="flex w-full items-center gap-2 text-[13px] font-semibold text-[#7C3AED]">
-                    <span style={{ transform: `rotate(${maisDetalhes ? 180 : 0}deg)` }} className="transition-transform">
-                      <Ic d={IC.chevronDown} size={15} stroke="#7C3AED" width={2.2} />
-                    </span>
-                    {maisDetalhes ? "Menos detalhes" : "Mais detalhes (opcional)"}
-                  </button>
-                  {maisDetalhes && (
-                    <div className="mt-4 flex flex-col gap-3.5">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label opt>Nome do pai</Label>
-                          <input value={S.pai} onChange={inp("pai")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                        <div>
-                          <Label opt>Nome da mãe</Label>
-                          <input value={S.mae} onChange={inp("mae")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                      </div>
-                      <div>
-                        <Label opt>Traje</Label>
-                        <input value={S.traje} onChange={inp("traje")} placeholder="Ex.: Traje social" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                      </div>
-                    </div>
-                  )}
-
-                  {S.showErr && (
-                    <div className="mt-4 rounded-[11px] border border-[#FF2D8D]/25 bg-[#FDF0F5] px-3.5 py-2.5 text-[13px] text-[#C2185B]">
-                      Preencha os campos destacados para continuar. Os campos opcionais podem ficar para depois.
-                    </div>
-                  )}
-                </div>
-                <div className={cardCls}>
-                  <div className="text-[15.5px] font-bold">Endereço do seu convite</div>
-                  <div className="mb-3.5 mt-1 text-[13px] text-[#6e6e76]">É o link que seus convidados vão receber.</div>
-                  <div className="flex items-center overflow-hidden rounded-[11px] border border-[#E4E4EA] bg-[#F4F4F6]">
-                    <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
-                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.seuconvite.orivya.com</span>
-                  </div>
-                  <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
-                    <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
-                    {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* STEP 2 */}
-            {S.step === 2 && (
               <div data-foco="capa" className={cardCls}>
                 <div className="text-[18px] font-bold tracking-[-0.02em]">Personalize a capa</div>
                 <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">Ajuste a foto, os textos e as cores principais do convite.</div>
-                <div className="mb-2.5 text-[13.5px] font-bold">Foto da capa</div>
-                <div className="flex items-stretch gap-3.5">
-                  <div
-                    className="flex h-[100px] w-[150px] flex-none items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(160deg,#1a1426,#3b2a63_70%,#7C3AED)] bg-cover bg-center"
-                    style={S.capaFoto ? { backgroundImage: `url('${S.capaFoto}')` } : undefined}
-                  >
-                    {!S.capaFoto && (
-                      <span className="font-[family-name:var(--font-playfair)] text-[20px] text-white">{S.nome}</span>
-                    )}
+                {/* Foto da capa — UMA foto (padrão: vale pro celular e pro computador).
+                    O bloco leva data-foco="capa": a prévia rola até a capa ao mexer. */}
+                <div data-foco="capa">
+                  <div className="mb-2.5 text-[13.5px] font-bold">Foto da capa</div>
+                  <div className="flex items-stretch gap-3.5">
+                    <div
+                      className="flex h-[100px] w-[150px] flex-none items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(160deg,#1a1426,#3b2a63_70%,#7C3AED)] bg-cover bg-center"
+                      style={S.capaFoto ? { backgroundImage: `url('${S.capaFoto}')` } : undefined}
+                    >
+                      {!S.capaFoto && (
+                        <span className="font-[family-name:var(--font-playfair)] text-[20px] text-white">{S.nome}</span>
+                      )}
+                    </div>
+                    <label className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={capaEnviando}
+                        onChange={(e) => {
+                          void subirCapa(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                      <Ic d={IC.upload} size={18} stroke="currentColor" width={1.8} />
+                      <span className="text-[12.5px] font-semibold">
+                        {capaEnviando ? "Enviando…" : S.capaFoto ? "Trocar foto" : "Enviar foto"}
+                      </span>
+                      <span className="text-[11px] text-[#A6A6AE]">JPG, PNG ou WebP · até 6 MB</span>
+                    </label>
                   </div>
-                  <label className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      disabled={capaEnviando}
-                      onChange={(e) => {
-                        void subirCapa(e.target.files?.[0]);
-                        e.target.value = "";
-                      }}
-                    />
-                    <Ic d={IC.upload} size={18} stroke="currentColor" width={1.8} />
-                    <span className="text-[12.5px] font-semibold">
-                      {capaEnviando ? "Enviando…" : S.capaFoto ? "Trocar foto" : "Enviar foto"}
-                    </span>
-                    <span className="text-[11px] text-[#A6A6AE]">JPG, PNG ou WebP · até 6 MB</span>
-                  </label>
-                </div>
-                <div className="mt-2.5 rounded-xl border border-[#ECECF0] bg-[#FAFAFC] px-3.5 py-2.5 text-[11.5px] leading-[1.5] text-[#6e6e76]">
-                  <span className="font-semibold text-[#3a3a42]">Medida ideal da foto</span> — use uma foto <b>vertical (em pé)</b>, de pelo menos <b>1080 × 1350&nbsp;px</b> (ideal <b>1600 × 2000</b>). No <b>celular</b> ela aparece em pé; no <b>computador</b> a mesma foto é cortada mais larga, então deixe a pessoa <b>mais ao centro</b> pra ficar bem enquadrada nos dois.
-                </div>
-                {(capaErro || S.capaFoto) && (
-                  <div className="mt-2 text-[12px]">
-                    {capaErro ? (
-                      <span className="text-[#E11D48]">{capaErro}</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => upd({ capaFoto: "" })}
-                        className="cursor-pointer font-semibold text-[#6e6e76] hover:text-[#E11D48]"
-                      >
-                        Remover foto
-                      </button>
-                    )}
+                  <div className="mt-2.5 rounded-xl border border-[#ECECF0] bg-[#FAFAFC] px-3.5 py-2.5 text-[11.5px] leading-[1.5] text-[#6e6e76]">
+                    <span className="font-semibold text-[#3a3a42]">Medida ideal</span> — foto <b>vertical (em pé)</b>, de pelo menos <b>1080 × 1350&nbsp;px</b> (ideal <b>1600 × 2000</b>). Deixe a pessoa <b>mais ao centro</b> pra ficar bem no celular e no computador.
                   </div>
-                )}
+                  {(capaErro || S.capaFoto) && (
+                    <div className="mt-2 text-[12px]">
+                      {capaErro ? (
+                        <span className="text-[#E11D48]">{capaErro}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => upd({ capaFoto: "" })}
+                          className="cursor-pointer font-semibold text-[#6e6e76] hover:text-[#E11D48]"
+                        >
+                          Remover foto
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Opção: foto diferente no computador (default OFF). */}
+                  <div className="mt-3 flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
+                    <div className="pr-3">
+                      <div className="text-[13px] font-semibold">Quero uma foto diferente no computador</div>
+                      <div className="text-[12px] text-[#6e6e76]">Sem isso, a mesma foto vale pros dois. Toque em “Computador” na prévia pra conferir.</div>
+                    </div>
+                    <Toggle on={S.capaDoisFotos} onClick={() => upd({ capaDoisFotos: !S.capaDoisFotos })} />
+                  </div>
+                  {S.capaDoisFotos && (
+                    <div className="mt-3">
+                      <div className="mb-2.5 text-[12.5px] font-semibold text-[#3F3F46]">Foto do computador <span className="font-normal text-[#A6A6AE]">· deitada (paisagem)</span></div>
+                      <div className="flex items-stretch gap-3.5">
+                        <div
+                          className="flex h-[100px] w-[178px] flex-none items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(160deg,#1a1426,#3b2a63_70%,#7C3AED)] bg-cover bg-center"
+                          style={
+                            S.capaFotoDesktop
+                              ? { backgroundImage: `url('${S.capaFotoDesktop}')` }
+                              : S.capaFoto
+                                ? { backgroundImage: `url('${S.capaFoto}')`, opacity: 0.5 }
+                                : undefined
+                          }
+                        >
+                          {!S.capaFotoDesktop && !S.capaFoto && (
+                            <span className="font-[family-name:var(--font-playfair)] text-[18px] text-white">{S.nome}</span>
+                          )}
+                        </div>
+                        <label className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-[1.5px] border-dashed border-[#D5D5DC] text-[#6e6e76] transition-colors hover:border-[#7C3AED] hover:bg-[#FBFAFE] hover:text-[#7C3AED]">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            disabled={capaDeskEnviando}
+                            onChange={(e) => {
+                              void subirCapaDesktop(e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                          />
+                          <Ic d={IC.upload} size={18} stroke="currentColor" width={1.8} />
+                          <span className="text-[12.5px] font-semibold">
+                            {capaDeskEnviando ? "Enviando…" : S.capaFotoDesktop ? "Trocar foto do computador" : "Enviar foto do computador"}
+                          </span>
+                          <span className="text-[11px] text-[#A6A6AE]">Ideal 2000 × 1200</span>
+                        </label>
+                      </div>
+                      {(capaDeskErro || S.capaFotoDesktop) && (
+                        <div className="mt-2 text-[11.5px]">
+                          {capaDeskErro ? (
+                            <span className="text-[#E11D48]">{capaDeskErro}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => upd({ capaFotoDesktop: "" })}
+                              className="cursor-pointer font-semibold text-[#6e6e76] hover:text-[#E11D48]"
+                            >
+                              Remover foto do computador
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 <div className="mb-3 text-[13.5px] font-bold">Textos da capa</div>
                 <div className="flex flex-col gap-3">
                   <div data-foco="capa-nome">
-                    <Label>Nome da debutante (na capa)</Label>
-                    <input value={S.nome} onChange={inp("nome")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} text-[15px] font-semibold`} />
+                    <Label>Nome da debutante</Label>
+                    <input value={S.nome} onChange={inp("nome")} style={{ borderColor: S.showErr && !req(S.nome) ? "#FF2D8D" : "#E4E4EA" }} className={`${inputCls} text-[15px] font-semibold`} />
                     <div className="mt-1 text-[11.5px] text-[#A6A6AE]">É o nome que aparece em destaque na capa.</div>
+                    {S.showErr && !req(S.nome) && (
+                      <div className="mt-2 rounded-[11px] border border-[#FF2D8D]/25 bg-[#FDF0F5] px-3.5 py-2.5 text-[13px] text-[#C2185B]">
+                        Preencha o nome da debutante para continuar.
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
                     <div data-foco="capa-idade">
@@ -834,8 +1001,8 @@ export function CriarConvite() {
                 </div>
 
                 <div className="my-5 h-px bg-[#F0F0F3]" />
-                {/* Monograma da barra — subir ou não */}
-                <div className="mb-3 flex items-center justify-between gap-3">
+                {/* Monograma da barra — aponta para a marquinha no topo do site (data-foco="monograma"). */}
+                <div data-foco="monograma" className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[13.5px] font-bold">Monograma na barra</div>
                     <div className="text-[12px] text-[#6e6e76]">A marquinha no topo do site. Sem imagem, usa as iniciais do nome.</div>
@@ -843,7 +1010,7 @@ export function CriarConvite() {
                   <Toggle on={S.monograma} onClick={() => upd({ monograma: !S.monograma })} />
                 </div>
                 {S.monograma && (
-                  <>
+                  <div data-foco="monograma">
                     <div className="flex items-stretch gap-3.5">
                       <div
                         className="grid h-[72px] w-[72px] flex-none place-items-center overflow-hidden rounded-xl border border-[#ECECF0] bg-[#F4F4F6] bg-contain bg-center bg-no-repeat"
@@ -888,7 +1055,7 @@ export function CriarConvite() {
                         )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 <div className="my-5 h-px bg-[#F0F0F3]" />
@@ -896,14 +1063,16 @@ export function CriarConvite() {
                 <div className="mb-3 text-[12px] text-[#6e6e76]">Deixa o nome e a idade maiores ou menores juntos — sempre ajustado no celular e no computador.</div>
                 <Seg value={S.szT} onChange={(i) => upd({ szT: i })} />
                 <div className="my-5 h-px bg-[#F0F0F3]" />
-                {/* data-foco="quando": ao trocar a cor, a prévia rola até o cartão
-                    "Quando/Onde" + botão, onde o acento aparece forte (fica óbvio). */}
-                <div data-foco="quando">
+                {/* data-foco="livre": ao trocar a cor NÃO destaca uma seção só — a
+                    prévia fica livre pra pessoa ver o site inteiro re-tingido. */}
+                <div data-foco="livre">
                   <div className="mb-1 text-[13.5px] font-bold">Paleta de cores</div>
-                  <div className="mb-3 text-[12px] text-[#6e6e76]">Muda a cor do convite inteiro. Escolha a que mais combina com a festa.</div>
+                  <div className="mb-3 text-[12px] text-[#6e6e76]">Muda a cor do convite inteiro. Escolha uma das mais usadas ou qualquer cor.</div>
                   <Paletas value={S.tema} onChange={(k) => upd({ tema: k })} />
+                  <CorPersonalizada ativo={S.tema === "custom"} cor={S.corCustom} onPick={(hex) => upd({ tema: "custom", corCustom: hex })} />
                 </div>
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
+                <div className="my-5 h-px bg-[#F0F0F3]" />
+                <div className="flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
                   <div>
                     <div className="text-[13px] font-semibold">Escurecer a foto da capa</div>
                     <div className="text-[12px] text-[#6e6e76]">Ajuda a ler o nome quando a foto é clara.</div>
@@ -913,8 +1082,8 @@ export function CriarConvite() {
               </div>
             )}
 
-            {/* STEP 3 */}
-            {S.step === 3 && (
+            {/* STEP 2 — Conteúdo (inclui Data e local, dentro do acordeão "Local") */}
+            {S.step === 2 && (
               <>
                 <div>
                   <div className="text-[18px] font-bold tracking-[-0.02em]">Edite as mensagens do convite</div>
@@ -951,39 +1120,87 @@ export function CriarConvite() {
                           {a.kind === "pais" && (
                             <div className="flex flex-col gap-3">
                               <div className="flex items-center justify-between">
-                                <span className="text-[13px] font-semibold">Mostrar o nome dos pais</span>
+                                <span className="text-[13px] font-semibold">Mostrar o nome dos pais na assinatura</span>
                                 <Toggle on={S.paisOn} onClick={() => upd({ paisOn: !S.paisOn })} />
                               </div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div>
-                                  <Label>Nome do pai</Label>
-                                  <input value={S.pai} onChange={inp("pai")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                              {S.paisOn && (
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                  <div>
+                                    <Label>Nome do pai</Label>
+                                    <input value={S.pai} onChange={inp("pai")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                  </div>
+                                  <div>
+                                    <Label>Nome da mãe</Label>
+                                    <input value={S.mae} onChange={inp("mae")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                  </div>
                                 </div>
-                                <div>
-                                  <Label>Nome da mãe</Label>
-                                  <input value={S.mae} onChange={inp("mae")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                                </div>
+                              )}
+                              <div className="rounded-xl border border-[#ECECF0] bg-[#FAFAFC] px-3.5 py-2.5 text-[12px] leading-[1.5] text-[#6e6e76]">
+                                {S.paisOn ? (
+                                  <>Aparecem na <b>assinatura</b> do convite, junto com a debutante — ex.: “{juntarNomes([S.pai, S.mae, S.nome]) || S.nome}”.</>
+                                ) : (
+                                  <>Sem os pais, a assinatura mostra só <b>{S.nome || "a debutante"}</b>.</>
+                                )}
                               </div>
-                              <div>
-                                <Label>Texto de apresentação</Label>
-                                <textarea rows={2} value={S.paisTx} onChange={inp("paisTx")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
-                              </div>
-                              <div className="text-[12px] text-[#A6A6AE]">Os nomes ficam sincronizados com a etapa 1.</div>
                             </div>
                           )}
                           {a.kind === "local" && (
                             <div className="flex flex-col gap-3">
-                              <div className="rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3.5 text-[13px] leading-[1.8] text-[#3F3F46]">
-                                <b>{S.data}</b> · início às <b>{S.hIni}</b>
-                                <br />
-                                {S.local} — {S.endereco}
-                                <br />
-                                {S.cidade} — {S.uf}
+                              <div data-foco="quando" className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label>Data da festa</Label>
+                                  <input
+                                    type="date"
+                                    value={ddmmParaISO(S.data)}
+                                    onChange={(e) => upd({ data: isoParaDDMM(e.target.value) })}
+                                    style={{ borderColor: S.showErr && !req(S.data) ? "#FF2D8D" : "#E4E4EA" }}
+                                    className={`${inputCls} [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Horário de início</Label>
+                                  <input
+                                    type="time"
+                                    value={S.hIni}
+                                    onChange={inp("hIni")}
+                                    style={{ borderColor: S.showErr && !req(S.hIni) ? "#FF2D8D" : "#E4E4EA" }}
+                                    className={`${inputCls} [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+                                  />
+                                </div>
                               </div>
-                              <div className="text-[12px] text-[#A6A6AE]">
-                                Esses dados vêm da etapa 1.{" "}
-                                <span onClick={() => goStep(4)} className="cursor-pointer font-semibold text-[#7C3AED]">Editar informações</span>
+                              <div data-foco="quando" className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+                                <div>
+                                  <Label>CEP</Label>
+                                  <div className="relative">
+                                    <input value={S.cep} onChange={(e) => onCep(e.target.value)} inputMode="numeric" placeholder="00000-000" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                    {cepLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2"><Ic d={IC.help} size={15} stroke="#7C3AED" className="ai-spin" /></span>}
+                                  </div>
+                                  <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Preenchemos o endereço pra você.</div>
+                                </div>
+                                <div>
+                                  <Label>Nome do local</Label>
+                                  <input value={S.local} onChange={inp("local")} style={{ borderColor: S.showErr && !req(S.local) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                                </div>
                               </div>
+                              <div data-foco="quando">
+                                <Label>Endereço</Label>
+                                <input value={S.endereco} onChange={inp("endereco")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                              </div>
+                              <div data-foco="quando" className="grid grid-cols-[1.6fr_0.6fr] gap-3">
+                                <div>
+                                  <Label>Cidade</Label>
+                                  <input value={S.cidade} onChange={inp("cidade")} style={{ borderColor: S.showErr && !req(S.cidade) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                                </div>
+                                <div>
+                                  <Label>UF</Label>
+                                  <input value={S.uf} onChange={inp("uf")} style={{ borderColor: S.showErr && !req(S.uf) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
+                                </div>
+                              </div>
+                              {S.showErr && !reqDataLocal && (
+                                <div className="rounded-[11px] border border-[#FF2D8D]/25 bg-[#FDF0F5] px-3.5 py-2.5 text-[13px] text-[#C2185B]">
+                                  Preencha data, horário, local, cidade e UF para continuar.
+                                </div>
+                              )}
                             </div>
                           )}
                           {a.kind === "traje" && (
@@ -1013,24 +1230,24 @@ export function CriarConvite() {
                               <div className="flex items-center gap-3">
                                 <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Ação do botão</span>
                                 <div className="flex flex-wrap gap-2">
-                                  {["Confirmar presença", "Ver localização", "Ver presentes"].map((l, bi) => (
-                                    <Chip key={l} label={l} active={S.btnDest === bi} onClick={() => upd({ btnDest: bi })} />
+                                  {BTN_LABELS.map((l, bi) => (
+                                    // Ao trocar a ação, a escrita do botão acompanha (o texto continua editável logo acima).
+                                    <Chip key={l} label={l} active={S.btnDest === bi} onClick={() => upd({ btnDest: bi, btnTx: l })} />
                                   ))}
                                 </div>
                               </div>
+                              <div className="text-[12px] text-[#A6A6AE]">A escrita do botão acompanha a ação escolhida — e você ainda pode ajustá-la acima.</div>
                             </div>
                           )}
                           {a.kind === "rodape" && (
                             <div className="flex flex-col gap-3">
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div>
-                                  <Label>Nome exibido</Label>
-                                  <input value={S.nome} onChange={inp("nome")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                                </div>
-                                <div>
-                                  <Label>Data exibida</Label>
-                                  <input value={S.data} onChange={inp("data")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                                </div>
+                              <div>
+                                <Label>Frase de despedida</Label>
+                                <input value={S.rodapeTx} onChange={inp("rodapeTx")} placeholder="Feito com carinho." style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                <div className="mt-1 text-[11.5px] text-[#A6A6AE]">O fecho do site, logo abaixo do seu nome e da data.</div>
+                              </div>
+                              <div className="text-[12px] text-[#A6A6AE]">
+                                O nome (<b>{S.nome || "—"}</b>) e a data aparecem automáticos, do que você preencheu nas etapas anteriores.
                               </div>
                               <div className="flex items-center gap-2 rounded-[11px] border border-[#ECECF0] bg-[#F4F4F6] px-3.5 py-2.5 text-[12.5px] text-[#6e6e76]">
                                 <Ic d={IC.lock} size={13} stroke="#A6A6AE" width={2} />
@@ -1046,61 +1263,10 @@ export function CriarConvite() {
               </>
             )}
 
-            {/* STEP 4 */}
-            {S.step === 4 && (
-              <div className={cardCls}>
-                <div className="text-[18px] font-bold tracking-[-0.02em]">Data e local</div>
-                <div className="mb-5 mt-1.5 text-[13.5px] text-[#6e6e76]">Quando e onde a festa vai acontecer.</div>
-                <div data-foco="quando" className="flex flex-col gap-3.5">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Data da festa</Label>
-                      <input value={S.data} onChange={inp("data")} style={{ borderColor: S.showErr && !req(S.data) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                    </div>
-                    <div>
-                      <Label>Horário de início</Label>
-                      <input value={S.hIni} onChange={inp("hIni")} style={{ borderColor: S.showErr && !req(S.hIni) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
-                    <div>
-                      <Label>CEP</Label>
-                      <div className="relative">
-                        <input value={S.cep} onChange={(e) => onCep(e.target.value)} inputMode="numeric" placeholder="00000-000" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        {cepLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2"><Ic d={IC.help} size={15} stroke="#7C3AED" className="ai-spin" /></span>}
-                      </div>
-                      <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Preenchemos o endereço pra você.</div>
-                    </div>
-                    <div>
-                      <Label>Nome do local</Label>
-                      <input value={S.local} onChange={inp("local")} style={{ borderColor: S.showErr && !req(S.local) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Endereço</Label>
-                    <input value={S.endereco} onChange={inp("endereco")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                  </div>
-                  <div className="grid grid-cols-[1.6fr_0.6fr] gap-3">
-                    <div>
-                      <Label>Cidade</Label>
-                      <input value={S.cidade} onChange={inp("cidade")} style={{ borderColor: S.showErr && !req(S.cidade) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                    </div>
-                    <div>
-                      <Label>UF</Label>
-                      <input value={S.uf} onChange={inp("uf")} style={{ borderColor: S.showErr && !req(S.uf) ? "#FF2D8D" : "#E4E4EA" }} className={inputCls} />
-                    </div>
-                  </div>
-                </div>
-                {S.showErr && (
-                  <div className="mt-4 rounded-[11px] border border-[#FF2D8D]/25 bg-[#FDF0F5] px-3.5 py-2.5 text-[13px] text-[#C2185B]">
-                    Preencha os campos destacados para continuar.
-                  </div>
-                )}
-              </div>
-            )}
 
-            {S.step === 5 && (
-              <div data-foco="cta" className={cardCls}>
+            {/* STEP 3 — Confirmação */}
+            {S.step === 3 && (
+              <div data-foco="rsvp" className={cardCls}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[18px] font-bold tracking-[-0.02em]">Configure as confirmações</div>
@@ -1117,15 +1283,23 @@ export function CriarConvite() {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <Label>Data limite para confirmação</Label>
-                        <input defaultValue="10/11/2026" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        <input
+                          type="date"
+                          value={ddmmParaISO(S.rsvpDataLimite)}
+                          onChange={(e) => upd({ rsvpDataLimite: isoParaDDMM(e.target.value) })}
+                          style={{ borderColor: "#E4E4EA" }}
+                          className={`${inputCls} [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+                        />
                       </div>
                       <div>
                         <Label>Máximo de acompanhantes</Label>
-                        <input value={S.maxComp} onChange={inp("maxComp")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        <input value={S.maxComp} onChange={(e) => upd({ maxComp: e.target.value.replace(/\D/g, "").slice(0, 2) })} inputMode="numeric" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                       </div>
                     </div>
                     <div className="flex flex-col">
                       {RSVP_LABELS.map((name, i) => (
+                        // Sem trocar o foco ao ligar/desligar: a mudança vai AO VIVO
+                        // pro formulário por postMessage (instantâneo, sem recarregar).
                         <div key={name} className="flex items-center justify-between border-b border-[#F0F0F3] py-2.5">
                           <span className="text-[13.5px] text-[#3F3F46]">{name}</span>
                           <Toggle on={S.rsvpOpts[i]} onClick={() => { const rsvpOpts = [...S.rsvpOpts]; rsvpOpts[i] = !rsvpOpts[i]; upd({ rsvpOpts }); }} />
@@ -1133,26 +1307,77 @@ export function CriarConvite() {
                       ))}
                     </div>
                     <div>
-                      <div className="mb-2 text-[12.5px] font-semibold text-[#3F3F46]">Cores do formulário</div>
+                      <div className="mb-2 text-[12.5px] font-semibold text-[#3F3F46]">Cor do botão</div>
                       <div className="flex flex-wrap gap-2">
-                        <Chip label="Usar as cores do meu convite" active={S.theme === 0} onClick={() => upd({ theme: 0 })} />
-                        <Chip label="Personalizar cores" active={S.theme === 1} onClick={() => upd({ theme: 1 })} />
+                        <Chip label="Usar a cor do convite" active={S.theme === 0} onClick={() => upd({ theme: 0 })} />
+                        <Chip label="Escolher outra cor" active={S.theme === 1} onClick={() => upd({ theme: 1 })} />
                       </div>
                       {S.theme === 1 && (
-                        <div className="mt-3 flex items-center gap-3">
-                          <span className="w-[130px] text-[12.5px] text-[#6e6e76]">Cor do botão</span>
-                          <Swatches colors={BTNC} value={S.corBtn} onChange={(i) => upd({ corBtn: i })} />
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {["#CE578B", "#B83D6B", "#C0663F", "#E0B341", "#3FA05B", "#2F8F83", "#3B74E0", "#7C4CE0", "#111827"].map((c) => (
+                            <span
+                              key={c}
+                              onClick={() => upd({ rsvpCorBotao: c })}
+                              style={{ background: c, borderColor: S.rsvpCorBotao.toLowerCase() === c.toLowerCase() ? V : "#E4E4EA" }}
+                              className="size-7 cursor-pointer rounded-full border-2 shadow-[inset_0_0_0_2px_#fff]"
+                            />
+                          ))}
+                          <span
+                            className="relative inline-flex size-7 items-center justify-center overflow-hidden rounded-full border border-[#E4E4EA]"
+                            style={{ background: /^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao) ? S.rsvpCorBotao : "#CE578B" }}
+                            title="Qualquer cor"
+                          >
+                            <input
+                              type="color"
+                              value={/^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao) ? S.rsvpCorBotao : "#CE578B"}
+                              onChange={(e) => upd({ rsvpCorBotao: e.target.value })}
+                              className="absolute inset-0 cursor-pointer opacity-0"
+                              aria-label="Qualquer cor do botão"
+                            />
+                          </span>
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label>Mensagem para quem confirma</Label>
-                        <textarea rows={2} defaultValue="Obrigado! Mal podemos esperar para ter você nesse dia especial!" style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                    {/* Prévia da tela de agradecimento (o que o convidado vê APÓS
+                        responder): botões pra ver cada variante ao vivo, à vontade.
+                        Clicar leva a prévia pra a página /obrigada correspondente. */}
+                    <div className="rounded-xl border border-[#ECECF0] bg-[#FAFAFC] px-4 py-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[12.5px] font-semibold text-[#3F3F46]">Tela de agradecimento</span>
+                        <div className="flex gap-1.5">
+                          {([["obrigada-sim", "Ver: quem confirma"], ["obrigada-nao", "Ver: quem não vai"]] as const).map(([f, l]) => {
+                            const on = S.foco === f;
+                            return (
+                              <button
+                                key={f}
+                                type="button"
+                                data-foco={f}
+                                onClick={() => setFoco(f)}
+                                style={{ borderColor: on ? V : "#E4E4EA", background: on ? "#F3EFFE" : "#fff", color: on ? "#6D28D9" : MUT }}
+                                className="cursor-pointer rounded-full border px-3 py-[6px] text-[12px] font-medium"
+                              >
+                                {l}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div>
+                      <div className="text-[11.5px] leading-[1.5] text-[#A6A6AE]">
+                        É a tela que o convidado vê depois de responder. Toque numa opção pra ver na prévia — e edite a mensagem abaixo. Depois é só clicar em qualquer outra parte pra a prévia voltar ao convite.
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {/* data-foco="obrigada-sim/nao": ao editar, a prévia pula pra
+                          tela de "Obrigada" e mostra ONDE a mensagem aparece. */}
+                      <div data-foco="obrigada-sim">
+                        <Label>Mensagem para quem confirma</Label>
+                        <textarea rows={2} value={S.rsvpMsgSim} onChange={inp("rsvpMsgSim")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                        <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Aparece na tela de agradecimento de quem confirmou presença.</div>
+                      </div>
+                      <div data-foco="obrigada-nao">
                         <Label>Mensagem para quem não pode ir</Label>
-                        <textarea rows={2} defaultValue="Tudo bem! Agradecemos por nos avisar. Sentiremos sua falta!" style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                        <textarea rows={2} value={S.rsvpMsgNao} onChange={inp("rsvpMsgNao")} style={{ borderColor: "#E4E4EA" }} className={`${inputCls} resize-y leading-relaxed`} />
+                        <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Aparece para quem respondeu que não vai.</div>
                       </div>
                     </div>
                   </div>
@@ -1160,8 +1385,8 @@ export function CriarConvite() {
               </div>
             )}
 
-            {/* STEP 5 */}
-            {S.step === 6 && (
+            {/* STEP 4 — Presentes e Pix */}
+            {S.step === 4 && (
               <>
                 <div className={cardCls}>
                   <div className="flex items-center justify-between">
@@ -1172,57 +1397,84 @@ export function CriarConvite() {
                     <Toggle on={S.gifts} onClick={() => upd({ gifts: !S.gifts })} size="lg" />
                   </div>
                   {S.gifts && (
-                    <div className="mt-5 flex flex-col gap-3.5">
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_2fr]">
-                        <div>
-                          <Label>Título da lista</Label>
-                          <input defaultValue="Lista de presentes" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                        <div>
-                          <Label>Texto de apresentação</Label>
-                          <input defaultValue="Escolha um presente e ajude a tornar essa noite ainda mais especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                    <div className="mt-5 flex flex-col gap-4">
+                      <div>
+                        <Label>Texto de apresentação</Label>
+                        <input value={S.presentesTexto} onChange={inp("presentesTexto")} placeholder="Escolha um presente e ajude a tornar essa noite ainda mais especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                      </div>
+
+                      {/* Adicionar rápido — 1 toque adiciona um presente pronto (fácil). */}
+                      <div>
+                        <div className="mb-2 text-[12.5px] font-semibold text-[#3F3F46]">Adicionar rápido <span className="font-normal text-[#A6A6AE]">— toque para incluir</span></div>
+                        <div className="flex flex-wrap gap-2">
+                          {SUGESTOES_PRESENTES.map((s) => {
+                            const jaTem = S.giftList.some((g) => g.n.trim().toLowerCase() === s.n.toLowerCase());
+                            return (
+                              <button
+                                key={s.n}
+                                type="button"
+                                disabled={jaTem}
+                                onClick={() => upd({ giftList: [...S.giftList, { n: s.n, desc: s.desc, v: s.v }] })}
+                                className={`rounded-full border px-3 py-[7px] text-[12.5px] font-medium transition-colors ${
+                                  jaTem
+                                    ? "cursor-default border-[#ECECF0] bg-[#F4F4F6] text-[#B9B9C0]"
+                                    : "cursor-pointer border-[#DCCDFB] bg-[#F6F3FE] text-[#6D28D9] hover:bg-[#EFE7FE]"
+                                }`}
+                              >
+                                {jaTem ? "✓ " : "+ "}{s.n}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                      <div data-foco="presentes" className="flex flex-col gap-3">
+
+                      <div data-foco="presentes" className="flex flex-col gap-2.5">
+                        {S.giftList.length === 0 && (
+                          <div className="rounded-xl border border-dashed border-[#E4E4EA] bg-[#FAFAFC] px-4 py-6 text-center text-[13px] text-[#A6A6AE]">
+                            Nenhum presente ainda. Toque numa sugestão acima ou em “Adicionar presente”.
+                          </div>
+                        )}
                         {S.giftList.map((g, i) => (
-                          <div key={i} className="rounded-2xl border border-[#ECECF0] bg-white p-3.5 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
-                            <div className="flex items-start gap-2.5">
-                              <span className="mt-2 grid size-6 flex-none place-items-center rounded-full bg-[#F3EFFE] text-[11px] font-bold text-[#7C3AED]">{i + 1}</span>
-                              <div className="flex-1">
-                                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_120px]">
-                                  <input
-                                    value={g.n}
-                                    onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, n: e.target.value } : x)) })}
-                                    placeholder="Nome do presente"
-                                    style={{ borderColor: "#E4E4EA" }}
-                                    className={`${inputCls} font-semibold`}
-                                  />
-                                  <input
-                                    value={g.v}
-                                    onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, v: e.target.value } : x)) })}
-                                    inputMode="numeric"
-                                    placeholder="R$ 0"
-                                    style={{ borderColor: "#E4E4EA" }}
-                                    className={`${inputCls} text-center`}
-                                  />
-                                </div>
+                          <div key={i} className="rounded-2xl border border-[#ECECF0] bg-white p-3 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
+                            <div className="flex items-center gap-2.5">
+                              <span className="grid size-6 flex-none place-items-center rounded-full bg-[#F3EFFE] text-[11px] font-bold text-[#7C3AED]">{i + 1}</span>
+                              <input
+                                value={g.n}
+                                onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, n: e.target.value } : x)) })}
+                                placeholder="Nome do presente"
+                                style={{ borderColor: "#E4E4EA" }}
+                                className={`${inputCls} flex-1 font-semibold`}
+                              />
+                              <div className="relative w-[120px] flex-none">
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#8b8b93]">R$</span>
                                 <input
-                                  value={g.desc}
-                                  onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, desc: e.target.value } : x)) })}
-                                  placeholder="Descrição (opcional)"
+                                  value={g.v.replace(/[^\d]/g, "")}
+                                  onChange={(e) => {
+                                    const digits = e.target.value.replace(/\D/g, "");
+                                    upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, v: digits ? `R$ ${digits}` : "" } : x)) });
+                                  }}
+                                  inputMode="numeric"
+                                  placeholder="0"
                                   style={{ borderColor: "#E4E4EA" }}
-                                  className={`${inputCls} mt-2.5 text-[13px]`}
+                                  className={`${inputCls} pl-9 text-right font-semibold`}
                                 />
                               </div>
                               <button
                                 type="button"
                                 onClick={() => upd({ giftList: S.giftList.filter((_, j) => j !== i) })}
                                 title="Remover presente"
-                                className="mt-1 grid size-8 flex-none cursor-pointer place-items-center rounded-lg text-[#A6A6AE] hover:bg-[#FDECEF] hover:text-[#E11D48]"
+                                className="grid size-8 flex-none cursor-pointer place-items-center rounded-lg text-[#A6A6AE] hover:bg-[#FDECEF] hover:text-[#E11D48]"
                               >
                                 <Ic d={IC.x} size={15} stroke="currentColor" width={2} />
                               </button>
                             </div>
+                            <input
+                              value={g.desc}
+                              onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, desc: e.target.value } : x)) })}
+                              placeholder="Descrição (opcional) — ex.: “o momento mais esperado”"
+                              style={{ borderColor: "transparent" }}
+                              className="mt-1.5 w-full rounded-[9px] bg-transparent px-2 py-1.5 pl-[38px] text-[12.5px] text-[#6e6e76] outline-none focus:bg-[#FAFAFC]"
+                            />
                           </div>
                         ))}
                         <button
@@ -1230,7 +1482,7 @@ export function CriarConvite() {
                           onClick={() => upd({ giftList: [...S.giftList, { n: "", desc: "", v: "" }] })}
                           className="w-full cursor-pointer rounded-[11px] border-[1.5px] border-dashed border-[#D5D5DC] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#7C3AED] hover:border-[#7C3AED] hover:bg-[#FBFAFE]"
                         >
-                          + Adicionar presente
+                          + Adicionar presente em branco
                         </button>
                       </div>
                       <div className="rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
@@ -1294,14 +1546,14 @@ export function CriarConvite() {
               </>
             )}
 
-            {/* STEP 6 */}
-            {S.step === 7 && (
+            {/* STEP 5 — Galeria e recados */}
+            {S.step === 5 && (
               <>
                 <div>
                   <div className="text-[18px] font-bold tracking-[-0.02em]">Galeria e recados</div>
                   <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">As fotos da festa e os recados dos convidados.</div>
                 </div>
-                <div className={cardCls}>
+                <div data-foco="galeria" className={cardCls}>
                   <div className="mb-3.5 flex items-center justify-between">
                     <div className="text-[14.5px] font-bold">Galeria de fotos</div>
                     <Toggle on={S.gal} onClick={() => upd({ gal: !S.gal })} />
@@ -1322,7 +1574,7 @@ export function CriarConvite() {
                     </>
                   )}
                 </div>
-                <div className={cardCls}>
+                <div data-foco="recados" className={cardCls}>
                   <div className="mb-1.5 flex items-center justify-between">
                     <div className="text-[14.5px] font-bold">Mural de recados</div>
                     <Toggle on={S.rec} onClick={() => upd({ rec: !S.rec })} />
@@ -1364,11 +1616,25 @@ export function CriarConvite() {
               </>
             )}
 
-            {S.step === 8 && (
+            {/* STEP 6 — Revisar e publicar */}
+            {S.step === 6 && (
               <>
                 <div>
                   <div className="text-[18px] font-bold tracking-[-0.02em]">Revisar e publicar</div>
                   <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Confira se está tudo certo e publique o convite.</div>
+                </div>
+                {/* Link/endereço do convite — configurado aqui, no fim do fluxo. */}
+                <div className={cardCls}>
+                  <div className="text-[15.5px] font-bold">Endereço do seu convite</div>
+                  <div className="mb-3.5 mt-1 text-[13px] text-[#6e6e76]">É o link que seus convidados vão receber.</div>
+                  <div className="flex items-center overflow-hidden rounded-[11px] border bg-[#F4F4F6]" style={{ borderColor: S.showErr && !slugOk ? "#FF2D8D" : "#E4E4EA" }}>
+                    <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
+                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.seuconvite.orivya.com</span>
+                  </div>
+                  <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
+                    <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
+                    {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
+                  </div>
                 </div>
                 <div className={cardCls}>
                   <div className="mb-2 text-[14.5px] font-bold">Antes de publicar</div>
@@ -1394,7 +1660,9 @@ export function CriarConvite() {
             <div className={`${cardCls} p-4`}>
               <PreviewSite
                 rascunhoJson={JSON.stringify(montarRascunho(S))}
-                pagina={paginaDoPasso(S.step)}
+                estruturalJson={estruturalDoEditor(S)}
+                liveRsvpConfig={S.rsvp ? rsvpConfigDe(S) : null}
+                pagina={paginaDoPasso(S.step, S.foco)}
                 foco={S.foco}
                 live={liveMapa(S)}
                 host={hostPublico}

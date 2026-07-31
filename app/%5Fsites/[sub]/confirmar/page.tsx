@@ -11,6 +11,7 @@ import { comFotosDemo } from "@/lib/demoFotos";
 import { RsvpConvite } from "@/components/evt/RsvpConvite";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { recursosDoSite } from "@/lib/recursos";
+import { lerRsvpConfig } from "@/lib/rsvpConfig";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export default async function ConfirmarPage({
       eventId={event.id}
       nome={evento.primeiroNome}
       fotoUrl={evento.fotoUrl}
+      config={lerRsvpConfig(event.customization)}
     />
   );
 }

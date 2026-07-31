@@ -25,7 +25,7 @@ export function GaleriaQuinzeGlamour({ evento }: PaginaTemplateProps) {
   const fotos = evento.fotos ?? [];
 
   return (
-    <main className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">
+    <main data-sec="galeria" className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">
       <div className="mx-auto max-w-[1080px]">
         <Reveal>
           <Heading eyebrow="Galeria" title="Momentos" />

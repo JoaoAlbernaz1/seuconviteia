@@ -29,6 +29,11 @@ export function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
+/** URL do iframe da prévia (rota /preview-evento) a partir de página, foco e rascunho. */
+function montarSrc(pagina: string, foco: string | undefined, rascunho: string): string {
+  return `/preview-evento?p=${pagina}${foco ? `&f=${foco}` : ""}&s=${encodeURIComponent(rascunho)}`;
+}
+
 type Device = "iphone" | "mac";
 
 const VIEWPORT_PHONE = 390; // celular real — o site responde como mobile
@@ -220,28 +225,123 @@ function MacFrame({ src, host }: { src: string; host: string }) {
 
 export function PreviewSite({
   rascunhoJson,
+  estruturalJson,
+  liveRsvpConfig,
   pagina = "inicio",
+  foco,
+  live,
   host,
   rotulo = "É assim que os convidados vão ver",
   altura = 600,
 }: {
   /** JSON do rascunho (string) — vira `?s=` da rota /preview-evento. */
   rascunhoJson: string;
+  /** Assinatura só do que EXIGE recarregar (toggles, cores, fotos, fontes,
+   *  presentes, config do RSVP). Muda → recarrega. Se ausente, cai no
+   *  comportamento antigo (recarrega a cada mudança do rascunho). */
+  estruturalJson?: string;
+  /** Config do formulário de confirmação enviada AO VIVO pro iframe (postMessage),
+   *  pra as opções aparecerem/sumirem NA HORA, sem recarregar. `null` = RSVP off. */
+  liveRsvpConfig?: unknown;
   /** Página do site no preview: inicio | evento | presentes | galeria. */
   pagina?: string;
+  /** Seção em edição — a prévia rola até `[data-sec=foco]` e destaca (?f=). */
+  foco?: string;
+  /** Texto AO VIVO: mapa chave→valor aplicado direto no DOM do iframe a cada
+   *  tecla (sem recarregar). As chaves batem com `[data-live="<chave>"]` no site. */
+  live?: Record<string, string>;
   /** Endereço mostrado na barra do Mac (ex.: maria.seuconviteia.com). */
   host: string;
   rotulo?: string;
   /** Altura útil da tela do iPhone em px de viewport (escala junto). */
   altura?: number;
 }) {
-  const estavel = useDebounced(rascunhoJson, 500);
-  const src = `/preview-evento?p=${pagina}&s=${encodeURIComponent(estavel)}`;
-  const atualizando = estavel !== rascunhoJson;
+  // Recarregar o iframe SÓ quando muda algo ESTRUTURAL (toggles, cores, fotos,
+  // fontes, lista de presentes, config do RSVP) ou a página/seção em foco. Os
+  // TEXTOS refletem ao vivo pelo patch no DOM (abaixo), sem recarregar — então
+  // digitar nome/mensagem/endereço/traje não faz a prévia "pular" nem re-rolar.
+  // Ref com o rascunho MAIS novo (atualizado em effect, nunca no render) — o
+  // reload lê daqui pra montar o `?s=` com o texto atual no momento em que ocorre.
+  const rascunhoRef = useRef(rascunhoJson);
+  useEffect(() => {
+    rascunhoRef.current = rascunhoJson;
+  }, [rascunhoJson]);
+  const chaveReload = estruturalJson ?? rascunhoJson;
+  const estavel = useDebounced(chaveReload, 300);
+  const atualizando = estavel !== chaveReload;
+  // `src` (e portanto o reload do iframe) só muda quando o ESTRUTURAL estabiliza,
+  // a página ou o foco mudam — nunca por um texto. Textos vão pelo patch ao vivo.
+  const [src, setSrc] = useState(() => montarSrc(pagina, foco, rascunhoJson));
+  useEffect(() => {
+    setSrc(montarSrc(pagina, foco, rascunhoRef.current));
+  }, [estavel, pagina, foco]);
   const [device, setDevice] = useState<Device>("iphone");
 
   // Largura da coluna -> fator de escala do aparelho inteiro.
   const areaRef = useRef<HTMLDivElement>(null);
+
+  // ── ATUALIZAÇÃO AO VIVO (sem recarregar) ──────────────────────────────────
+  // A prévia é mesma origem: a cada tecla, escrevemos o texto direto nos
+  // elementos `[data-live=<chave>]` do(s) iframe(s). O recarregar debounced
+  // (src) segue como rede de segurança p/ mudanças estruturais.
+  const liveJson = JSON.stringify(live ?? {});
+  useEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
+    const mapa = JSON.parse(liveJson) as Record<string, string>;
+    // SÓ o iframe VISÍVEL (já carregado e hidratado). O buffer de trás está
+    // carregando/hidratando; mexer nele daria "hydration mismatch". O de trás já
+    // nasce com o texto certo (o `src` debounced carrega o rascunho atual).
+    const ifr = area.querySelector<HTMLIFrameElement>("iframe:not(.invisible)");
+    let doc: Document | null = null;
+    try {
+      doc = ifr?.contentDocument ?? null;
+    } catch {
+      doc = null; // cross-origin (não ocorre no mesmo domínio)
+    }
+    if (!doc) return;
+    for (const [chave, valor] of Object.entries(mapa)) {
+      doc.querySelectorAll<HTMLElement>(`[data-live="${chave}"]`).forEach((el) => {
+        if (el.hasAttribute("data-live-multi")) {
+          // texto multi-parágrafo: reconstrói os <p> por bloco (\n\n).
+          const cls = el.getAttribute("data-live-class") || "";
+          const blocos = valor.split(/\n\n+/).map((s) => s.trim()).filter(Boolean);
+          const atual = Array.from(el.children).map((c) => c.textContent).join("\n\n");
+          if (atual !== blocos.join("\n\n")) {
+            el.textContent = "";
+            for (const t of blocos) {
+              const p = doc!.createElement("p");
+              if (cls) p.className = cls;
+              p.textContent = t;
+              el.appendChild(p);
+            }
+          }
+        } else if (el.textContent !== valor) {
+          el.textContent = valor;
+        }
+      });
+    }
+  }, [liveJson]);
+
+  // ── CONFIG DO RSVP AO VIVO (sem recarregar) ───────────────────────────────
+  // As opções do formulário de confirmação (acompanhantes, telefone, e-mail,
+  // restrição, recado, cor, data-limite) vão pro iframe por postMessage. O
+  // RsvpConvite (em modo preview) escuta e re-renderiza NA HORA — sem reload.
+  const rsvpConfigJson = JSON.stringify(liveRsvpConfig ?? null);
+  useEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
+    const ifr = area.querySelector<HTMLIFrameElement>("iframe:not(.invisible)");
+    try {
+      ifr?.contentWindow?.postMessage(
+        { __scPreview: true, rsvpConfig: JSON.parse(rsvpConfigJson) },
+        window.location.origin,
+      );
+    } catch {
+      /* iframe ainda não pronto — o `?s=` do reload já traz a config certa */
+    }
+  }, [rsvpConfigJson]);
+
   const [colW, setColW] = useState(0);
   useEffect(() => {
     const el = areaRef.current;

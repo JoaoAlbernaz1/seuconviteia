@@ -1,0 +1,197 @@
+{
+  "produto": {
+    "nome": "seuconvite (SeuConvite IA)",
+    "descricao": "SaaS B2B multi-tenant onde profissionais (cerimonialistas, ateliês, festas) criam sites de convite digital para seus clientes — casamento, 15 anos, 60 anos, bodas, aniversário — em minutos, com editor visual e prévia ao vivo.",
+    "promessa": "O seu site de convite em minutos.",
+    "modelo": "B2B multi-tenant (profissional cria; convidado usa). Cada convite vive num subdomínio.",
+    "gerado_em": "2026-07-27",
+    "branch": "backup/dashboard-editor-local-20260720"
+  },
+  "stack": {
+    "framework": "Next.js 16 (App Router, React 19, React Compiler)",
+    "linguagem": "TypeScript (strict)",
+    "estilo": "Tailwind CSS v4 (@theme, CSS-first)",
+    "orm_banco": "Prisma 6 + MySQL (local: sc-mysql) → produção Postgres/Supabase (reconciliação pendente)",
+    "auth": "Auth.js v5 (credenciais e-mail/senha)",
+    "pagamento": "Mercado Pago / Pix (modelo Transaction existe; integração pendente)",
+    "email": "Resend (lib/email)",
+    "storage": "Disco local (dev) / Vercel Blob (produção — stub, pendente)",
+    "deploy": "Vercel (domínio + wildcard *.seuconviteia.com)",
+    "gerenciador": "pnpm",
+    "testes": "Vitest (154 testes de lib)"
+  },
+  "superficies": [
+    {
+      "id": "marketing",
+      "nome": "Marketing (landing)",
+      "rota": "app/(marketing)",
+      "dominio": "seuconviteia.com",
+      "publico": "profissional (visitante)",
+      "descricao": "Página de vendas: hero, modelos, como funciona, planos, FAQ. Marca turquesa+roxo (Fraunces/Sora).",
+      "cor": "#7C3AED"
+    },
+    {
+      "id": "painel",
+      "nome": "Painel do profissional",
+      "rota": "app/(dashboard)",
+      "dominio": "app.seuconviteia.com",
+      "publico": "profissional (logado)",
+      "descricao": "Meus convites (lista), editor 'Criar convite' (6 passos com prévia ao vivo), convidados, presentes, plano, perfil. Prévia = site real dentro de um iframe (mesma origem) com atualização ao vivo e círculo 'onde estou mexendo'.",
+      "cor": "#7C3AED",
+      "rotas": [
+        "/painel — dashboard",
+        "/painel/convites — Meus convites (lista de todos)",
+        "/painel/criar — editor 'Criar convite' (6 passos)",
+        "/painel/[id] — gerenciar convite (KPIs + edição por seção)",
+        "/painel/[id]/{convidados,presentes,galeria,detalhes,estilo,programacao,recursos,publicar,publicado}",
+        "/preview-evento — render do site real p/ a prévia (?p=página &f=foco &s=rascunho)",
+        "/entrar, /cadastrar — Auth.js"
+      ]
+    },
+    {
+      "id": "sites",
+      "nome": "Sites de evento (convidado)",
+      "rota": "app/%5Fsites/[sub]",
+      "dominio": "<cliente>.seuconviteia.com",
+      "publico": "convidado (público)",
+      "descricao": "O convite publicado. Resolvido por subdomínio (middleware reescreve para _sites/[sub]). Páginas: capa/home, evento, presentes, galeria, recados, confirmar, obrigada.",
+      "cor": "#CE578B",
+      "paginas": ["/ (capa+home)", "/evento", "/presentes", "/galeria", "/recados", "/confirmar", "/obrigada"]
+    }
+  ],
+  "multi_tenant": {
+    "estrategia": "Subdomínio por convite. middleware.ts resolve o tenant (lib/tenant.ts) e reescreve <sub>.dominio → app/_sites/[sub]. app. → painel; raiz → marketing.",
+    "isolamento": "Toda query filtra por tenant (eventId/professionalId); ownership validado no servidor (não confia no subdomínio).",
+    "dev": "cliente.localhost:3000 (Chrome resolve *.localhost)."
+  },
+  "modelo_dados": {
+    "enums": {
+      "Plan": ["BASICO", "CLASSICO", "PREMIUM"],
+      "EventType": ["CASAMENTO", "QUINZE_ANOS", "SESSENTA_ANOS", "BODAS", "ANIVERSARIO"],
+      "EventStatus": ["DRAFT", "PUBLISHED", "EXPIRED"],
+      "GiftMode": ["PIX", "ITEM"],
+      "GuestStatus": ["PENDING", "CONFIRMED", "DECLINED"]
+    },
+    "entidades": [
+      {
+        "nome": "Professional",
+        "papel": "Conta do profissional (quem cria os convites). Tem plano e marca (white-label).",
+        "campos": ["id", "name", "email", "passwordHash", "plan", "avatarUrl", "brandName", "brandLogoUrl", "brandColors", "createdAt", "updatedAt"],
+        "relacoes": ["events: Event[]"]
+      },
+      {
+        "nome": "Event",
+        "papel": "O convite. Núcleo do sistema. Guarda todo o conteúdo editável em customization (JSON).",
+        "campos": ["id", "professionalId", "type (EventType)", "subdomain", "title", "templateId", "eventDate", "expiresAt", "status (EventStatus)", "plan", "customization (Json)", "createdAt", "updatedAt"],
+        "relacoes": ["professional: Professional", "template: Template", "guests: Guest[]", "gifts: GiftItem[]", "photos: Photo[]", "recados: Recado[]", "transactions: Transaction[]"]
+      },
+      {
+        "nome": "Guest",
+        "papel": "Confirmação de presença (RSVP) de um convidado.",
+        "campos": ["id", "eventId", "name", "status (GuestStatus)", "companions", "message", "createdAt"],
+        "relacoes": ["event: Event"]
+      },
+      {
+        "nome": "GiftItem",
+        "papel": "Presente da lista (nome, valor, foto, modo Pix/Item, comprado?).",
+        "campos": ["id", "eventId", "title", "description", "imageUrl", "priceCents", "mode (GiftMode)", "pixPayload", "purchased", "buyerName", "createdAt"],
+        "relacoes": ["event: Event"]
+      },
+      {
+        "nome": "Recado",
+        "papel": "Recado no mural (moderado: approved).",
+        "campos": ["id", "eventId", "name", "message", "approved", "createdAt"],
+        "relacoes": ["event: Event"]
+      },
+      {
+        "nome": "Photo",
+        "papel": "Foto da galeria (ordenável).",
+        "campos": ["id", "eventId", "url", "order", "createdAt"],
+        "relacoes": ["event: Event"]
+      },
+      {
+        "nome": "Template",
+        "papel": "Modelo de design por nicho (config JSON).",
+        "campos": ["id", "name", "nicho (EventType)", "config", "createdAt"],
+        "relacoes": ["events: Event[]"]
+      },
+      {
+        "nome": "Transaction",
+        "papel": "Pagamento (presente/Pix) — para o modelo iCasei completo (pendente de integração).",
+        "campos": ["id", "eventId", "amountCents", "kind", "status", "providerId", "createdAt"],
+        "relacoes": ["event: Event"]
+      }
+    ]
+  },
+  "templates": [
+    {"nicho": "QUINZE_ANOS", "id": "quinze-anos/glamour-rose", "descricao": "Glamour Rosé — clone fiel do site da Maria Clara (flagship). Capa cinematográfica, carta, contagem, presentes, galeria."},
+    {"nicho": "CASAMENTO", "id": "casamento/classico-elegante", "descricao": "Clássico elegante."},
+    {"nicho": "ANIVERSARIO", "id": "aniversario/adulto-elegante", "descricao": "Adulto elegante."},
+    {"nicho": "ANIVERSARIO", "id": "aniversario/infantil-ludico", "descricao": "Infantil lúdico."}
+  ],
+  "camadas_codigo": {
+    "app": "Rotas (marketing, dashboard, _sites/[sub], api). Server Components por padrão.",
+    "components": {
+      "evt": "Componentes do site do convidado (SiteNav, SiteFooter, PaginaInicio/Evento/Presentes/Galeria, RsvpConvite, RecadoForm, PainelPresentes, PixCard, PreviewFoco, Reveal, Timeline...).",
+      "templates": "Um diretório por template (quinze-anos/glamour-rose etc.) com Capa/Home/Evento/Presentes/Galeria.",
+      "marketing": "Componentes da landing.",
+      "painel": "Editor 'Criar convite' + shell + prévia (PreviewSite)."
+    },
+    "lib": [
+      {"arquivo": "tenant.ts", "papel": "Resolução de subdomínio → tenant."},
+      {"arquivo": "db.ts", "papel": "Singleton do Prisma."},
+      {"arquivo": "plans.ts", "papel": "Fonte única do gating por plano (recursos)."},
+      {"arquivo": "recursos.ts", "papel": "Toggles de recursos do site (RSVP, presentes, galeria, recados...)."},
+      {"arquivo": "templates.ts", "papel": "Registro dos templates do MVP e nicho→ocasião."},
+      {"arquivo": "temas.ts", "papel": "Presets de cor (vars --ev-*); preset 'rose' = valores da festa."},
+      {"arquivo": "fontes.ts", "papel": "Presets de fonte (vars --ev-font-*); 'classica' = fontes da festa."},
+      {"arquivo": "convite.ts", "papel": "Adapter: Event → conteúdo comum do site (título, data, presentes, pix...)."},
+      {"arquivo": "eventoFesta.ts", "papel": "Adapter EventoFesta que os templates consomem (idade, monograma, animações, capa...)."},
+      {"arquivo": "previewEvento.ts", "papel": "Serializa o rascunho do editor (?s=) ↔ Event sintético para a prévia."},
+      {"arquivo": "rsvp.ts / rsvpFesta.ts", "papel": "Confirmação de presença (grava Guest)."},
+      {"arquivo": "recados.ts", "papel": "Deixar recado (grava Recado, LGPD)."},
+      {"arquivo": "email/", "papel": "Envio de e-mail (Resend)."},
+      {"arquivo": "storage/", "papel": "Upload de imagens: disco local (dev) / Vercel Blob (prod)."},
+      {"arquivo": "countdown.ts / dates.ts", "papel": "Contagem regressiva e datas (fuso -03:00)."},
+      {"arquivo": "cor.ts / secoes.ts / textos.ts / slug.ts / sugestoes.ts", "papel": "Utilitários (cores de partículas, copy das seções, slug, sugestões)."}
+    ]
+  },
+  "fluxos": [
+    {
+      "nome": "Criar convite (profissional)",
+      "passos": ["Editor 'Criar convite' (6 passos: Festa · Capa e estilo · Conteúdo · Confirmação · Presentes e Pix · Galeria e publicação)", "Prévia ao vivo (iframe /preview-evento, mesma origem) atualiza enquanto digita + círculo 'onde estou mexendo'", "Salvar rascunho ou Publicar → server action criarConvite grava Event.customization + GiftItems", "Publicado → site no ar em <slug>.seuconviteia.com"]
+    },
+    {"nome": "RSVP (convidado)", "passos": ["Convidado abre /confirmar", "Preenche nome + acompanhantes (+ consentimento LGPD)", "Server action confirmarPresencaFesta → grava Guest (status CONFIRMED)", "Profissional vê no painel (Convidados)"]},
+    {"nome": "Presente / Pix (convidado)", "passos": ["Convidado abre /presentes", "Vê a lista (nome, descrição, preço) + botão Presentear", "Presentear → Pix (chave/QR) para pagar", "iCasei completo (pagamento na plataforma + Transaction) = pendente"]},
+    {"nome": "Recado (convidado)", "passos": ["Convidado deixa recado em /recados (RecadoForm)", "Server action deixarRecado → grava Recado (approved=false)", "Profissional modera (aprova/oculta)", "Aprovado aparece no mural"]},
+    {"nome": "Expiração", "passos": ["Cron /api/cron/expirar (protegido por CRON_SECRET)", "Marca Events vencidos (expiresAt < agora) como EXPIRED"]}
+  ],
+  "integracoes": {
+    "auth": {"provider": "Auth.js v5 (credenciais)", "rota": "app/api/auth/[...nextauth]", "status": "funciona"},
+    "upload": {"rota": "app/api/upload", "provider": "disco local (dev) / Vercel Blob (prod)", "status": "dev ok; Blob de prod pendente"},
+    "pagamento": {"provider": "Mercado Pago (Pix)", "modelo": "Transaction", "status": "pendente (hoje Pix manual)"},
+    "email": {"provider": "Resend", "status": "biblioteca pronta"},
+    "cron": {"rota": "app/api/cron/expirar", "status": "expira convites vencidos"}
+  },
+  "status_mvp": {
+    "pronto": [
+      "Site do convidado (capa, evento, presentes, galeria, recados, confirmar) renderiza",
+      "RSVP grava convidado; Recado grava com LGPD",
+      "Editor 'Criar convite' salva e publica; prévia ao vivo + círculo de foco",
+      "Textos ao vivo (nome, idade, título/mensagem da carta, local, endereço, traje, pix, presentes)",
+      "Capa: foto, idade, monograma (liga/desliga), animações de entrada (liga/desliga)",
+      "Presentes editáveis (CRUD: nome/valor/descrição) + preço + botão Presentear no site",
+      "Meus convites (lista)"
+    ],
+    "pendente": [
+      "Galeria: upload real de fotos no editor novo",
+      "Capa: cores do texto, overlay e tamanhos",
+      "Confirmação (RSVP): escolher campos + acompanhantes",
+      "Recados: moderação de verdade no painel",
+      "Abrir convite existente para editar no editor novo",
+      "Pagamento na plataforma (Mercado Pago) — iCasei completo",
+      "Storage de produção (Vercel Blob)",
+      "Reconciliação para o banco de produção (Postgres) + destravar deploy na Vercel"
+    ]
+  }
+}

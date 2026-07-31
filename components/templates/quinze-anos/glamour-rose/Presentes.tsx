@@ -22,13 +22,13 @@ function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
 }
 
 export function PresentesQuinzeGlamour({ evento }: PaginaTemplateProps) {
-  const itens = (evento.presentes ?? []).map((p) => ({ nome: p.titulo, detalhe: p.descricao }));
+  const itens = (evento.presentes ?? []).map((p) => ({ nome: p.titulo, detalhe: p.descricao, valor: p.valorLabel }));
   const texto =
     evento.presentesTexto ??
     "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui.";
 
   return (
-    <main className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">
+    <main data-sec="presentes" className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">
       <div className="mx-auto max-w-[860px]">
         <Reveal>
           <Heading eyebrow="Presentes" title="Sua presença é o presente" />

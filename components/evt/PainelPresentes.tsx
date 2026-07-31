@@ -16,7 +16,7 @@ export function PainelPresentes({
 }: {
   fotoUrl?: string;
   fotoPos?: string;
-  itens: { nome: string; detalhe?: string }[];
+  itens: { nome: string; detalhe?: string; valor?: string }[];
   pixChave?: string;
   pixNome?: string;
   pixQrUrl?: string;
@@ -65,22 +65,39 @@ export function PainelPresentes({
             {itens.map((it, i) => (
               <li
                 key={`${it.nome}-${i}`}
-                className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-3 ${
+                className={`flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${
                   i > 0 ? "border-t border-[var(--line)]" : ""
                 }`}
               >
-                <span className="font-evt-body text-[clamp(1.35rem,5vw,1.6rem)] text-evt-ink">{it.nome}</span>
-                {it.detalhe && (
-                  <span className="font-evt-body text-[clamp(1.05rem,4vw,1.2rem)] italic text-evt-rosa-ink">
-                    {it.detalhe}
-                  </span>
-                )}
+                <div className="min-w-0 sm:flex-1">
+                  <span className="font-evt-body text-[clamp(1.35rem,5vw,1.6rem)] text-evt-ink">{it.nome}</span>
+                  {it.detalhe && (
+                    <span className="mt-0.5 block font-evt-body text-[clamp(1rem,3.6vw,1.1rem)] italic text-evt-rosa-ink">
+                      {it.detalhe}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-none items-center justify-between gap-4 sm:justify-end">
+                  {it.valor && (
+                    <span className="whitespace-nowrap font-evt-display text-[clamp(1.25rem,4.4vw,1.5rem)] tracking-[0.02em] text-evt-ink">
+                      {it.valor}
+                    </span>
+                  )}
+                  {(temChave || temQr) && (
+                    <a
+                      href="#presentear-pix"
+                      className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
+                    >
+                      Presentear
+                    </a>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
 
           {(temQr || temChave) && (
-            <div className="mt-8 border-t border-[var(--line)] pt-8 text-center">
+            <div id="presentear-pix" className="mt-8 scroll-mt-24 border-t border-[var(--line)] pt-8 text-center">
               <p className="eyebrow text-evt-rosa-ink">Ou, se preferir</p>
               <p className="mt-2 font-evt-body text-[clamp(1.2rem,4.5vw,1.4rem)] italic text-evt-ink-soft">
                 um Pix, com todo o meu obrigada
@@ -120,7 +137,7 @@ export function PainelPresentes({
 
               {pixNome && (
                 <p className="mt-3 font-evt-body text-[1.08rem] text-evt-ink-soft">
-                  Recebedor: <span className="text-evt-ink">{pixNome}</span>
+                  Recebedor: <span data-live="pix-nome" className="text-evt-ink">{pixNome}</span>
                 </p>
               )}
             </div>

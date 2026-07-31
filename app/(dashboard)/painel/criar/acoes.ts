@@ -23,6 +23,7 @@ import { prisma } from "@/lib/db";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema, TEMAS } from "@/lib/temas";
+import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
 import { limiteEventos, rotuloPlano } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
 
@@ -61,6 +62,8 @@ const payloadSchema = z.object({
   slug: z.string().trim().max(80).optional(),
   /** Foto da capa — caminho interno (`/uploads/...` no dev, URL do Blob em prod). */
   fotoUrl: z.string().trim().max(400).optional(),
+  /** Foto da capa para DESKTOP (paisagem); vazia = usa a do celular. */
+  fotoDesktopUrl: z.string().trim().max(400).optional(),
   /** Idade comemorada (editável; sobrepõe o padrão do nicho). */
   idade: z.coerce.number().int().min(1).max(120).optional(),
   /** Monograma na barra: mostrar? + imagem opcional do monograma. */
@@ -68,8 +71,16 @@ const payloadSchema = z.object({
   logoUrl: z.string().trim().max(400).optional(),
   /** Animações de entrada do site ao carregar. */
   animacoes: z.boolean().optional(),
-  /** Preset de cor do site (chave de lib/temas; validado no server). */
+  /** Preset de cor do site (chave de lib/temas, ou "custom"; validado no server). */
   tema: z.string().trim().max(20).optional(),
+  /** Cor personalizada (hex) quando tema === "custom". */
+  temaCor: z.string().trim().max(9).optional(),
+  /** Estilo de letras (chave de lib/fontes; validado no server). */
+  fontes: z.string().trim().max(20).optional(),
+  /** Combinação de fontes personalizada (Premium): cabeça + corpo. */
+  fontesCustom: z
+    .object({ head: z.string().trim().max(40), corpo: z.string().trim().max(40) })
+    .optional(),
   /** Multiplicador do tamanho do lockup da capa (0.9 / 1 / 1.15). */
   capaEscala: z.coerce.number().min(0.5).max(2).optional(),
   /** Escurecer a foto da capa p/ melhorar a leitura. */
@@ -78,10 +89,13 @@ const payloadSchema = z.object({
   ctaLabel: z.string().trim().max(120).optional(),
   ctaHref: z.enum(["/confirmar", "/evento", "/presentes"]).optional(),
   ctaLead: z.string().trim().max(200).optional(),
+  /** Frase de fecho do rodapé (editável). */
+  rodapeMsg: z.string().trim().max(240).optional(),
   mensagem: z.string().trim().max(2200).optional(),
   aberturaTitulo: z.string().trim().max(140).optional(),
   pixNome: z.string().trim().max(140).optional(),
   pixChave: z.string().trim().max(200).optional(),
+  presentesTexto: z.string().trim().max(600).optional(),
   presentes: z.array(giftSchema).max(60).optional(),
   recursosOff: z.array(z.enum(RECURSO_KEYS)).max(6).optional(),
   pais: z
@@ -89,6 +103,22 @@ const payloadSchema = z.object({
       pai: z.string().trim().max(140).optional(),
       mae: z.string().trim().max(140).optional(),
       texto: z.string().trim().max(600).optional(),
+    })
+    .optional(),
+  /** Config do formulário de confirmação (RSVP). */
+  rsvpConfig: z
+    .object({
+      permitirAcompanhantes: z.boolean().optional(),
+      pedirNomeAcompanhantes: z.boolean().optional(),
+      maxAcompanhantes: z.coerce.number().int().min(0).max(20).optional(),
+      pedirTelefone: z.boolean().optional(),
+      pedirEmail: z.boolean().optional(),
+      pedirRestricao: z.boolean().optional(),
+      permitirRecado: z.boolean().optional(),
+      corBotao: z.string().trim().max(9).optional(),
+      dataLimite: z.string().trim().max(20).optional(),
+      msgConfirma: z.string().trim().max(400).optional(),
+      msgRecusa: z.string().trim().max(400).optional(),
     })
     .optional(),
 });
@@ -180,20 +210,45 @@ export async function criarConvite(
   const recursos = d.recursosOff?.length
     ? Object.fromEntries(d.recursosOff.map((k) => [k, false]))
     : undefined;
+  // Só os NOMES (a caixa "Pais e família" virou só assinatura; o texto de
+  // apresentação foi removido). Salvar substitui o objeto pais inteiro, então
+  // um `texto` antigo de rascunho some sozinho.
   const paisPreenchido =
-    d.pais && (d.pais.pai?.trim() || d.pais.mae?.trim() || d.pais.texto?.trim())
-      ? { pai: txt(d.pais.pai), mae: txt(d.pais.mae), texto: txt(d.pais.texto) }
+    d.pais && (d.pais.pai?.trim() || d.pais.mae?.trim())
+      ? { pai: txt(d.pais.pai), mae: txt(d.pais.mae) }
       : undefined;
 
-  // Paleta escolhida (validada contra os presets; cai p/ "rose" se desconhecida).
-  const tema = d.tema && d.tema in TEMAS ? d.tema : "rose";
+  // Paleta escolhida: preset conhecido, ou "custom" (+ cor hex válida), senão "rose".
+  const corCustom =
+    d.temaCor && /^#[0-9a-fA-F]{6}$/.test(d.temaCor) ? d.temaCor : undefined;
+  const tema =
+    d.tema === "custom" && corCustom
+      ? "custom"
+      : d.tema && d.tema in TEMAS
+        ? d.tema
+        : "rose";
+  // Estilo de letras (validado contra as duplas; cai p/ "classica" se desconhecido).
+  const fontes = d.fontes && d.fontes in FONTES ? d.fontes : "classica";
+  // Combinação personalizada de fontes: SÓ no plano PREMIUM (o mais caro) e com
+  // cabeça+corpo válidos; senão não grava (usa a dupla `fontes`).
+  const fontesCustom =
+    prof.plan === "PREMIUM" &&
+    d.fontesCustom &&
+    d.fontesCustom.head in FONTE_HEADS &&
+    d.fontesCustom.corpo in FONTE_CORPOS
+      ? { head: d.fontesCustom.head, corpo: d.fontesCustom.corpo }
+      : undefined;
 
   // Patch do customization — os campos que o template `glamour-rose` consome.
   const patch: Record<string, unknown> = {
     tema,
-    accent: acentoDoTema(tema),
+    temaCor: tema === "custom" ? corCustom : undefined,
+    fontes,
+    fontesCustom,
+    accent: acentoDoTema(tema, corCustom),
     template: "quinze-anos-glamour-rose",
     fotoUrl: txt(d.fotoUrl),
+    fotoDesktopUrl: txt(d.fotoDesktopUrl),
     idade: d.idade,
     monograma: d.monograma,
     animacoes: d.animacoes,
@@ -203,6 +258,7 @@ export async function criarConvite(
     ctaLabel: txt(d.ctaLabel),
     ctaHref: d.ctaHref,
     ctaLead: txt(d.ctaLead),
+    rodapeMsg: txt(d.rodapeMsg),
     mensagem: txt(d.mensagem),
     secoes: txt(d.aberturaTitulo) ? { abertura: { titulo: txt(d.aberturaTitulo) } } : undefined,
     local: txt(d.local),
@@ -212,8 +268,10 @@ export async function criarConvite(
     traje: txt(d.traje),
     pixNome: txt(d.pixNome),
     pixChave: txt(d.pixChave),
+    presentesTexto: txt(d.presentesTexto),
     recursos,
     pais: paisPreenchido,
+    rsvpConfig: d.rsvpConfig,
   };
 
   let eventId: string;

@@ -15,8 +15,8 @@ import { lerRascunho, eventoDoRascunho } from "@/lib/previewEvento";
 import { lerEventoFesta } from "@/lib/eventoFesta";
 import { preencherFotosDemo } from "@/lib/demoFotos";
 import { ocasiaoDoNicho } from "@/lib/templates";
-import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey } from "@/lib/temas";
-import { fonteDupla, lerFonteKey, varsDaFonte } from "@/lib/fontes";
+import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey, lerTemaCor } from "@/lib/temas";
+import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoPermite } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
@@ -29,13 +29,18 @@ import { PaginaInicio } from "@/components/evt/paginas/PaginaInicio";
 import { PaginaEvento } from "@/components/evt/paginas/PaginaEvento";
 import { PaginaPresentes } from "@/components/evt/paginas/PaginaPresentes";
 import { PaginaGaleria } from "@/components/evt/paginas/PaginaGaleria";
+import { PaginaRecados } from "@/components/evt/paginas/PaginaRecados";
+import { PaginaObrigada } from "@/components/evt/paginas/PaginaObrigada";
+import { RsvpConvite } from "@/components/evt/RsvpConvite";
+import { lerRsvpConfig } from "@/lib/rsvpConfig";
+import { PreviewFoco } from "@/components/evt/PreviewFoco";
 
 export const dynamic = "force-dynamic";
 
 export default async function PreviewEventoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ s?: string; p?: string }>;
+  searchParams: Promise<{ s?: string; p?: string; f?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
@@ -47,7 +52,15 @@ export default async function PreviewEventoPage({
   });
   if (!prof) redirect("/entrar");
 
-  const { s, p } = await searchParams;
+  const { s, p, f } = await searchParams;
+  const SECOES_OK = [
+    "capa", "capa-nome", "capa-idade", "monograma",
+    "carta", "carta-titulo", "carta-texto", "assinatura",
+    "quando", "onde", "traje", "programacao", "cta", "presentes", "galeria",
+    "rsvp", "rsvp-extras", "pix", "recados", "rodape",
+    "obrigada-sim", "obrigada-nao",
+  ];
+  const foco = typeof f === "string" && SECOES_OK.includes(f) ? f : undefined;
   const rascunho = lerRascunho(typeof s === "string" ? s : undefined);
   const sintetico = eventoDoRascunho(rascunho);
   // No preview, capa/álbum vazios são preenchidos com fotos de exemplo — o
@@ -58,16 +71,20 @@ export default async function PreviewEventoPage({
   );
 
   const tema = lerTemaKey(sintetico.customization);
+  const temaCor = lerTemaCor(sintetico.customization);
   const particleColors =
-    tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(tema));
+    tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(tema, temaCor));
   const fonteKey = lerFonteKey(sintetico.customization);
-  const fonteCaps = fonteDupla(fonteKey).caps ? " evt-fonte-caps" : "";
+  const fontesCustom = lerFontesCustom(sintetico.customization);
+  const fonteCaps = fonteCapsCombinada(fonteKey, fontesCustom) ? " evt-fonte-caps" : "";
 
   const recursos = recursosDoSite(prof.plan, sintetico.customization);
   const whiteLabel = planoPermite(prof.plan, "whiteLabel");
 
   const pagina =
-    p === "evento" || p === "presentes" || p === "galeria" ? p : "inicio";
+    p === "evento" || p === "presentes" || p === "galeria" || p === "confirmar" || p === "recados" || p === "obrigada"
+      ? p
+      : "inicio";
 
   let corpo: React.ReactNode;
   if (pagina === "evento") {
@@ -92,6 +109,44 @@ export default async function PreviewEventoPage({
         texto="A galeria de fotos não está disponível neste convite."
       />
     );
+  } else if (pagina === "confirmar") {
+    corpo = recursos.rsvp ? (
+      <RsvpConvite
+        eventId="preview"
+        nome={evento.primeiroNome}
+        fotoUrl={evento.fotoUrl}
+        config={lerRsvpConfig(sintetico.customization)}
+        preview
+      />
+    ) : (
+      <RecursoIndisponivel
+        titulo="Confirmação indisponível"
+        texto="A confirmação de presença não está ativa neste convite."
+      />
+    );
+  } else if (pagina === "recados") {
+    corpo = recursos.recados ? (
+      <PaginaRecados evento={evento} nicho={sintetico.type} recursos={recursos} preview />
+    ) : (
+      <RecursoIndisponivel
+        titulo="Recados indisponíveis"
+        texto="O mural de recados não está ativo neste convite."
+      />
+    );
+  } else if (pagina === "obrigada") {
+    // Tela de agradecimento — o foco escolhe a variante (quem vai / quem não vai).
+    corpo = recursos.rsvp ? (
+      <PaginaObrigada
+        evento={evento}
+        config={lerRsvpConfig(sintetico.customization)}
+        vai={foco !== "obrigada-nao"}
+      />
+    ) : (
+      <RecursoIndisponivel
+        titulo="Confirmação indisponível"
+        texto="A confirmação de presença não está ativa neste convite."
+      />
+    );
   } else {
     corpo = (
       <PaginaInicio evento={evento} nicho={sintetico.type} recursos={recursos} />
@@ -100,19 +155,23 @@ export default async function PreviewEventoPage({
 
   return (
     <div
-      className={`evt${fonteCaps} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none [&_header_a]:pointer-events-auto [&_header_button]:pointer-events-auto`}
-      style={{ ...varsDoTema(tema), ...varsDaFonte(fonteKey) }}
+      className={`evt${fonteCaps}${evento.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none [&_header_a]:pointer-events-auto [&_header_button]:pointer-events-auto`}
+      style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom) }}
     >
       <SiteAtmosphere fotoUrl={evento.fotoUrl} particleColors={particleColors} />
       <SiteNav
         nome={evento.primeiroNome}
+        logoUrl={evento.logoUrl}
+        monograma={evento.monograma}
         recursos={recursos}
         preview={{ s: typeof s === "string" ? s : "", pagina }}
       />
       {corpo}
+      <PreviewFoco sec={foco} />
       <SiteFooter
         nome={evento.primeiroNome}
         linhaInfo={evento.footerInfo}
+        mensagem={evento.rodapeMsg}
         whiteLabel={whiteLabel}
         brandName={prof.brandName ?? prof.name}
       />

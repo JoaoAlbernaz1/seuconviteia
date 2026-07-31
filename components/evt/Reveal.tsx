@@ -12,11 +12,14 @@ export function Reveal({
   as,
   className = "",
   delay = 0,
+  dataSec,
 }: {
   children: ReactNode;
   as?: ElementType;
   className?: string;
   delay?: number;
+  /** Marcador `data-sec` p/ a prévia do editor circular esta seção (opcional). */
+  dataSec?: string;
 }) {
   const Tag = (as ?? "div") as ElementType;
   const ref = useRef<HTMLElement | null>(null);
@@ -46,6 +49,7 @@ export function Reveal({
       ref={ref}
       data-reveal=""
       data-shown={shown ? "true" : "false"}
+      data-sec={dataSec}
       className={className}
       style={delay ? ({ "--reveal-delay": `${delay}ms` } as React.CSSProperties) : undefined}
     >

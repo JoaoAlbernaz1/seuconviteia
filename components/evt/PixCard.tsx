@@ -52,7 +52,7 @@ export function PixCard({
       {chave && (
         <>
           <p className="eyebrow text-evt-rosa-ink">Chave Pix</p>
-          <p className="mt-3 break-all font-evt-body text-[1.35rem] leading-snug text-evt-ink">{chave}</p>
+          <p data-live="pix-chave" className="mt-3 break-all font-evt-body text-[1.35rem] leading-snug text-evt-ink">{chave}</p>
 
           <button
             type="button"
@@ -73,7 +73,7 @@ export function PixCard({
 
       {nome && (
         <p className="mt-6 font-evt-body text-base text-evt-ink-soft">
-          Recebedor: <span className="text-evt-ink">{nome}</span>
+          Recebedor: <span data-live="pix-nome" className="text-evt-ink">{nome}</span>
         </p>
       )}
     </div>

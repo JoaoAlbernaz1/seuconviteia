@@ -25,7 +25,9 @@ const rascunhoSchema = z
   .object({
     type: z.string().max(40),
     tema: z.string().max(40),
+    temaCor: z.string().max(9),
     fontes: z.string().max(40),
+    fontesCustom: z.object({ head: z.string().max(40), corpo: z.string().max(40) }).partial(),
     template: z.string().max(40),
     title: z.string().max(140),
     date: z.string().max(10),
@@ -51,6 +53,8 @@ const rascunhoSchema = z
       )
       .max(60),
     fotoUrl: urlish,
+    /** Foto da capa para DESKTOP (paisagem); cai para `fotoUrl` se ausente. */
+    fotoDesktopUrl: urlish,
     presentesFotoUrl: urlish,
     fotos: z.array(urlish).max(40),
     recursosOff: z.array(z.string().max(20)).max(10),
@@ -70,6 +74,24 @@ const rascunhoSchema = z
     ctaLabel: z.string().max(120),
     ctaHref: z.string().max(120),
     ctaLead: z.string().max(200),
+    /** Frase de fecho do rodapé (editável). */
+    rodapeMsg: z.string().max(240),
+    /** Config do formulário de confirmação (RSVP). */
+    rsvpConfig: z
+      .object({
+        permitirAcompanhantes: z.boolean(),
+        pedirNomeAcompanhantes: z.boolean(),
+        maxAcompanhantes: z.coerce.number(),
+        pedirTelefone: z.boolean(),
+        pedirEmail: z.boolean(),
+        pedirRestricao: z.boolean(),
+        permitirRecado: z.boolean(),
+        corBotao: z.string().max(9),
+        dataLimite: z.string().max(20),
+        msgConfirma: z.string().max(400),
+        msgRecusa: z.string().max(400),
+      })
+      .partial(),
   })
   .partial();
 
@@ -185,7 +207,12 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
   const aberturaTitulo = texto(r.aberturaTitulo);
   const customization = semUndefined({
     tema: texto(r.tema),
+    temaCor: texto(r.temaCor),
     fontes: texto(r.fontes),
+    fontesCustom:
+      r.fontesCustom && r.fontesCustom.head && r.fontesCustom.corpo
+        ? { head: r.fontesCustom.head, corpo: r.fontesCustom.corpo }
+        : undefined,
     template: texto(r.template),
     recursos,
     secoes: aberturaTitulo ? { abertura: { titulo: aberturaTitulo } } : undefined,
@@ -200,6 +227,7 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
     traje: texto(r.traje),
     programacao: programacao.length ? programacao : undefined,
     fotoUrl: texto(r.fotoUrl),
+    fotoDesktopUrl: texto(r.fotoDesktopUrl),
     presentesFotoUrl: texto(r.presentesFotoUrl),
     idade: r.idade,
     monograma: r.monograma,
@@ -211,6 +239,8 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
     ctaLabel: texto(r.ctaLabel),
     ctaHref: texto(r.ctaHref),
     ctaLead: texto(r.ctaLead),
+    rodapeMsg: texto(r.rodapeMsg),
+    rsvpConfig: r.rsvpConfig,
   });
 
   return {

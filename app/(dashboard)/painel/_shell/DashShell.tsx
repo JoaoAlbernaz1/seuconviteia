@@ -39,21 +39,20 @@ export function DashShell({
   const [userMenu, setUserMenu] = useState(false);
   const primeiro = nome.split(" ")[0] || "Você";
   const ini = iniciais(nome);
-  const conviteHref = fid ? `/painel/${fid}` : "/painel/criar";
-
   const groups: { title: string; items: NavItem[] }[] = [
     {
       title: "INÍCIO",
       items: [{ label: "Dashboard", d: IC.grid, href: "/painel", match: (p) => p === "/painel" }],
     },
     {
-      title: "MEU CONVITE",
+      title: "CONVITES",
       items: [
         {
-          label: "Meu convite",
+          label: "Meus convites",
           d: IC.mail,
-          href: conviteHref,
+          href: "/painel/convites",
           match: (p) =>
+            p.startsWith("/painel/convites") ||
             p.startsWith("/painel/criar") ||
             p.startsWith("/painel/novo") ||
             (!!fid &&

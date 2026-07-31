@@ -619,6 +619,13 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: none; filter: none; }
   transform: none;
 }
 
+/* Seções "opcionais" (ex.: Traje) ficam SEMPRE no DOM pra o toggle do editor
+   refletir NA HORA via [data-live]; escondemos por CSS quando o texto está
+   vazio. Assim ligar/desligar é instantâneo dos dois lados (sem esperar reload). */
+.evt [data-hide-empty]:has([data-live]:empty) {
+  display: none;
+}
+
 /* Entrada orquestrada (1x no load). */
 @keyframes evtFadeUp {
   from {
@@ -713,6 +720,38 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: none; filter: none; }
   .evt .parallax-soft {
     transform: none !important;
   }
+}
+
+/* ── Animações de ENTRADA desligadas (toggle do editor: `.evt-sem-anim` no
+   wrapper). O conteúdo nasce pronto — sem Ken Burns, reveal, hero-rise, fade-up
+   nem scroll-cue. Hover/CTA continuam funcionando (não são "carregar a página"). */
+.evt-sem-anim [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+.evt-sem-anim .fade-up {
+  opacity: 1 !important;
+  animation: none !important;
+}
+.evt-sem-anim .scroll-cue,
+.evt-sem-anim .qgr-scroll-cue {
+  animation: none !important;
+}
+.evt-sem-anim .parallax,
+.evt-sem-anim .parallax-soft {
+  transform: none !important;
+}
+.evt-sem-anim .qgr-hero-photo {
+  opacity: 1 !important;
+  animation: none !important;
+  transform: none !important;
+}
+.evt-sem-anim .qgr-hero-rise {
+  opacity: 1 !important;
+  animation: none !important;
+  transform: none !important;
+  filter: none !important;
 }
 
 /* ============================================================

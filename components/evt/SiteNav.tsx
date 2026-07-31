@@ -32,19 +32,22 @@ const PREVIEW_PAGE: Record<string, string> = {
   "/evento": "evento",
   "/presentes": "presentes",
   "/galeria": "galeria",
-  "/confirmar": "evento",
-  "/recados": "inicio",
+  "/confirmar": "confirmar",
+  "/recados": "recados",
 };
 
 export function SiteNav({
   nome,
   logoUrl,
+  monograma = true,
   recursos,
   preview,
 }: {
   nome: string;
   /** Monograma/logo do evento (ex.: mc.png). Ausente ⇒ iniciais do nome. */
   logoUrl?: string;
+  /** Mostrar o monograma na barra (default: sim). Off ⇒ só o nome. */
+  monograma?: boolean;
   recursos: TogglesSite;
   /**
    * Modo PREVIEW (dentro do iframe do editor): links navegam a própria prévia
@@ -123,22 +126,27 @@ export function SiteNav({
           aria-label={`${nome} — início`}
           className={`flex cursor-pointer items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 ${ringClr} focus-visible:ring-offset-2 ${ringOff}`}
         >
-          {logoUrl ? (
-            <Image
-              src={logoUrl}
-              alt={nome}
-              width={84}
-              height={84}
-              priority
-              className="h-[42px] w-[42px] object-contain"
-            />
-          ) : (
-            <span className={`font-evt-display text-[1.6rem] leading-none tracking-[0.06em] transition-colors ${claro ? "text-white" : "text-evt-rosa-ink"}`}>
-              {iniciais}
+          {monograma && (
+            <span data-sec="monograma" className="inline-flex items-center">
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={nome}
+                  width={84}
+                  height={84}
+                  priority
+                  className="h-[42px] w-[42px] object-contain"
+                />
+              ) : (
+                <span className={`font-evt-display text-[1.6rem] leading-none tracking-[0.06em] transition-colors ${claro ? "text-white" : "text-evt-rosa-ink"}`}>
+                  {iniciais}
+                </span>
+              )}
             </span>
           )}
-          {/* Wordmark (nome do evento) — escondido SOBRE a capa, aparece nas páginas internas. */}
-          <span className={`font-evt-util text-[0.7rem] uppercase tracking-[0.28em] transition-colors ${overHero ? "hidden" : "hidden sm:inline-block"} ${wordmark}`}>
+          {/* Wordmark (nome do evento) — escondido SOBRE a capa, aparece nas páginas
+              internas. Se o monograma está OFF, o nome vira a marca (sempre visível). */}
+          <span className={`font-evt-util text-[0.7rem] uppercase tracking-[0.28em] transition-colors ${!monograma ? "inline-block" : overHero ? "hidden" : "hidden sm:inline-block"} ${wordmark}`}>
             {nome}
           </span>
         </Link>

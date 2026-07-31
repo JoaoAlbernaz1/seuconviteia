@@ -15,11 +15,14 @@ import { Flourish } from "@/components/evt/icons";
 export function SiteFooter({
   nome,
   linhaInfo,
+  mensagem,
   whiteLabel = false,
   brandName,
 }: {
   nome: string;
   linhaInfo: string;
+  /** Frase de fecho editável (ex.: "Feito com carinho."). */
+  mensagem?: string;
   whiteLabel?: boolean;
   brandName?: string;
 }) {
@@ -27,8 +30,9 @@ export function SiteFooter({
   const infoCor = "text-evt-ink-soft";
   const italicCor = "text-evt-ink-soft";
   const creditCor = "text-evt-ink-soft/70";
+  const fecho = mensagem?.trim() || "Feito com carinho.";
   return (
-    <footer className="border-t border-[var(--line)] bg-evt-ivory text-evt-ink">
+    <footer data-sec="rodape" className="border-t border-[var(--line)] bg-evt-ivory text-evt-ink">
       <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-6 px-[clamp(1.25rem,5vw,2rem)] py-[clamp(4rem,9vw,5.5rem)] text-center">
         <p className={`font-evt-script text-[clamp(3rem,9vw,4.2rem)] leading-none ${nomeCor}`}>
           {nome}
@@ -42,8 +46,8 @@ export function SiteFooter({
           </p>
         )}
 
-        <p className={`font-evt-body text-base italic ${italicCor}`}>
-          Feito com carinho.
+        <p data-live="rodape-msg" className={`font-evt-body text-base italic ${italicCor}`}>
+          {fecho}
         </p>
 
         {whiteLabel ? (

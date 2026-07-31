@@ -1,8 +1,9 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { confirmarPresencaFesta } from "@/lib/rsvp";
 import type { GuestInput } from "@/lib/rsvpFesta";
+import { RSVP_CONFIG_PADRAO, type RsvpConfig } from "@/lib/rsvpConfig";
 import { ArrowRight, Plus, Check, XMark } from "@/components/evt/icons";
 import { ConviteBackground } from "@/components/evt/ConviteBackground";
 import { Particles } from "@/components/evt/Particles";
@@ -34,7 +35,7 @@ const PALETA = {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="mt-10 flex items-center gap-3">
-      <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.3em] text-[var(--plum)]">
+      <h2 className="text-[0.72rem] font-bold uppercase tracking-[0.3em] text-[var(--plum-2)]">
         {children}
       </h2>
       <span className="h-px flex-1 bg-[var(--plum)]/25" />
@@ -65,7 +66,7 @@ function GuestRow({
   onRemove?: () => void;
 }) {
   return (
-    <div className="relative rounded-lg border border-[var(--plum)]/15 bg-[var(--ivory)]/92 p-5 shadow-[0_1px_12px_-6px_rgba(58,14,47,0.25)]">
+    <div className="relative rounded-lg border border-[var(--plum)]/15 bg-[var(--ivory)]/97 p-5 shadow-[0_1px_12px_-6px_rgba(58,14,47,0.25)]">
       {onRemove && (
         <button
           type="button"
@@ -81,7 +82,7 @@ function GuestRow({
         onChange={(e) => onChange({ ...guest, nome: e.target.value })}
         placeholder="Nome do convidado"
         aria-label="Nome do convidado"
-        className={`w-full border-b border-[var(--plum)]/25 bg-transparent pb-2 font-evt-body text-lg font-medium text-[var(--plum)] outline-none transition-colors duration-200 placeholder:text-[var(--plum)]/40 focus:border-[var(--gold)] focus-visible:border-[var(--gold)] ${
+        className={`w-full border-b border-[var(--plum)]/35 bg-transparent pb-2 font-evt-body text-lg font-semibold text-[var(--ink)] outline-none transition-colors duration-200 placeholder:text-[var(--ink)]/50 focus:border-[var(--gold)] focus-visible:border-[var(--gold)] ${
           onRemove ? "pr-9" : ""
         }`}
       />
@@ -121,10 +122,16 @@ export function RsvpConvite({
   eventId,
   nome,
   fotoUrl,
+  config = RSVP_CONFIG_PADRAO,
+  preview = false,
 }: {
   eventId: string;
   nome: string;
   fotoUrl?: string;
+  /** Config do form (campos, cor do botão, data limite) — do editor. */
+  config?: RsvpConfig;
+  /** Prévia do editor: o form é só visual (não grava nem navega). */
+  preview?: boolean;
 }) {
   const router = useRouter();
   const idRef = useRef(1);
@@ -133,9 +140,48 @@ export function RsvpConvite({
   const [guests, setGuests] = useState<Guest[]>([
     { id: "0", nome: "", tipo: "adulto", vai_comparecer: true },
   ]);
+  const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
+  const [restricao, setRestricao] = useState("");
+  const [recado, setRecado] = useState("");
+  const [companions, setCompanions] = useState(0);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Config AO VIVO: no preview do editor, o painel manda a config nova por
+  // postMessage e o form re-renderiza NA HORA (opções aparecem/somem sem reload).
+  // No site publicado, `preview` é false: só usa a config do servidor (prop).
+  // Inicia com a config do servidor; no reload do iframe o componente remonta e
+  // pega a config nova. Entre reloads, o listener abaixo atualiza ao vivo.
+  const [liveConfig, setLiveConfig] = useState<RsvpConfig>(config);
+  useEffect(() => {
+    if (!preview) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { __scPreview?: boolean; rsvpConfig?: Partial<RsvpConfig> | null };
+      if (!d || d.__scPreview !== true || !d.rsvpConfig) return;
+      setLiveConfig({ ...RSVP_CONFIG_PADRAO, ...d.rsvpConfig });
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [preview]);
+  const cfg = liveConfig;
+
+  // Modo CONTADOR: pode levar acompanhantes, mas sem pedir o nome de cada um —
+  // então em vez de linhas de convidado, o titular só diz QUANTOS vão com ele.
+  const contagem = cfg.permitirAcompanhantes && !cfg.pedirNomeAcompanhantes;
+  const maxComp = Math.max(0, cfg.maxAcompanhantes);
+
+  // Cor do botão: do editor (cfg.corBotao) ou a cor do tema (--ev-framboesa).
+  const paleta = cfg.corBotao
+    ? ({
+        ...PALETA,
+        "--plum": cfg.corBotao,
+        "--plum-2": `color-mix(in srgb, ${cfg.corBotao} 78%, #000)`,
+        "--wine": cfg.corBotao,
+      } as React.CSSProperties)
+    : PALETA;
 
   const adultos = guests.filter((g) => g.tipo === "adulto");
   const criancas = guests.filter((g) => g.tipo === "crianca");
@@ -151,36 +197,60 @@ export function RsvpConvite({
   const remove = (id: string) => setGuests((gs) => gs.filter((g) => g.id !== id));
 
   async function onSubmit() {
+    if (preview) return; // prévia do editor: só visual
     setError("");
     if (!consent) {
       setError("É preciso aceitar o compartilhamento dos dados.");
       return;
     }
     setSaving(true);
-    const payload: GuestInput[] = guests.map(({ nome, tipo, vai_comparecer }) => ({
-      nome,
-      tipo,
-      vai_comparecer,
-    }));
-    const res = await confirmarPresencaFesta(eventId, payload, consent);
+    const titular = guests[0];
+    const payload: GuestInput[] = contagem
+      ? [
+          { nome: titular.nome, tipo: "adulto", vai_comparecer: titular.vai_comparecer },
+          ...(titular.vai_comparecer
+            ? Array.from({ length: companions }, (_, i) => ({
+                nome: `Acompanhante ${i + 1}`,
+                tipo: "adulto" as const,
+                vai_comparecer: true,
+              }))
+            : []),
+        ]
+      : guests.map(({ nome, tipo, vai_comparecer }) => ({ nome, tipo, vai_comparecer }));
+    const extras = {
+      telefone: cfg.pedirTelefone ? telefone : undefined,
+      email: cfg.pedirEmail ? email : undefined,
+      restricao: cfg.pedirRestricao ? restricao : undefined,
+      recado: cfg.permitirRecado ? recado : undefined,
+    };
+    const res = await confirmarPresencaFesta(eventId, payload, consent, extras);
     setSaving(false);
     if (!res.ok) {
       setError(res.error || "Não consegui enviar agora. Tente de novo.");
       return;
     }
-    router.push("/obrigada");
+    // Leva o resultado pra tela de obrigada: mensagem de quem vai vs quem não vai.
+    const alguemVai = payload.some((g) => g.vai_comparecer);
+    router.push(`/obrigada?vai=${alguemVai ? 1 : 0}`);
   }
 
   return (
-    <div style={PALETA} className="relative min-h-dvh text-[var(--ink)]">
+    <div style={paleta} className="relative min-h-dvh text-[var(--ink)]">
       <ConviteBackground foto={fotoUrl} />
       <Particles className="z-[5]" />
-      <main className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col">
-        <header className="px-5 pt-[5.5rem]">
-          <div className="fade-up pb-4" style={{ animationDelay: "40ms" }}>
+      {/* No COMPUTADOR vira um cartão claro centralizado (a foto fica de fundo,
+          emoldurada) — no celular continua a tela cheia fiel ao festa. */}
+      <main data-sec="rsvp" className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col md:my-14 md:min-h-0 md:max-w-[520px] md:overflow-hidden md:rounded-[28px] md:bg-[var(--ivory)]/97 md:shadow-[0_40px_100px_-30px_rgba(58,14,47,0.45)] md:ring-1 md:ring-[color:var(--plum)]/10 md:backdrop-blur-sm">
+        <header className="px-5 pt-[5.5rem] md:pt-8">
+          <div className="fade-up flex flex-wrap items-center justify-between gap-2 pb-4" style={{ animationDelay: "40ms" }}>
             <span className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--plum-2)]">
               Confirmando presença — {nome}
             </span>
+            {cfg.dataLimite && (
+              <span className="rounded-full bg-[var(--ivory)]/70 px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-[var(--plum-2)] shadow-[inset_0_0_0_1px_var(--plum)]/15">
+                Confirme até {cfg.dataLimite}
+              </span>
+            )}
           </div>
           <ProgressBar percent={50} />
         </header>
@@ -196,59 +266,160 @@ export function RsvpConvite({
             className="fade-up mx-auto mt-3 max-w-xs text-center font-evt-body text-lg text-[var(--plum-2)]"
             style={{ animationDelay: "180ms" }}
           >
-            É importante fornecer o nome completo de cada convidado
+            {contagem
+              ? "Confirme sua presença e diga quantas pessoas vão com você."
+              : "É importante fornecer o nome completo de cada convidado"}
           </p>
 
           <section className="fade-up" style={{ animationDelay: "260ms" }}>
-            <SectionLabel>Adultos</SectionLabel>
+            <SectionLabel>{contagem ? "Você" : "Adultos"}</SectionLabel>
             <div className="mt-4 space-y-3">
-              {adultos.map((g) => (
+              {(contagem ? adultos.slice(0, 1) : adultos).map((g) => (
                 <GuestRow
                   key={g.id}
                   guest={g}
                   onChange={update(g.id)}
-                  onRemove={canRemove ? () => remove(g.id) : undefined}
+                  onRemove={!contagem && canRemove ? () => remove(g.id) : undefined}
                 />
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => add("adulto")}
-              className="mt-3 flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-md border border-dashed border-[var(--rose)]/60 bg-transparent px-4 py-3.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--plum)] transition-colors duration-200 hover:border-[var(--rose)] hover:text-[var(--wine)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ivory)]"
-            >
-              Adicionar outro adulto
-              <Plus className="h-5 w-5 text-[var(--rose)]" />
-            </button>
+            {cfg.permitirAcompanhantes && !contagem && (
+              <button
+                type="button"
+                onClick={() => add("adulto")}
+                className="mt-3 flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-md border border-dashed border-[var(--rose)]/60 bg-transparent px-4 py-3.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--plum)] transition-colors duration-200 hover:border-[var(--rose)] hover:text-[var(--wine)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ivory)]"
+              >
+                Adicionar outro adulto
+                <Plus className="h-5 w-5 text-[var(--rose)]" />
+              </button>
+            )}
           </section>
 
-          <section className="fade-up" style={{ animationDelay: "340ms" }}>
-            <SectionLabel>Crianças</SectionLabel>
-            <div className="mt-4 space-y-3">
-              {criancas.map((g) => (
-                <GuestRow
-                  key={g.id}
-                  guest={g}
-                  onChange={update(g.id)}
-                  onRemove={canRemove ? () => remove(g.id) : undefined}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => add("crianca")}
-              className="mt-3 flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-md border border-dashed border-[var(--rose)]/60 bg-transparent px-4 py-3.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--plum)] transition-colors duration-200 hover:border-[var(--rose)] hover:text-[var(--wine)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ivory)]"
-            >
-              Adicionar criança
-              <Plus className="h-5 w-5 text-[var(--rose)]" />
-            </button>
-          </section>
+          {/* Modo CONTADOR: quantos acompanhantes (sem nomes) */}
+          {contagem && (
+            <section className="fade-up" style={{ animationDelay: "340ms" }}>
+              <SectionLabel>Acompanhantes</SectionLabel>
+              <div className="mt-4 flex items-center justify-between rounded-md border border-[var(--plum)]/15 bg-[var(--ivory)]/97 px-5 py-4">
+                <span className="font-evt-body text-lg text-[var(--plum)]">Quantas pessoas vão com você?</span>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setCompanions((c) => Math.max(0, c - 1))}
+                    aria-label="Menos um acompanhante"
+                    className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-[var(--plum)]/25 text-xl text-[var(--plum)] transition-colors hover:border-[var(--plum)]/50 disabled:opacity-40"
+                    disabled={companions <= 0}
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center font-evt-body text-2xl font-medium text-[var(--plum)]">{companions}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCompanions((c) => Math.min(maxComp, c + 1))}
+                    aria-label="Mais um acompanhante"
+                    className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-[var(--plum)]/25 text-xl text-[var(--plum)] transition-colors hover:border-[var(--plum)]/50 disabled:opacity-40"
+                    disabled={companions >= maxComp}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              {maxComp > 0 && (
+                <p className="mt-3 text-center text-[0.66rem] font-medium uppercase tracking-[0.16em] text-[var(--plum-2)]/70">
+                  Até {maxComp} acompanhante{maxComp === 1 ? "" : "s"}
+                </p>
+              )}
+            </section>
+          )}
+
+          {cfg.permitirAcompanhantes && !contagem && (
+            <section className="fade-up" style={{ animationDelay: "340ms" }}>
+              <SectionLabel>Crianças</SectionLabel>
+              <div className="mt-4 space-y-3">
+                {criancas.map((g) => (
+                  <GuestRow
+                    key={g.id}
+                    guest={g}
+                    onChange={update(g.id)}
+                    onRemove={canRemove ? () => remove(g.id) : undefined}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => add("crianca")}
+                className="mt-3 flex min-h-[44px] w-full cursor-pointer items-center justify-between rounded-md border border-dashed border-[var(--rose)]/60 bg-transparent px-4 py-3.5 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[var(--plum)] transition-colors duration-200 hover:border-[var(--rose)] hover:text-[var(--wine)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ivory)]"
+              >
+                Adicionar criança
+                <Plus className="h-5 w-5 text-[var(--rose)]" />
+              </button>
+              {cfg.maxAcompanhantes > 0 && (
+                <p className="mt-3 text-center text-[0.66rem] font-medium uppercase tracking-[0.16em] text-[var(--plum-2)]/70">
+                  Você pode levar até {cfg.maxAcompanhantes} acompanhante{cfg.maxAcompanhantes === 1 ? "" : "s"}
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* Campos extras (do editor): contato / restrição / recado.
+              data-sec="rsvp-extras": a prévia do editor rola até aqui ao ligar
+              um desses campos, pra o profissional VER onde aparece. */}
+          {(cfg.pedirTelefone || cfg.pedirEmail || cfg.pedirRestricao || cfg.permitirRecado) && (
+            <section data-sec="rsvp-extras" className="fade-up" style={{ animationDelay: "420ms" }}>
+              <SectionLabel>Sobre você</SectionLabel>
+              <div className="mt-4 space-y-3">
+                {(cfg.pedirTelefone || cfg.pedirEmail) && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {cfg.pedirTelefone && (
+                      <input
+                        value={telefone}
+                        onChange={(e) => setTelefone(e.target.value)}
+                        inputMode="tel"
+                        placeholder="Telefone / WhatsApp"
+                        aria-label="Telefone"
+                        className="w-full rounded-md border border-[var(--plum)]/30 bg-[var(--ivory)] px-4 py-3 font-evt-body text-base text-[var(--ink)] font-medium outline-none transition-colors placeholder:text-[var(--ink)]/50 focus:border-[var(--gold)]"
+                      />
+                    )}
+                    {cfg.pedirEmail && (
+                      <input
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        inputMode="email"
+                        placeholder="E-mail"
+                        aria-label="E-mail"
+                        className="w-full rounded-md border border-[var(--plum)]/30 bg-[var(--ivory)] px-4 py-3 font-evt-body text-base text-[var(--ink)] font-medium outline-none transition-colors placeholder:text-[var(--ink)]/50 focus:border-[var(--gold)]"
+                      />
+                    )}
+                  </div>
+                )}
+                {cfg.pedirRestricao && (
+                  <input
+                    value={restricao}
+                    onChange={(e) => setRestricao(e.target.value)}
+                    placeholder="Alguma restrição alimentar?"
+                    aria-label="Restrição alimentar"
+                    className="w-full rounded-md border border-[var(--plum)]/30 bg-[var(--ivory)] px-4 py-3 font-evt-body text-base text-[var(--ink)] font-medium outline-none transition-colors placeholder:text-[var(--ink)]/50 focus:border-[var(--gold)]"
+                  />
+                )}
+                {cfg.permitirRecado && (
+                  <textarea
+                    value={recado}
+                    onChange={(e) => setRecado(e.target.value)}
+                    rows={3}
+                    placeholder={`Deixe um recado para ${nome} (opcional)`}
+                    aria-label={`Recado para ${nome}`}
+                    className="w-full resize-y rounded-md border border-[var(--plum)]/30 bg-[var(--ivory)] px-4 py-3 font-evt-body text-base leading-relaxed text-[var(--ink)] font-medium outline-none transition-colors placeholder:text-[var(--ink)]/50 focus:border-[var(--gold)]"
+                  />
+                )}
+              </div>
+            </section>
+          )}
 
           {error && (
             <p className="mt-5 text-center text-sm font-medium text-[var(--wine)]">{error}</p>
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-gradient-to-t from-[var(--ivory-2)] via-[var(--ivory-2)]/92 to-transparent px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="sticky bottom-0 bg-gradient-to-t from-[var(--ivory-2)] via-[var(--ivory-2)]/92 to-transparent px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 md:static md:bg-none md:pb-6">
           {/* Consentimento (LGPD) — exigido antes de gravar. */}
           <label className="mb-3 flex cursor-pointer items-start gap-2.5 text-left">
             <input

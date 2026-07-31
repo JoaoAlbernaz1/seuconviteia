@@ -7,9 +7,7 @@ import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta } from "@/lib/eventoFesta";
 import { comFotosDemo } from "@/lib/demoFotos";
 
-import { SectionHeading } from "@/components/evt/SectionHeading";
-import { Reveal } from "@/components/evt/Reveal";
-import { RecadoForm } from "@/components/evt/RecadoForm";
+import { PaginaRecados } from "@/components/evt/paginas/PaginaRecados";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { listarRecadosAprovados } from "@/lib/recados";
 import { recursosDoSite } from "@/lib/recursos";
@@ -41,59 +39,13 @@ export default async function RecadosPage({
   }
 
   const evento = comFotosDemo(event);
-  const nome = evento.primeiroNome;
   const recados = await listarRecadosAprovados(event.id);
 
   return (
-    <main className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(6rem,12vw,9rem)] pt-24">
-      <div className="mx-auto max-w-[680px]">
-        <Reveal>
-          <SectionHeading eyebrow="Mural de recados" title="Deixe seu carinho" />
-        </Reveal>
-        <Reveal delay={120}>
-          <p className="mx-auto mt-6 max-w-md text-center font-evt-body text-lg text-evt-ink-soft">
-            Escreva um recado de carinho para {nome}. Ela vai amar ler cada palavra.
-          </p>
-        </Reveal>
-
-        <Reveal delay={200} className="mt-12">
-          <RecadoForm eventId={event.id} nome={nome} />
-        </Reveal>
-      </div>
-
-      {/* ── Mural ── */}
-      <div className="mx-auto mt-[clamp(4rem,9vw,6rem)] max-w-[1080px]">
-        {recados.length > 0 ? (
-          <>
-            <Reveal>
-              <p className="text-center font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-ink">
-                Recados de quem ama
-              </p>
-              <div className="mt-6 flex justify-center" aria-hidden>
-                <span className="hairline-rosa w-20" />
-              </div>
-            </Reveal>
-            <div className="mt-10 columns-1 gap-5 sm:columns-2 lg:columns-3 [&>*]:mb-5 [&>*]:break-inside-avoid">
-              {recados.map((r, i) => (
-                <Reveal key={r.id} delay={Math.min(i, 6) * 70}>
-                  <figure className="rounded-[var(--radius-card)] border border-[var(--line)] bg-evt-blush-soft/50 p-6">
-                    <blockquote className="font-evt-body text-lg italic leading-relaxed text-evt-ink">
-                      “{r.mensagem}”
-                    </blockquote>
-                    <figcaption className="mt-4 font-evt-util text-[0.66rem] uppercase tracking-[0.24em] text-evt-rosa-ink">
-                      — {r.nome}
-                    </figcaption>
-                  </figure>
-                </Reveal>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="text-center font-evt-body text-lg italic text-evt-ink-soft">
-            Seja o primeiro a deixar um recado. 💗
-          </p>
-        )}
-      </div>
-    </main>
+    <PaginaRecados
+      evento={evento}
+      eventId={event.id}
+      recados={recados.map((r) => ({ id: r.id, nome: r.nome, mensagem: r.mensagem }))}
+    />
   );
 }

@@ -15,6 +15,11 @@ import {
   Marcellus,
   Pacifico,
   Playfair_Display,
+  Great_Vibes,
+  Fraunces,
+  Cinzel,
+  EB_Garamond,
+  Montserrat,
 } from "next/font/google";
 import localFont from "next/font/local";
 
@@ -70,6 +75,40 @@ export const pacifico = Pacifico({
   display: "swap",
 });
 
+// ── Fontes extras (mais opções + combinações personalizadas do Premium) ──────
+export const greatVibes = Great_Vibes({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-greatvibes",
+  display: "swap",
+});
+export const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
+export const cinzel = Cinzel({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-cinzel",
+  display: "swap",
+});
+export const ebGaramond = EB_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-ebgaramond",
+  display: "swap",
+});
+export const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-montserrat",
+  display: "swap",
+});
+
 /** Classe unica com TODAS as variaveis de fonte do site do evento. */
 export const EVT_FONTS_CLASS = [
   milton.variable,
@@ -80,4 +119,9 @@ export const EVT_FONTS_CLASS = [
   playfair.variable,
   marcellus.variable,
   pacifico.variable,
+  greatVibes.variable,
+  fraunces.variable,
+  cinzel.variable,
+  ebGaramond.variable,
+  montserrat.variable,
 ].join(" ");

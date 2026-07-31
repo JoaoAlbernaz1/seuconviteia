@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>seuconvite — Arquitetura do sistema</title>
+<style>
+  :root{
+    --bg:#0f1220; --bg2:#151a2e; --card:#ffffff; --ink:#1b1d29; --ink2:#5b6072;
+    --line:#e9eaf0; --soft:#f6f7fb; --violet:#7C3AED; --violet-soft:#f3effe;
+    --teal:#0EA5A6; --rose:#CE578B; --rose-soft:#fdeef4; --ok:#2E8A66; --amber:#B8730F;
+    --radius:16px; --shadow:0 2px 10px rgba(20,22,40,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:#eef0f6; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--violet)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+  /* HEADER */
+  header{background:radial-gradient(1200px 400px at 20% -10%,#2a1a5e 0,transparent 60%),linear-gradient(160deg,#0f1220,#1a1e3a);color:#fff;padding:56px 0 44px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;font-size:20px}
+  .brand b{color:#a78bfa}
+  h1{font-size:clamp(28px,4.5vw,44px);line-height:1.08;letter-spacing:-.03em;margin:18px 0 8px;font-weight:800}
+  .sub{color:#c7c9de;max-width:720px;font-size:16px}
+  .stack{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#e7e8f5;
+    padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .chip .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#a78bfa;margin-right:7px;vertical-align:middle}
+
+  section{padding:40px 0}
+  section + section{border-top:1px solid var(--line)}
+  .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--violet)}
+  h2{font-size:24px;letter-spacing:-.02em;margin:6px 0 4px;font-weight:800}
+  .lead{color:var(--ink2);max-width:760px;margin:0 0 22px;font-size:15px}
+
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g3,.g2{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+  .card h3{margin:0;font-size:16.5px;letter-spacing:-.01em}
+  .card .role{color:var(--ink2);font-size:13.5px;margin-top:5px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-bottom:6px}
+  .t-saas{background:var(--violet-soft);color:var(--violet)}
+  .t-event{background:var(--rose-soft);color:var(--rose)}
+  .muted{color:var(--ink2);font-size:12.5px}
+
+  /* surfaces top border accent */
+  .surface{border-top:3px solid var(--violet)}
+  .surface.event{border-top-color:var(--rose)}
+  .surface .dom{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--ink2);background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:4px 8px;display:inline-block;margin:8px 0 10px}
+  ul.rotas{margin:8px 0 0;padding-left:0;list-style:none}
+  ul.rotas li{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#3a3d4d;padding:3px 0;border-top:1px dashed var(--line)}
+  ul.rotas li:first-child{border-top:none}
+
+  /* flow arrow row */
+  .flowrow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-top:16px}
+  .node{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:700;font-size:13.5px;box-shadow:var(--shadow)}
+  .node.v{border-color:#dcccfb;background:var(--violet-soft);color:var(--violet)}
+  .node.r{border-color:#f4cfe0;background:var(--rose-soft);color:var(--rose)}
+  .arrow{color:#b6b9c9;font-weight:800;padding:0 10px}
+
+  /* data model */
+  .entity{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+  .entity .head{background:var(--soft);border-bottom:1px solid var(--line);padding:11px 14px;display:flex;justify-content:space-between;align-items:center}
+  .entity .head b{font-size:14.5px}
+  .entity .head .pk{font-size:11px;color:var(--ink2)}
+  .entity .body{padding:12px 14px}
+  .fields{display:flex;flex-wrap:wrap;gap:6px}
+  .field{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:#3a3d4d}
+  .rel{margin-top:10px;font-size:12px;color:var(--ink2)}
+  .rel b{color:var(--violet)}
+
+  /* enums */
+  .enums{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px}
+  .enum{font-size:12.5px}
+  .enum .n{font-weight:800;color:var(--ink)}
+  .enum .v{color:var(--ink2)}
+
+  /* libs table */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2)}
+  td code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--violet);white-space:nowrap}
+
+  /* status */
+  .status{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.status{grid-template-columns:1fr}}
+  .statuscard ul{margin:8px 0 0;padding-left:0;list-style:none}
+  .statuscard li{padding:7px 0;border-top:1px solid var(--line);font-size:13.5px;display:flex;gap:9px;align-items:flex-start}
+  .statuscard li:first-child{border-top:none}
+  .ic{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;margin-top:1px}
+  .ok .ic{background:rgba(46,138,102,.14);color:var(--ok)}
+  .pend .ic{background:#fff2e0;color:var(--amber)}
+
+  footer{padding:30px 0 60px;color:var(--ink2);font-size:12.5px}
+  details{margin-top:14px}
+  summary{cursor:pointer;font-weight:700;color:var(--violet)}
+  pre{background:#0f1220;color:#d7d9ec;border-radius:12px;padding:16px;overflow:auto;font-size:12px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">seu<b>convite</b> · IA</div>
+    <h1>Arquitetura do sistema</h1>
+    <p class="sub">SaaS B2B multi-tenant onde profissionais criam sites de convite digital para seus clientes — casamento, 15 anos, bodas, aniversário — em minutos, com editor visual e prévia ao vivo.</p>
+    <div class="stack">
+      <span class="chip"><span class="dot"></span>Next.js 16 · React 19</span>
+      <span class="chip"><span class="dot"></span>TypeScript strict</span>
+      <span class="chip"><span class="dot"></span>Tailwind v4</span>
+      <span class="chip"><span class="dot"></span>Prisma 6 · MySQL→Postgres</span>
+      <span class="chip"><span class="dot"></span>Auth.js v5</span>
+      <span class="chip"><span class="dot"></span>Mercado Pago / Pix</span>
+      <span class="chip"><span class="dot"></span>Resend</span>
+      <span class="chip"><span class="dot"></span>Vercel</span>
+    </div>
+  </div>
+</header>
+
+<!-- SUPERFÍCIES -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Visão geral</div>
+    <h2>Três superfícies, um sistema</h2>
+    <p class="lead">O produto é dividido por público. O roteamento é <b>multi-tenant por subdomínio</b>: o <code>middleware</code> resolve o tenant e reescreve <code>&lt;cliente&gt;.seuconviteia.com</code> para o site do evento; <code>app.</code> abre o painel; a raiz abre o marketing.</p>
+    <div class="grid g3">
+      <div class="card surface">
+        <span class="tag t-saas">Profissional (visitante)</span>
+        <h3>Marketing (landing)</h3>
+        <div class="dom">seuconviteia.com</div>
+        <div class="role">Página de vendas: hero, modelos, como funciona, planos, FAQ. Marca turquesa + roxo.</div>
+        <div class="muted" style="margin-top:8px">app/(marketing)</div>
+      </div>
+      <div class="card surface">
+        <span class="tag t-saas">Profissional (logado)</span>
+        <h3>Painel do profissional</h3>
+        <div class="dom">app.seuconviteia.com</div>
+        <div class="role">Meus convites, editor “Criar convite” (6 passos com <b>prévia ao vivo</b>), convidados, presentes, plano.</div>
+        <ul class="rotas">
+          <li>/painel/convites — Meus convites</li>
+          <li>/painel/criar — editor (6 passos)</li>
+          <li>/painel/[id] — gerenciar convite</li>
+          <li>/preview-evento — render p/ a prévia</li>
+        </ul>
+      </div>
+      <div class="card surface event">
+        <span class="tag t-event">Convidado (público)</span>
+        <h3>Sites de evento</h3>
+        <div class="dom">&lt;cliente&gt;.seuconviteia.com</div>
+        <div class="role">O convite publicado. Resolvido por subdomínio.</div>
+        <ul class="rotas">
+          <li>/ — capa + home</li>
+          <li>/evento · /presentes · /galeria</li>
+          <li>/recados · /confirmar · /obrigada</li>
+        </ul>
+        <div class="muted" style="margin-top:8px">app/_sites/[sub]</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLUXO EDITOR -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Fluxo central</div>
+    <h2>Do editor ao site publicado</h2>
+    <p class="lead">O profissional edita e vê o <b>site de verdade</b> numa prévia (iframe da mesma origem) que atualiza <b>ao vivo enquanto digita</b>, com um círculo apontando a seção em edição. Ao publicar, o site fica no ar num subdomínio.</p>
+    <div class="flowrow">
+      <span class="node v">Criar convite (6 passos)</span><span class="arrow">→</span>
+      <span class="node">montarRascunho (?s=)</span><span class="arrow">→</span>
+      <span class="node">/preview-evento (site real)</span><span class="arrow">→</span>
+      <span class="node v">criarConvite (server action)</span><span class="arrow">→</span>
+      <span class="node">Event + GiftItems</span><span class="arrow">→</span>
+      <span class="node r">&lt;slug&gt;.seuconviteia.com</span>
+    </div>
+    <p class="muted" style="margin-top:14px">Passos: <b>Festa · Capa e estilo · Conteúdo · Confirmação · Presentes e Pix · Galeria e publicação.</b> Prévia ao vivo via edição direta do DOM do iframe (mesma origem) + recarregar de segurança; a rolagem é preservada para a tela não “balançar”.</p>
+  </div>
+</section>
+
+<!-- MODELO DE DADOS -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Modelo de dados</div>
+    <h2>Entidades (Prisma)</h2>
+    <p class="lead">O <b>Event</b> é o núcleo: guarda todo o conteúdo editável em <code>customization</code> (JSON) e se relaciona com convidados, presentes, fotos, recados e pagamentos.</p>
+
+    <div class="enums">
+      <span class="enum"><span class="n">Plan</span> · <span class="v">BASICO · CLASSICO · PREMIUM</span></span>
+      <span class="enum"><span class="n">EventType</span> · <span class="v">CASAMENTO · QUINZE_ANOS · SESSENTA_ANOS · BODAS · ANIVERSARIO</span></span>
+      <span class="enum"><span class="n">EventStatus</span> · <span class="v">DRAFT · PUBLISHED · EXPIRED</span></span>
+      <span class="enum"><span class="n">GiftMode</span> · <span class="v">PIX · ITEM</span></span>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px">
+      <div class="entity" style="grid-column:1/-1;border-color:#dcccfb">
+        <div class="head" style="background:var(--violet-soft)"><b>Event <span style="color:var(--violet)">· núcleo</span></b><span class="pk">id (cuid)</span></div>
+        <div class="body">
+          <div class="fields">
+            <span class="field">professionalId</span><span class="field">type</span><span class="field">subdomain</span><span class="field">title</span><span class="field">templateId</span><span class="field">eventDate</span><span class="field">expiresAt</span><span class="field">status</span><span class="field">plan</span><span class="field">customization: Json</span>
+          </div>
+          <div class="rel">Relações: <b>professional</b> · <b>guests[]</b> · <b>gifts[]</b> · <b>photos[]</b> · <b>recados[]</b> · <b>transactions[]</b> · <b>template</b></div>
+        </div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>Professional</b><span class="pk">conta do profissional</span></div>
+        <div class="body"><div class="fields"><span class="field">name</span><span class="field">email</span><span class="field">passwordHash</span><span class="field">plan</span><span class="field">brandName</span><span class="field">brandLogoUrl</span><span class="field">brandColors</span></div><div class="rel">tem → <b>events[]</b></div></div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>Guest</b><span class="pk">RSVP</span></div>
+        <div class="body"><div class="fields"><span class="field">name</span><span class="field">status</span><span class="field">companions</span><span class="field">message</span></div><div class="rel">pertence a → <b>event</b></div></div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>GiftItem</b><span class="pk">presente</span></div>
+        <div class="body"><div class="fields"><span class="field">title</span><span class="field">description</span><span class="field">imageUrl</span><span class="field">priceCents</span><span class="field">mode</span><span class="field">pixPayload</span><span class="field">purchased</span><span class="field">buyerName</span></div><div class="rel">pertence a → <b>event</b></div></div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>Recado</b><span class="pk">mural</span></div>
+        <div class="body"><div class="fields"><span class="field">name</span><span class="field">message</span><span class="field">approved</span></div><div class="rel">pertence a → <b>event</b></div></div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>Photo</b><span class="pk">galeria</span></div>
+        <div class="body"><div class="fields"><span class="field">url</span><span class="field">order</span></div><div class="rel">pertence a → <b>event</b></div></div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>Template</b><span class="pk">modelo de design</span></div>
+        <div class="body"><div class="fields"><span class="field">name</span><span class="field">nicho</span><span class="field">config: Json</span></div><div class="rel">usado por → <b>events[]</b></div></div>
+      </div>
+
+      <div class="entity">
+        <div class="head"><b>Transaction</b><span class="pk">pagamento</span></div>
+        <div class="body"><div class="fields"><span class="field">amountCents</span><span class="field">kind</span><span class="field">status</span><span class="field">providerId</span></div><div class="rel">pertence a → <b>event</b> <span class="muted">(iCasei completo — pendente)</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CAMADAS / LIB -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Camadas de código</div>
+    <h2>Bibliotecas (lib/) e responsabilidades</h2>
+    <p class="lead">A regra de negócio vive em <code>lib/</code>; os componentes só renderizam. Templates consomem um adaptador comum, então trocar de tema/fonte re-tinge o site inteiro.</p>
+    <table>
+      <thead><tr><th>Arquivo</th><th>Responsabilidade</th></tr></thead>
+      <tbody>
+        <tr><td><code>tenant.ts</code></td><td>Resolve o subdomínio → tenant (isolamento por evento).</td></tr>
+        <tr><td><code>db.ts</code></td><td>Singleton do Prisma.</td></tr>
+        <tr><td><code>plans.ts · recursos.ts</code></td><td>Gating por plano e toggles de recursos do site (RSVP, presentes, galeria, recados).</td></tr>
+        <tr><td><code>templates.ts · temas.ts · fontes.ts</code></td><td>Registro dos templates; presets de cor (<code>--ev-*</code>) e fonte (<code>--ev-font-*</code>).</td></tr>
+        <tr><td><code>convite.ts · eventoFesta.ts</code></td><td>Adaptadores: Event → conteúdo que os templates consomem (título, data, presentes, idade, monograma…).</td></tr>
+        <tr><td><code>previewEvento.ts</code></td><td>Serializa o rascunho do editor (<code>?s=</code>) ↔ Event sintético para a prévia ao vivo.</td></tr>
+        <tr><td><code>rsvp.ts · recados.ts</code></td><td>Confirmação de presença (grava Guest) e recado no mural (grava Recado, LGPD).</td></tr>
+        <tr><td><code>storage/ · email/</code></td><td>Upload de imagens (disco local / Vercel Blob) e envio de e-mail (Resend).</td></tr>
+        <tr><td><code>countdown.ts · dates.ts · cor.ts · slug.ts</code></td><td>Utilitários: contagem regressiva (fuso −03:00), datas, cores, slug.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- INTEGRAÇÕES -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Integrações & operação</div>
+    <h2>Serviços externos</h2>
+    <div class="grid g3">
+      <div class="card"><h3>Auth.js v5</h3><div class="role">Login por e-mail/senha do profissional. <code>/api/auth/[...nextauth]</code>.</div></div>
+      <div class="card"><h3>Upload de imagens</h3><div class="role">Disco local (dev) / Vercel Blob (prod). <code>/api/upload</code>.</div></div>
+      <div class="card"><h3>Mercado Pago (Pix)</h3><div class="role">Modelo <b>Transaction</b> pronto; pagamento na plataforma pendente (hoje Pix manual).</div></div>
+      <div class="card"><h3>Resend</h3><div class="role">E-mails transacionais (lib/email).</div></div>
+      <div class="card"><h3>Cron · expirar</h3><div class="role">Marca convites vencidos como EXPIRED. <code>/api/cron/expirar</code> (CRON_SECRET).</div></div>
+      <div class="card"><h3>Vercel</h3><div class="role">Deploy + wildcard <code>*.seuconviteia.com</code>.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATUS -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Onde estamos</div>
+    <h2>Status do MVP</h2>
+    <div class="status">
+      <div class="card statuscard ok">
+        <h3 style="color:var(--ok)">Pronto</h3>
+        <ul>
+          <li><span class="ic">✓</span> Site do convidado renderiza (capa, evento, presentes, galeria, recados, confirmar)</li>
+          <li><span class="ic">✓</span> RSVP grava convidado · Recado grava com LGPD</li>
+          <li><span class="ic">✓</span> Editor “Criar convite” salva e publica · prévia ao vivo + círculo de foco</li>
+          <li><span class="ic">✓</span> Textos ao vivo (nome, idade, carta, local, endereço, traje, pix, presentes)</li>
+          <li><span class="ic">✓</span> Capa: foto, idade, monograma e animações (liga/desliga)</li>
+          <li><span class="ic">✓</span> Presentes editáveis (CRUD) + preço + “Presentear” (estilo iCasei)</li>
+          <li><span class="ic">✓</span> Meus convites (lista)</li>
+        </ul>
+      </div>
+      <div class="card statuscard pend">
+        <h3 style="color:var(--amber)">Pendente</h3>
+        <ul>
+          <li><span class="ic">•</span> Galeria: upload real de fotos no editor novo</li>
+          <li><span class="ic">•</span> Capa: cores do texto, overlay e tamanhos</li>
+          <li><span class="ic">•</span> Confirmação (RSVP): escolher campos + acompanhantes</li>
+          <li><span class="ic">•</span> Recados: moderação de verdade no painel</li>
+          <li><span class="ic">•</span> Abrir convite existente no editor novo</li>
+          <li><span class="ic">•</span> Pagamento na plataforma (Mercado Pago) — iCasei completo</li>
+          <li><span class="ic">•</span> Storage de produção + reconciliar Postgres + destravar deploy</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    seuconvite · arquitetura do sistema · gerado em 2026-07-27 · branch <code>backup/dashboard-editor-local-20260720</code>
+    <details>
+      <summary>Ver dados em JSON (fonte desta página)</summary>
+      <pre id="json">Carregando…</pre>
+    </details>
+  </div>
+</footer>
+
+<script type="application/json" id="arch-data">
+{"produto":{"nome":"seuconvite (SeuConvite IA)","modelo":"B2B multi-tenant","superficies":["marketing","painel","sites de evento"]},"stack":["Next.js 16","React 19","TypeScript strict","Tailwind v4","Prisma 6","MySQL→Postgres","Auth.js v5","Mercado Pago/Pix","Resend","Vercel Blob","Vercel","pnpm"],"entidades":["Professional","Event","Guest","GiftItem","Recado","Photo","Template","Transaction"],"enums":{"Plan":["BASICO","CLASSICO","PREMIUM"],"EventType":["CASAMENTO","QUINZE_ANOS","SESSENTA_ANOS","BODAS","ANIVERSARIO"],"EventStatus":["DRAFT","PUBLISHED","EXPIRED"],"GiftMode":["PIX","ITEM"]},"api":["/api/upload","/api/auth/[...nextauth]","/api/cron/expirar"],"templates":["quinze-anos/glamour-rose","casamento/classico-elegante","aniversario/adulto-elegante","aniversario/infantil-ludico"],"obs":"Estrutura completa no arquivo seuconvite-arquitetura.json"}
+</script>
+<script>
+  try{
+    var el=document.getElementById('arch-data');
+    document.getElementById('json').textContent=JSON.stringify(JSON.parse(el.textContent),null,2);
+  }catch(e){document.getElementById('json').textContent='(ver arquivo seuconvite-arquitetura.json)';}
+</script>
+
+</body>
+</html>

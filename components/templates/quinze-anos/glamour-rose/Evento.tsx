@@ -69,9 +69,9 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
               ))}
             </div>
           </Reveal>
-          <Reveal delay={200} className="mt-8 flex flex-col items-center gap-2">
+          <Reveal delay={200} dataSec="assinatura" className="mt-8 flex flex-col items-center gap-2">
             <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
-            <p className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
+            <p data-live="assinatura" className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
               {assinatura}
             </p>
           </Reveal>
@@ -98,7 +98,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
                   {evento.horario}
                 </p>
               </div>
-              <div className="text-center sm:border-l sm:border-[var(--line)] sm:pl-8 sm:text-left">
+              <div data-sec="onde" className="text-center sm:border-l sm:border-[var(--line)] sm:pl-8 sm:text-left">
                 <p className="eyebrow text-evt-rosa-ink">Onde</p>
                 <p data-live="local" className="mt-4 font-evt-script text-[clamp(3rem,7vw,3.5rem)] leading-tight text-evt-ink">
                   {local}
@@ -120,14 +120,15 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       </section>
 
       {/* ═══ TRAJE ═══ */}
-      {evento.traje && (
-        <section data-sec="traje" className={`${PAD} py-[clamp(3.5rem,7vw,5rem)]`} style={{ background: "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)" }}>
-          <Reveal className={`flex flex-col items-center gap-3 text-center ${WRAP}`}>
-            <p className="eyebrow text-evt-rosa-ink">Traje</p>
-            <p data-live="traje" className="font-evt-script text-[clamp(3.3rem,8.5vw,4rem)] text-evt-ink">{evento.traje}</p>
-          </Reveal>
-        </section>
-      )}
+      {/* Sempre no DOM (mesmo sem texto) pra o toggle "Mostrar traje" do editor
+          refletir na hora via [data-live]; escondida por CSS (data-hide-empty)
+          quando o texto está vazio — ver regra em globals.css. */}
+      <section data-sec="traje" data-hide-empty="traje" className={`${PAD} py-[clamp(3.5rem,7vw,5rem)]`} style={{ background: "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)" }}>
+        <Reveal className={`flex flex-col items-center gap-3 text-center ${WRAP}`}>
+          <p className="eyebrow text-evt-rosa-ink">Traje</p>
+          <p data-live="traje" className="font-evt-script text-[clamp(3.3rem,8.5vw,4rem)] text-evt-ink">{evento.traje ?? ""}</p>
+        </Reveal>
+      </section>
 
       {/* ═══ PROGRAMAÇÃO (timeline) ═══ */}
       {temProgramacao && (

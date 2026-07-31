@@ -21,15 +21,25 @@ const ROTULOS: Record<string, string> = {
   capa: "Capa",
   "capa-nome": "Nome",
   "capa-idade": "Idade",
+  monograma: "Monograma",
   carta: "Mensagem",
   "carta-titulo": "Título da mensagem",
   "carta-texto": "Texto da mensagem",
-  quando: "Quando e onde",
+  assinatura: "Assinatura dos pais",
+  quando: "Quando",
+  onde: "Onde é a festa",
   traje: "Traje",
   programacao: "Programação",
   cta: "Botão de confirmar",
   presentes: "Presentes",
   galeria: "Galeria",
+  rsvp: "Confirmação de presença",
+  "rsvp-extras": "Campos do convidado",
+  pix: "Recebimento por Pix",
+  recados: "Mural de recados",
+  rodape: "Rodapé",
+  "obrigada-sim": "Mensagem para quem confirma",
+  "obrigada-nao": "Mensagem para quem não vai",
 };
 
 export function PreviewFoco({ sec }: { sec?: string }) {
@@ -38,6 +48,10 @@ export function PreviewFoco({ sec }: { sec?: string }) {
     const alvos = Array.from(document.querySelectorAll<HTMLElement>(`[data-sec="${sec}"]`));
     const el = alvos.find((e) => e.getBoundingClientRect().width > 0) ?? alvos[0];
     if (!el) return;
+    // A seção pode estar ESCONDIDA ao vivo (largura 0 — ex.: traje desligado sem
+    // recarregar). Nesse caso não rolamos até ela e o anel fica oculto; volta a
+    // aparecer sozinho quando a seção reaparece (ResizeObserver mais abaixo).
+    const visivelAgora = () => el.getBoundingClientRect().width > 0;
 
     const reduz =
       typeof window !== "undefined" &&
@@ -67,10 +81,30 @@ export function PreviewFoco({ sec }: { sec?: string }) {
         window.setTimeout(restaurar, 60),
         window.setTimeout(restaurar, 180),
         window.setTimeout(restaurar, 360),
+        // Se a seção ANDOU (um toggle a adicionou/removeu, ex.: traje ligado de
+        // novo), ela pode ter ficado fora da vista — aí rola até ela, senão
+        // parece que "não apareceu". Durante digitação ela está visível: não rola.
+        // Várias tentativas (o conteúdo/altura assenta com o reload).
+        ...[300, 520, 760, 1100].map((ms) =>
+          window.setTimeout(() => {
+            const r = el.getBoundingClientRect();
+            const vh = window.innerHeight;
+            const visivel = r.bottom > vh * 0.12 && r.top < vh * 0.9;
+            if (!visivel && visivelAgora()) el.scrollIntoView({ block: "center" });
+          }, ms),
+        ),
       );
     } else {
-      // troca de campo: rola até a seção uma única vez.
-      el.scrollIntoView({ behavior: reduz ? "auto" : "smooth", block: "center" });
+      // troca de campo: rola até a seção uma única vez, PARTINDO da última posição
+      // conhecida (não do topo do iframe recém-carregado) — assim a rolagem não
+      // "vem do início da página" a cada troca de seção.
+      try {
+        const y = Number(sessionStorage.getItem(K_Y) || "0");
+        if (y && Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+      } catch {}
+      if (visivelAgora()) {
+        el.scrollIntoView({ behavior: reduz ? "auto" : "smooth", block: "center" });
+      }
       try {
         sessionStorage.setItem(K_SEC, sec);
       } catch {}
@@ -97,6 +131,13 @@ export function PreviewFoco({ sec }: { sec?: string }) {
 
     const posicionar = () => {
       const r = el.getBoundingClientRect();
+      // Seção escondida ao vivo (ex.: traje desligado): oculta o anel — reaparece
+      // quando a seção volta (o ResizeObserver dispara este posicionar de novo).
+      if (r.width === 0) {
+        mark.style.display = "none";
+        return;
+      }
+      mark.style.display = "";
       const padX = 12;
       const padY = 8;
       const vw = document.documentElement.clientWidth;
@@ -114,6 +155,10 @@ export function PreviewFoco({ sec }: { sec?: string }) {
     const t1 = setTimeout(posicionar, 420);
     window.addEventListener("resize", posicionar);
     window.addEventListener("scroll", posicionar, true);
+    // A seção pode sumir/voltar AO VIVO (toggle sem reload) — o anel acompanha:
+    // observa o tamanho da própria seção e reposiciona (some quando vira 0).
+    const ro = new ResizeObserver(() => posicionar());
+    ro.observe(el);
 
     return () => {
       clearTimeout(t1);
@@ -121,6 +166,7 @@ export function PreviewFoco({ sec }: { sec?: string }) {
       window.removeEventListener("resize", posicionar);
       window.removeEventListener("scroll", posicionar, true);
       window.removeEventListener("scroll", salvarY);
+      ro.disconnect();
       mark.remove();
     };
   }, [sec]);
@@ -136,7 +182,7 @@ export function PreviewFoco({ sec }: { sec?: string }) {
         box-shadow:
           0 0 0 4px color-mix(in srgb, var(--ev-rosa) 22%, transparent),
           0 10px 30px color-mix(in srgb, var(--ev-rosa) 26%, transparent),
-          0 0 0 9999px color-mix(in srgb, #140a12 40%, transparent);
+          0 0 0 9999px color-mix(in srgb, #140a12 24%, transparent);
         animation: evtFoco 0.45s cubic-bezier(0.16,1,0.3,1) both;
       }
       /* reload por digitação: destaque aparece pronto, sem re-animar (não pisca). */

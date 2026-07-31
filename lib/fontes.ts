@@ -116,6 +116,46 @@ export const FONTES: Record<string, FonteDupla> = {
       "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
     },
   },
+
+  // ── DELICADA — cursiva fina (Great Vibes) + serifada variável (Fraunces) ────
+  delicada: {
+    key: "delicada",
+    label: "Delicada",
+    scriptScale: 0.95,
+    vars: {
+      "--ev-font-script": `var(--font-greatvibes), ${CURSIVE_FALLBACK}`,
+      "--ev-font-display": `var(--font-fraunces), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-ebgaramond), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── IMPERIAL — versal romana (Cinzel) + Garamond ───────────────────────────
+  imperial: {
+    key: "imperial",
+    label: "Imperial",
+    caps: true,
+    scriptScale: 0.62,
+    vars: {
+      "--ev-font-script": `var(--font-cinzel), ${SERIF_FALLBACK}`,
+      "--ev-font-display": `var(--font-cinzel), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-ebgaramond), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-montserrat), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── ENCANTADA — cursiva (Great Vibes) + Playfair + sans moderna ────────────
+  encantada: {
+    key: "encantada",
+    label: "Encantada",
+    scriptScale: 0.95,
+    vars: {
+      "--ev-font-script": `var(--font-greatvibes), ${CURSIVE_FALLBACK}`,
+      "--ev-font-display": `var(--font-playfair), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-montserrat), ${SANS_FALLBACK}`,
+      "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
+    },
+  },
 };
 
 /** Dupla padrao (a da festa) quando a chave nao existe / nao foi setada. */
@@ -147,4 +187,98 @@ export function lerFonteKey(customization: unknown): string {
     if (typeof f === "string" && FONTES[f]) return f;
   }
   return FONTE_PADRAO;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMBINAR FONTES (Premium): o cliente escolhe uma "fonte principal" (dos nomes/
+// títulos) e vê quais fontes de TEXTO combinam. Cada cabeça (`FonteHead`) define
+// o par script+display; cada corpo (`FonteCorpo`) define body+util. `combina`
+// lista os corpos recomendados para aquela cabeça.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cabeça = estilo dos NOMES/TÍTULOS (script + display). */
+export type FonteHead = {
+  key: string;
+  label: string;
+  script: string;
+  display: string;
+  caps?: boolean;
+  scriptScale: number;
+  /** Chaves de `FONTE_CORPOS` recomendadas para esta cabeça. */
+  combina: string[];
+};
+
+/** Corpo = fonte dos TEXTOS (body + util). */
+export type FonteCorpo = { key: string; label: string; body: string; util: string };
+
+export const FONTE_HEADS: Record<string, FonteHead> = {
+  classica: { key: "classica", label: "Clássica", script: `var(--font-milton), ${CURSIVE_FALLBACK}`, display: `var(--font-vogue), ${SERIF_FALLBACK}`, scriptScale: 1, combina: ["cormorant", "ebgaramond", "jost"] },
+  romantica: { key: "romantica", label: "Romântica", script: `var(--font-dancing), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.92, combina: ["cormorant", "ebgaramond", "montserrat"] },
+  delicada: { key: "delicada", label: "Delicada", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-fraunces), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["ebgaramond", "cormorant", "montserrat"] },
+  imperial: { key: "imperial", label: "Imperial", script: `var(--font-cinzel), ${SERIF_FALLBACK}`, display: `var(--font-cinzel), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["ebgaramond", "montserrat", "cormorant"] },
+  festiva: { key: "festiva", label: "Festiva", script: `var(--font-pacifico), ${CURSIVE_FALLBACK}`, display: `var(--font-jost), ${SANS_FALLBACK}`, scriptScale: 0.74, combina: ["jost", "montserrat"] },
+  moderna: { key: "moderna", label: "Moderna", script: `var(--font-marcellus), ${SERIF_FALLBACK}`, display: `var(--font-marcellus), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["jost", "montserrat", "ebgaramond"] },
+  encantada: { key: "encantada", label: "Encantada", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["montserrat", "ebgaramond", "cormorant"] },
+};
+
+export const FONTE_CORPOS: Record<string, FonteCorpo> = {
+  cormorant: { key: "cormorant", label: "Cormorant · serifada clássica", body: `var(--font-cormorant), ${SERIF_FALLBACK}`, util: `var(--font-jost), ${SANS_FALLBACK}` },
+  ebgaramond: { key: "ebgaramond", label: "EB Garamond · serifada elegante", body: `var(--font-ebgaramond), ${SERIF_FALLBACK}`, util: `var(--font-jost), ${SANS_FALLBACK}` },
+  jost: { key: "jost", label: "Jost · sem serifa limpa", body: `var(--font-jost), ${SANS_FALLBACK}`, util: `var(--font-jost), ${SANS_FALLBACK}` },
+  montserrat: { key: "montserrat", label: "Montserrat · sem serifa moderna", body: `var(--font-montserrat), ${SANS_FALLBACK}`, util: `var(--font-montserrat), ${SANS_FALLBACK}` },
+};
+
+export type FontesCustom = { head: string; corpo: string };
+
+/** Combinação custom válida? (as duas chaves existem nos catálogos). */
+function customValido(c: FontesCustom | undefined): c is FontesCustom {
+  return !!c && !!FONTE_HEADS[c.head] && !!FONTE_CORPOS[c.corpo];
+}
+
+/**
+ * Variaveis da dupla — se houver combinação custom válida (Premium), usa a
+ * cabeça (script+display) + o corpo (body+util) escolhidos; senão, o preset.
+ */
+export function varsDaFonteCombinada(
+  key?: string | null,
+  custom?: FontesCustom | null,
+): Record<string, string> {
+  if (customValido(custom ?? undefined)) {
+    const h = FONTE_HEADS[custom!.head];
+    const c = FONTE_CORPOS[custom!.corpo];
+    return {
+      "--ev-font-script": h.script,
+      "--ev-font-display": h.display,
+      "--ev-font-body": c.body,
+      "--ev-font-util": c.util,
+    };
+  }
+  return { ...fonteDupla(key).vars };
+}
+
+/** A tipografia (preset ou custom) é caixa-alta espaçada? (classe evt-fonte-caps). */
+export function fonteCapsCombinada(key?: string | null, custom?: FontesCustom | null): boolean {
+  if (customValido(custom ?? undefined)) return !!FONTE_HEADS[custom!.head].caps;
+  return !!fonteDupla(key).caps;
+}
+
+/** Escala da script (preset ou custom) — para o tamanho dos cards do editor. */
+export function fonteScriptScale(key?: string | null, custom?: FontesCustom | null): number {
+  if (customValido(custom ?? undefined)) return FONTE_HEADS[custom!.head].scriptScale;
+  return fonteDupla(key).scriptScale;
+}
+
+/** Le a combinação custom de um `customization` (Premium). undefined se ausente/inválida. */
+export function lerFontesCustom(customization: unknown): FontesCustom | undefined {
+  if (customization && typeof customization === "object" && "fontesCustom" in customization) {
+    const fc = (customization as { fontesCustom?: unknown }).fontesCustom;
+    if (fc && typeof fc === "object") {
+      const head = (fc as { head?: unknown }).head;
+      const corpo = (fc as { corpo?: unknown }).corpo;
+      if (typeof head === "string" && typeof corpo === "string" && FONTE_HEADS[head] && FONTE_CORPOS[corpo]) {
+        return { head, corpo };
+      }
+    }
+  }
+  return undefined;
 }

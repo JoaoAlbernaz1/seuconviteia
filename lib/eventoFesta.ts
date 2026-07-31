@@ -68,14 +68,18 @@ export type EventoFesta = {
   fotos: string[];
   /** Linha discreta do rodape: "DD . MM . AAAA · Local". */
   footerInfo: string;
+  /** Frase de fecho do rodapé (editável; cai para "Feito com carinho."). */
+  rodapeMsg?: string;
   /** Monograma/logo do evento (opcional; a nav usa as iniciais do nome se ausente). */
   logoUrl?: string;
   /** Mostrar o monograma na barra do site (default: true). */
   monograma: boolean;
   /** Animações de entrada ao carregar a página (default: true). */
   animacoes: boolean;
-  /** Preset de cor do site (chave de `lib/temas.ts`). */
+  /** Preset de cor do site (chave de `lib/temas.ts`), ou "custom". */
   tema: string;
+  /** Cor personalizada (hex) quando `tema === "custom"`. */
+  temaCor?: string;
   /** Multiplicador do tamanho do lockup da capa (1 = padrão). */
   capaEscala: number;
   /** Escurecer a foto da capa para melhorar a leitura (default: não). */
@@ -105,6 +109,8 @@ const extrasSchema = z
     logoUrl: z.string(),
     /** Idade comemorada, editável (sobrepõe o padrão do nicho). */
     idade: z.coerce.number().int().min(1).max(120),
+    /** Cor personalizada (hex) quando `tema === "custom"`. */
+    temaCor: z.string(),
     /** Mostrar o monograma/logo na barra (default: mostra). */
     monograma: z.boolean(),
     /** Animações de entrada do site ao carregar (default: ligadas). */
@@ -121,8 +127,10 @@ const extrasSchema = z
     capaEscala: z.coerce.number().min(0.5).max(2),
     /** Escurecer a foto da capa p/ melhorar a leitura. */
     capaOverlay: z.boolean(),
-    /** Pais — vira a linha "Os pais convidam..." + a assinatura da carta. */
+    /** Pais — vira a assinatura da carta ("pai, mãe e a debutante"). */
     pais: z.object({ pai: z.string(), mae: z.string(), texto: z.string() }).partial(),
+    /** Frase de fecho do rodapé (editável). */
+    rodapeMsg: z.string(),
     /** Botão principal (CTA): rótulo, destino e linha acima. */
     ctaLabel: z.string(),
     ctaHref: z.string(),
@@ -189,11 +197,12 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     .filter(Boolean)
     .join(" · ");
 
-  // Pais -> linha de convite (texto) + assinatura (pai, mãe e a debutante).
+  // Pais -> assinatura da carta (pai, mãe e a debutante). Não alimenta mais a
+  // linha de abertura ("conviteIntro"): a mensagem de abertura é um texto único
+  // e editável; a caixa "Pais e família" só controla os NOMES da assinatura.
   const paisNomes = [texto(extras.pais?.pai), texto(extras.pais?.mae)].filter(
     Boolean,
   ) as string[];
-  const conviteIntroPais = texto(extras.pais?.texto);
   const assinaturaPais = paisNomes.length
     ? juntarNomes([...paisNomes, c.titulo])
     : undefined;
@@ -206,7 +215,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     horario: horarioBR(event.eventDate),
     dataAlvoISO: c.dataISO,
     mensagemBoasVindas: c.mensagem,
-    conviteIntro: texto(extras.conviteIntro) ?? conviteIntroPais,
+    conviteIntro: texto(extras.conviteIntro),
     assinatura: texto(extras.assinatura) ?? assinaturaPais,
     local: c.local,
     endereco: c.endereco,
@@ -224,10 +233,12 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     presentesTexto: texto(extras.presentesTexto),
     fotos: c.fotos,
     footerInfo,
+    rodapeMsg: texto(extras.rodapeMsg),
     logoUrl: texto(extras.logoUrl),
     monograma: extras.monograma ?? true,
     animacoes: extras.animacoes ?? true,
     tema: texto(extras.tema) ?? TEMA_PADRAO,
+    temaCor: texto(extras.temaCor),
     capaEscala: extras.capaEscala ?? 1,
     capaOverlay: extras.capaOverlay ?? false,
     ctaLabel: texto(extras.ctaLabel),

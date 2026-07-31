@@ -161,10 +161,40 @@ const festaRsvpSchema = z.object({
   guests: z.array(festaGuestSchema).min(1, "Informe ao menos um convidado."),
 });
 
+/** Campos extras opcionais do form (config do editor) — anexados ao recado. */
+export type RsvpExtras = {
+  telefone?: string;
+  email?: string;
+  restricao?: string;
+  recado?: string;
+};
+
+const extrasSchema = z
+  .object({
+    telefone: z.string().trim().max(40),
+    email: z.string().trim().max(120),
+    restricao: z.string().trim().max(240),
+    recado: z.string().trim().max(400),
+  })
+  .partial();
+
+/** Monta o bloco de texto dos extras (anexado ao `message` do Guest). */
+function linhaExtras(extras: RsvpExtras | undefined): string {
+  if (!extras) return "";
+  const partes: string[] = [];
+  const rec = extras.recado?.trim();
+  if (rec) partes.push(`Recado: ${rec}`);
+  if (extras.telefone?.trim()) partes.push(`Tel: ${extras.telefone.trim()}`);
+  if (extras.email?.trim()) partes.push(`E-mail: ${extras.email.trim()}`);
+  if (extras.restricao?.trim()) partes.push(`Restrição: ${extras.restricao.trim()}`);
+  return partes.join(" · ");
+}
+
 export async function confirmarPresencaFesta(
   eventId: string,
   guests: GuestInput[],
   consentimento: boolean,
+  extrasInput?: RsvpExtras,
 ): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   const parsed = festaRsvpSchema.safeParse({ eventId, guests, consentimento });
   if (!parsed.success) {
@@ -172,6 +202,8 @@ export async function confirmarPresencaFesta(
       parsed.error.issues[0]?.message ?? "Confira os dados e tente de novo.";
     return { ok: false, error: msg };
   }
+  const extras = extrasSchema.safeParse(extrasInput ?? {});
+  const extrasBloco = extras.success ? linhaExtras(extras.data) : "";
 
   const v = validateGuests(parsed.data.guests);
   if (!v.ok) return v;
@@ -189,6 +221,7 @@ export async function confirmarPresencaFesta(
   }
 
   const row = montarGuestRow(v.guests);
+  const message = [row.message, extrasBloco].filter(Boolean).join(" · ") || null;
   try {
     await prisma.guest.create({
       data: {
@@ -196,7 +229,7 @@ export async function confirmarPresencaFesta(
         name: row.name,
         status: row.status,
         companions: row.companions,
-        message: row.message,
+        message,
       },
     });
   } catch {

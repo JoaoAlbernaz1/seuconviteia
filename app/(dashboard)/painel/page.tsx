@@ -213,7 +213,12 @@ export default async function DashboardPage() {
           )}
 
           {/* SEU CONVITE */}
-          <div className="mb-3.5 text-[17px] font-bold tracking-[-0.01em]">Seu convite</div>
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <span className="text-[17px] font-bold tracking-[-0.01em]">Seu convite</span>
+            <Link href="/painel/convites" className="text-[13px] font-semibold text-[#7C3AED] hover:text-[#6D28D9]">
+              Ver todos os convites →
+            </Link>
+          </div>
           <div className="flex flex-col items-start gap-6 rounded-[20px] border border-[#ececf0] bg-white p-[22px] shadow-[0_2px_10px_rgba(23,23,27,0.04)] lg:flex-row lg:items-center">
             {/* mini-preview */}
             <div className="relative flex h-[126px] w-full flex-none flex-col items-center justify-center gap-1 overflow-hidden rounded-[14px] bg-[linear-gradient(150deg,#1a1426,#3b2a63_70%,#7C3AED)] lg:w-[210px]">

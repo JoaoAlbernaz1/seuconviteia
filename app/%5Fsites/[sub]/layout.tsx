@@ -11,7 +11,7 @@ import { carregarEventoFesta } from "@/lib/eventoFesta";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
-import { fonteDupla, lerFonteKey, varsDaFonte } from "@/lib/fontes";
+import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoPermite } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
@@ -38,15 +38,17 @@ export default async function EventSiteLayout({
 
   const dados = comFotosDemo(event);
   const tema = dados.tema;
+  const temaCor = dados.temaCor;
   // Particulas: no tema "rose" usa o trio EXATO do festa (default do componente);
-  // nos demais presets, deriva as faiscas do acento p/ re-tingir.
+  // nos demais presets / cor personalizada, deriva as faiscas do acento p/ re-tingir.
   const particleColors =
-    tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(tema));
+    tema === TEMA_PADRAO ? undefined : coresParticulas(acentoDoTema(tema, temaCor));
 
   // Dupla de fontes do evento: vars `--ev-font-*` + classe de versal espacada
   // quando a dupla nao tem cursiva (Moderna/Minimalista).
   const fonteKey = lerFonteKey(event.customization);
-  const fonteCaps = fonteDupla(fonteKey).caps ? " evt-fonte-caps" : "";
+  const fontesCustom = lerFontesCustom(event.customization);
+  const fonteCaps = fonteCapsCombinada(fonteKey, fontesCustom) ? " evt-fonte-caps" : "";
 
   // Recursos ATIVOS = plano permite ∩ toggle do evento (lib/recursos). A nav
   // filtra os links; o rodape/white-label continua so por plano.
@@ -58,15 +60,16 @@ export default async function EventSiteLayout({
 
   return (
     <div
-      className={`evt${fonteCaps} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
-      style={{ ...varsDoTema(tema), ...varsDaFonte(fonteKey) }}
+      className={`evt${fonteCaps}${dados.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
+      style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom) }}
     >
       <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />
-      <SiteNav nome={dados.primeiroNome} logoUrl={dados.logoUrl} recursos={recursos} />
+      <SiteNav nome={dados.primeiroNome} logoUrl={dados.logoUrl} monograma={dados.monograma} recursos={recursos} />
       {children}
       <SiteFooter
         nome={dados.primeiroNome}
         linhaInfo={dados.footerInfo}
+        mensagem={dados.rodapeMsg}
         whiteLabel={whiteLabel}
         brandName={brandName}
       />
