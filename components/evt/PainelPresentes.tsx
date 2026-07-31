@@ -1,10 +1,12 @@
 "use client";
-// PainelPresentes — UM cartão único (foto + lista de presentes + Pix/QR), clone
-// fiel do festa-15-maria-clara/components/PainelPresentes.tsx, data-driven.
-// Desktop: foto à esquerda, conteúdo à direita. Mobile: foto no topo. Copiar chave
-// Pix com feedback "Copiado!". Tokens `--ev-*`/`font-evt-*`.
+// PainelPresentes — UM cartão único (foto + lista de presentes + Pix), clone
+// fiel do festa-15-maria-clara, data-driven. Quando recebe `presentear`, os itens
+// ficam CLICÁVEIS e abrem o fluxo de Pix via plataforma (taxa + cofre); sem ele,
+// mantém o comportamento antigo (Pix direto: copiar chave). Tokens `--ev-*`.
 import { useState } from "react";
 import Image from "next/image";
+import type { PresentearData, PresenteInterativo } from "@/lib/presentesTipos";
+import { PresentearModal } from "@/components/evt/PresentearModal";
 
 export function PainelPresentes({
   fotoUrl,
@@ -13,6 +15,7 @@ export function PainelPresentes({
   pixChave,
   pixNome,
   pixQrUrl,
+  presentear,
 }: {
   fotoUrl?: string;
   fotoPos?: string;
@@ -20,10 +23,15 @@ export function PainelPresentes({
   pixChave?: string;
   pixNome?: string;
   pixQrUrl?: string;
+  presentear?: PresentearData;
 }) {
   const [copied, setCopied] = useState(false);
+  const [aberto, setAberto] = useState<PresenteInterativo | null>(null);
   const temChave = !!pixChave && pixChave.trim().length > 0;
   const temQr = !!pixQrUrl && pixQrUrl.trim().length > 0;
+  // Com fluxo via plataforma ligado, o Pix "direto" (copiar chave) some.
+  const interativo = !!presentear && presentear.itens.length > 0;
+  const mostrarPixDireto = !interativo && (temChave || temQr);
 
   async function copy() {
     if (!temChave) return;
@@ -62,41 +70,71 @@ export function PainelPresentes({
           </h3>
 
           <ul className="mt-6 flex flex-col">
-            {itens.map((it, i) => (
-              <li
-                key={`${it.nome}-${i}`}
-                className={`flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${
-                  i > 0 ? "border-t border-[var(--line)]" : ""
-                }`}
-              >
-                <div className="min-w-0 sm:flex-1">
-                  <span className="font-evt-body text-[clamp(1.35rem,5vw,1.6rem)] text-evt-ink">{it.nome}</span>
-                  {it.detalhe && (
-                    <span className="mt-0.5 block font-evt-body text-[clamp(1rem,3.6vw,1.1rem)] italic text-evt-rosa-ink">
-                      {it.detalhe}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-none items-center justify-between gap-4 sm:justify-end">
-                  {it.valor && (
-                    <span className="whitespace-nowrap font-evt-display text-[clamp(1.25rem,4.4vw,1.5rem)] tracking-[0.02em] text-evt-ink">
-                      {it.valor}
-                    </span>
-                  )}
-                  {(temChave || temQr) && (
-                    <a
-                      href="#presentear-pix"
-                      className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
-                    >
-                      Presentear
-                    </a>
-                  )}
-                </div>
-              </li>
-            ))}
+            {itens.map((it, i) => {
+              const pi = presentear?.itens[i];
+              const esgotado = pi?.esgotado ?? false;
+              const cotasInfo =
+                pi?.pricingMode === "COTAS" && pi.quotaCount
+                  ? `${pi.cotasVendidas} de ${pi.quotaCount} cotas`
+                  : undefined;
+              return (
+                <li
+                  key={`${it.nome}-${i}`}
+                  className={`flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${
+                    i > 0 ? "border-t border-[var(--line)]" : ""
+                  }`}
+                >
+                  <div className="min-w-0 sm:flex-1">
+                    <span className="font-evt-body text-[clamp(1.35rem,5vw,1.6rem)] text-evt-ink">{it.nome}</span>
+                    {it.detalhe && (
+                      <span className="mt-0.5 block font-evt-body text-[clamp(1rem,3.6vw,1.1rem)] italic text-evt-rosa-ink">
+                        {it.detalhe}
+                      </span>
+                    )}
+                    {cotasInfo && (
+                      <span className="mt-1 block font-evt-util text-[0.66rem] uppercase tracking-[0.16em] text-evt-ink-soft">
+                        {cotasInfo}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-none items-center justify-between gap-4 sm:justify-end">
+                    {it.valor && (
+                      <span className="whitespace-nowrap font-evt-display text-[clamp(1.25rem,4.4vw,1.5rem)] tracking-[0.02em] text-evt-ink">
+                        {it.valor}
+                      </span>
+                    )}
+                    {interativo ? (
+                      esgotado ? (
+                        <span className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-black/5 px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.16em] text-evt-ink-soft">
+                          Realizado 🎉
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => pi && setAberto(pi)}
+                          className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
+                        >
+                          Presentear
+                        </button>
+                      )
+                    ) : (
+                      (temChave || temQr) && (
+                        <a
+                          href="#presentear-pix"
+                          className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
+                        >
+                          Presentear
+                        </a>
+                      )
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
 
-          {(temQr || temChave) && (
+          {/* ── Pix DIRETO (fallback do modelo antigo) — só sem fluxo via plataforma ── */}
+          {mostrarPixDireto && (
             <div id="presentear-pix" className="mt-8 scroll-mt-24 border-t border-[var(--line)] pt-8 text-center">
               <p className="eyebrow text-evt-rosa-ink">Ou, se preferir</p>
               <p className="mt-2 font-evt-body text-[clamp(1.2rem,4.5vw,1.4rem)] italic text-evt-ink-soft">
@@ -144,6 +182,10 @@ export function PainelPresentes({
           )}
         </div>
       </div>
+
+      {aberto && presentear && (
+        <PresentearModal item={aberto} eventId={presentear.eventId} onClose={() => setAberto(null)} />
+      )}
     </div>
   );
 }

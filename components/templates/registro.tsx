@@ -15,6 +15,7 @@
 import type { ComponentType } from "react";
 import type { EventoFesta } from "@/lib/eventoFesta";
 import type { TogglesSite } from "@/lib/recursos";
+import type { PresentearData } from "@/lib/presentesTipos";
 import { TEMPLATE_PADRAO_ID } from "@/lib/templates";
 
 // ── Homes dos 4 templates do MVP ──
@@ -43,6 +44,8 @@ export type PaginaTemplateProps = {
   /** `event.type` (chave do nicho) — decide a copy pronta. */
   nicho: string;
   recursos: TogglesSite;
+  /** Dados p/ presentear via Pix (só a /presentes usa; opcional). */
+  presentear?: PresentearData;
 };
 
 /** Componentes de pagina que um template fornece (todos com os mesmos dados). */

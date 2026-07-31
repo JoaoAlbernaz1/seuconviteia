@@ -21,7 +21,7 @@ function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-export function PresentesQuinzeGlamour({ evento }: PaginaTemplateProps) {
+export function PresentesQuinzeGlamour({ evento, presentear }: PaginaTemplateProps) {
   const itens = (evento.presentes ?? []).map((p) => ({ nome: p.titulo, detalhe: p.descricao, valor: p.valorLabel }));
   const texto =
     evento.presentesTexto ??
@@ -47,6 +47,7 @@ export function PresentesQuinzeGlamour({ evento }: PaginaTemplateProps) {
             pixChave={evento.pixChave}
             pixNome={evento.pixNome}
             pixQrUrl={evento.pixQrUrl}
+            presentear={presentear}
           />
         </Reveal>
       </div>
