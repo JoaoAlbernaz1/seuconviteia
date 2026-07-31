@@ -53,6 +53,19 @@ enum GiftMode {
   ITEM
 }
 
+enum GiftPricing {
+  FIXO
+  COTAS
+  LIVRE
+}
+
+enum PayStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 // ----------------------------------------------------------------------------
 // Models
 // ----------------------------------------------------------------------------
@@ -94,11 +107,17 @@ model Event {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  guests       Guest[]
-  gifts        GiftItem[]
-  photos       Photo[]
-  recados      Recado[]
-  transactions Transaction[]
+  // Dados de recebimento do dono (resgate); NUNCA expostos no site publico.
+  payoutPixKey  String?
+  payoutPixName String?
+
+  guests        Guest[]
+  gifts         GiftItem[]
+  photos        Photo[]
+  recados       Recado[]
+  transactions  Transaction[]
+  contributions GiftContribution[]
+  payouts       Payout[]
 
   @@index([professionalId])
   @@index([templateId])
@@ -129,11 +148,17 @@ model GiftItem {
   description String?  @db.Text
   imageUrl    String?
   priceCents  Int
-  mode        GiftMode @default(PIX)
-  pixPayload  String?  @db.Text
-  purchased   Boolean  @default(false)
+  mode        GiftMode    @default(PIX)
+  // Como o item pode ser presenteado: FIXO = preco unico; COTAS = priceCents e o
+  // total, dividido em quotaCount cotas; LIVRE = priceCents e o valor MINIMO.
+  pricingMode GiftPricing @default(FIXO)
+  quotaCount  Int?
+  pixPayload  String?     @db.Text
+  purchased   Boolean     @default(false)
   buyerName   String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime    @default(now())
+
+  contributions GiftContribution[]
 
   @@index([eventId])
 }
@@ -187,6 +212,51 @@ model Transaction {
   status      String   @default("PENDING")
   providerId  String?
   createdAt   DateTime @default(now())
+
+  @@index([eventId])
+}
+
+/// Uma contribuicao de um convidado a um item da lista (presente via Pix).
+/// O convidado paga a PLATAFORMA; a taxa e retida e o liquido credita o cofre.
+model GiftContribution {
+  id               String    @id @default(cuid())
+  eventId          String
+  event            Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  giftItemId       String
+  giftItem         GiftItem  @relation(fields: [giftItemId], references: [id], onDelete: Cascade)
+  buyerName        String
+  buyerContact     String?
+  message          String?   @db.Text
+  quotas           Int?
+  grossCents       Int
+  feeCents         Int
+  netCents         Int
+  status           PayStatus @default(PENDING)
+  provider         String    @default("fake")
+  providerChargeId String?
+  pixCode          String?   @db.Text
+  pixQrUrl         String?   @db.Text
+  paidAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([eventId])
+  @@index([giftItemId])
+  @@index([status])
+}
+
+/// Resgate (saque) do saldo de um convite para a chave Pix do dono.
+model Payout {
+  id                 String    @id @default(cuid())
+  eventId            String
+  event              Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  amountCents        Int
+  pixKey             String
+  pixName            String?
+  status             PayStatus @default(PENDING)
+  provider           String    @default("fake")
+  providerTransferId String?
+  createdAt          DateTime  @default(now())
+  paidAt             DateTime?
 
   @@index([eventId])
 }
