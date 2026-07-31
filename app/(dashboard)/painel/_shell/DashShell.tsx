@@ -58,7 +58,8 @@ export function DashShell({
             (!!fid &&
               p.startsWith(`/painel/${fid}`) &&
               !p.includes("/convidados") &&
-              !p.includes("/presentes")),
+              !p.includes("/presentes") &&
+              !p.includes("/cofre")),
         },
         {
           label: "Convidados",
@@ -71,6 +72,12 @@ export function DashShell({
           d: IC.gift,
           href: fid ? `/painel/${fid}/presentes` : "/painel/novo",
           match: (p) => p.includes("/presentes"),
+        },
+        {
+          label: "Recebimentos",
+          d: IC.card,
+          href: fid ? `/painel/${fid}/cofre` : "/painel/novo",
+          match: (p) => p.includes("/cofre"),
         },
       ],
     },
