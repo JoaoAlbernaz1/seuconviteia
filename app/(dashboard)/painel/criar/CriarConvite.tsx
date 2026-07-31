@@ -33,35 +33,13 @@ const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
 const BTN_HREFS = ["/confirmar", "/evento", "/presentes"] as const;
 const BTN_LABELS = ["Confirmar presença", "Ver localização", "Ver presentes"] as const;
 
-/** Como um presente pode ser dado: valor fixo · cotas · a partir de (mínimo). */
-type GiftModo = "FIXO" | "COTAS" | "LIVRE";
-/** Linha da lista de presentes no editor (v = valor em "R$ 123"; cotas = nº de cotas). */
-type GiftRow = { n: string; desc: string; v: string; modo?: GiftModo; cotas?: string };
-const GIFT_MODOS: { k: GiftModo; label: string }[] = [
-  { k: "FIXO", label: "Valor fixo" },
-  { k: "COTAS", label: "Cotas" },
-  { k: "LIVRE", label: "A partir de" },
-];
+/** Linha da lista de presentes no editor (v = valor em "R$ 123"). Cada presente
+ * é simples: nome + valor fixo. (Modos cotas/a-partir-de existem no backend, mas
+ * a UI ficou só o essencial, a pedido do cliente.) */
+type GiftRow = { n: string; desc: string; v: string };
 /** Mapeia uma linha do editor para o item `presentes` do payload/rascunho. */
 function giftParaPresente(g: GiftRow) {
-  const modo = g.modo ?? "FIXO";
-  return {
-    titulo: g.n,
-    descricao: g.desc,
-    valor: g.v,
-    modo,
-    cotas: modo === "COTAS" ? Number(g.cotas) || undefined : undefined,
-  };
-}
-/** Texto-guia do modo (mostra o valor da cota / mínimo conforme o preenchido). */
-function giftModoHelp(g: GiftRow): string {
-  const modo = g.modo ?? "FIXO";
-  const reais = Number(g.v.replace(/\D/g, "")) || 0;
-  if (modo === "FIXO") return "Preço do presente";
-  if (modo === "LIVRE") return reais ? `O convidado dá a partir de R$ ${reais}` : "O convidado escolhe o valor (mínimo)";
-  const n = Number(g.cotas) || 0;
-  if (reais && n) return `${n} cotas de R$ ${Math.round(reais / n)}`;
-  return "Valor total ÷ nº de cotas";
+  return { titulo: g.n, descricao: g.desc, valor: g.v };
 }
 
 /** Junta nomes em pt-BR — MESMA regra do adapter (lib/eventoFesta). */
@@ -1502,37 +1480,6 @@ export function CriarConvite() {
                               style={{ borderColor: "transparent" }}
                               className="mt-1.5 w-full rounded-[9px] bg-transparent px-2 py-1.5 pl-[38px] text-[12.5px] text-[#6e6e76] outline-none focus:bg-[#FAFAFC]"
                             />
-                            {/* Modo do presente: valor fixo · cotas · a partir de */}
-                            <div className="mt-1.5 flex flex-wrap items-center gap-2 pl-[38px]">
-                              <div className="inline-flex overflow-hidden rounded-lg border border-[#E4E4EA]">
-                                {GIFT_MODOS.map((m) => {
-                                  const ativo = (g.modo ?? "FIXO") === m.k;
-                                  return (
-                                    <button
-                                      key={m.k}
-                                      type="button"
-                                      onClick={() => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, modo: m.k } : x)) })}
-                                      className={`px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${ativo ? "bg-[#7C3AED] text-white" : "bg-white text-[#6e6e76] hover:bg-[#F6F3FE]"}`}
-                                    >
-                                      {m.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              {(g.modo ?? "FIXO") === "COTAS" && (
-                                <span className="inline-flex items-center gap-1.5">
-                                  <input
-                                    value={g.cotas ?? ""}
-                                    onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, cotas: e.target.value.replace(/\D/g, "") } : x)) })}
-                                    inputMode="numeric"
-                                    placeholder="10"
-                                    className="w-[52px] rounded-lg border border-[#E4E4EA] px-2 py-1 text-center text-[12px] font-semibold text-[#17171B] outline-none"
-                                  />
-                                  <span className="text-[11.5px] text-[#8b8b93]">cotas</span>
-                                </span>
-                              )}
-                              <span className="text-[11px] text-[#A6A6AE]">{giftModoHelp(g)}</span>
-                            </div>
                           </div>
                         ))}
                         <button
