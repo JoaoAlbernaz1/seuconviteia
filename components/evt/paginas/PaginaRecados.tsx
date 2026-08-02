@@ -12,11 +12,11 @@ export type RecadoMural = { id: string; nome: string; mensagem: string };
 
 /** Recados de exemplo (só no preview do editor). */
 const DEMO_RECADOS: RecadoMural[] = [
-  { id: "d1", nome: "Tia Márcia", mensagem: "Que noite linda vai ser! Estamos contando os dias, minha querida." },
-  { id: "d2", nome: "Bia e Carol", mensagem: "Amiga, você merece o mundo inteiro. Te amamos demais!" },
+  { id: "d1", nome: "Tio Marcos", mensagem: "Que noite linda vai ser! Estamos contando os dias, minha querida." },
+  { id: "d2", nome: "Maria e Carlos", mensagem: "Amiga, você merece o mundo inteiro. Te amamos demais!" },
   { id: "d3", nome: "Vô Antônio", mensagem: "Minha neta, que Deus abençoe muito os seus 15 anos." },
-  { id: "d4", nome: "Prima Duda", mensagem: "Já separei meu vestido! Vai ser uma festa inesquecível." },
-  { id: "d5", nome: "Madrinha Lu", mensagem: "Te vi crescer e olha só, uma mocinha linda. Estou tão orgulhosa!" },
+  { id: "d4", nome: "Prima Maria", mensagem: "Já separei meu vestido! Vai ser uma festa inesquecível." },
+  { id: "d5", nome: "Padrinho Marcos", mensagem: "Te vi crescer e olha só, uma mocinha linda. Estou tão orgulhoso!" },
 ];
 
 export function PaginaRecados({

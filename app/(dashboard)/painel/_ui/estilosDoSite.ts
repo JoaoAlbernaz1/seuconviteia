@@ -48,11 +48,11 @@ export const ESTILOS_SITE: readonly EstiloSite[] = Object.values(
 
 /** Nome de exemplo por ocasião (placeholders e capas de amostra). */
 export const EXEMPLO_NOME: Record<string, string> = {
-  CASAMENTO: "Ana & Léo",
+  CASAMENTO: "Maria & Léo",
   QUINZE_ANOS: "Maria Clara",
-  BODAS: "Ana & Carlos",
+  BODAS: "Maria & Carlos",
   SESSENTA_ANOS: "Seu Antônio",
-  ANIVERSARIO: "Lara",
+  ANIVERSARIO: "Maria",
 };
 
 /** Rótulo do campo de nome por ocasião. */

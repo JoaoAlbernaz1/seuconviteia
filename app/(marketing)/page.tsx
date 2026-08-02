@@ -59,23 +59,23 @@ const STEPS: { t: string; d: string }[] = [
 const TESTIMONIALS: { q: string; nome: string; papel: string; ini: string; av: string }[] = [
   {
     q: "Passei duas noites tentando fazer no Canva e desisti. Aqui o convite ficou pronto no intervalo do almoço — e muito mais bonito.",
-    nome: "Juliana M.",
-    papel: "Noiva · Casamento em Goiânia",
-    ini: "J",
+    nome: "Rafael M.",
+    papel: "Noivo · Casamento em Goiânia",
+    ini: "R",
     av: "grad",
   },
   {
-    q: "Uso com todas as minhas noivas. O RSVP automático acabou com a planilha de confirmações — só abro o painel e está tudo lá.",
-    nome: "Patrícia Lemos",
+    q: "Uso com todos os meus clientes. O RSVP automático acabou com a planilha de confirmações — só abro o painel e está tudo lá.",
+    nome: "Paulo Lemos",
     papel: "Cerimonialista · 40+ eventos/ano",
     ini: "P",
     av: "ink",
   },
   {
     q: "Fiz o convite dos 15 anos da minha filha em 10 minutos. Os convidados acharam que tinha sido feito por uma agência.",
-    nome: "Renata C.",
-    papel: "Mãe da debutante · São Paulo",
-    ini: "R",
+    nome: "Bruno C.",
+    papel: "Pai da debutante · São Paulo",
+    ini: "B",
     av: "acc",
   },
 ];

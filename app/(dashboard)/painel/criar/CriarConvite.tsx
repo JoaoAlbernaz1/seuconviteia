@@ -290,8 +290,8 @@ const SUGESTOES_PRESENTES = [
 ];
 
 const RECADOS = [
-  { n: "Tia Márcia", txt: "Que noite linda vai ser! Estamos contando os dias, minha querida.", d: "02/07" },
-  { n: "Bia e Carol", txt: "Amiga, você merece o mundo! Te amamos!", d: "30/06" },
+  { n: "Tio Marcos", txt: "Que noite linda vai ser! Estamos contando os dias, minha querida.", d: "02/07" },
+  { n: "Maria e Carlos", txt: "Amiga, você merece o mundo! Te amamos!", d: "30/06" },
   { n: "Vô Antônio", txt: "Minha neta, que Deus abençoe seus 15 anos.", d: "28/06" },
 ];
 
@@ -319,7 +319,7 @@ type State = {
 
 const INICIAL: State = {
   step: 1, sv: "salvo", showErr: false, foco: "capa",
-  nome: "Taynara", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Renata Martins",
+  nome: "Taynara", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Maria Martins",
   cep: "", local: "Espaço Villa Eventos", endereco: "Av. das Palmeiras, 1200", cidade: "São Paulo", uf: "SP",
   traje: "Esporte fino", slug: "taynara15",
   capaFoto: "", capaFotoDesktop: "", capaDoisFotos: false,
@@ -337,7 +337,7 @@ const INICIAL: State = {
   rsvpMsgSim: MSG_CONFIRMA_PADRAO, rsvpMsgNao: MSG_RECUSA_PADRAO,
   gifts: true, free: true,
   giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
-  pixNome: "Renata Martins", pixChave: "renata.martins@email.com", presentesTexto: "",
+  pixNome: "Maria Martins", pixChave: "maria.martins@email.com", presentesTexto: "",
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
   animacoes: false,
   published: false, copied: false, pvMode: "celular",

@@ -101,7 +101,7 @@ export const DICA_FOTO_PRESENTES =
 
 /** Dica de escrita do TITULO (nome em destaque na capa). */
 export const DICA_TITULO =
-  'O nome que aparece em destaque na capa. Ex.: "Ana & Léo", "Maria Clara", "Bodas de Ouro do Sr. José".';
+  'O nome que aparece em destaque na capa. Ex.: "Maria & Léo", "Maria Clara", "Bodas de Ouro do Sr. José".';
 
 /** Dica de escrita da MENSAGEM de boas-vindas. */
 export const DICA_MENSAGEM =

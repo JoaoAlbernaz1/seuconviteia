@@ -174,7 +174,7 @@ async function main() {
     where: { id: "guest-demo-confirmed" },
     update: {
       eventId: event.id,
-      name: "Ana Souza",
+      name: "Maria Souza",
       status: GuestStatus.CONFIRMED,
       companions: 1,
       message: "Nao perco por nada!",
@@ -182,7 +182,7 @@ async function main() {
     create: {
       id: "guest-demo-confirmed",
       eventId: event.id,
-      name: "Ana Souza",
+      name: "Maria Souza",
       status: GuestStatus.CONFIRMED,
       companions: 1,
       message: "Nao perco por nada!",
@@ -262,25 +262,25 @@ async function main() {
   const recadoSeeds: { id: string; name: string; message: string }[] = [
     {
       id: "recado-demo-1",
-      name: "Vovó Lourdes",
+      name: "Vovó Maria",
       message:
         "Minha princesa, que esses 15 anos sejam só o começo de uma vida cheia de luz. Te amo infinito!",
     },
     {
       id: "recado-demo-2",
-      name: "Tio Rafael e Tia Bia",
+      name: "Tio Rafael e Tio Carlos",
       message:
         "Parabéns, Maria Clara! Mal podemos esperar para dançar a valsa com você. Vai ser inesquecível.",
     },
     {
       id: "recado-demo-3",
-      name: "Sofia",
+      name: "Maria",
       message:
         "Amiga, 15 anos e já com esse coração gigante. Conta comigo sempre. Te amo demais!",
     },
     {
       id: "recado-demo-4",
-      name: "Professora Helena",
+      name: "Professora Maria",
       message:
         "Acompanhei seu crescimento de pertinho. Que orgulho da mulher que você está se tornando!",
     },

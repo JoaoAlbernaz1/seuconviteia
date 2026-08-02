@@ -166,7 +166,7 @@ export function UiKitDemo() {
       {/* INPUTS */}
       <Secao titulo="Campos de formulário">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Input label="Nome do evento" placeholder="Casamento da Ana & Léo" helper="Aparece na capa do site." />
+          <Input label="Nome do evento" placeholder="Casamento da Maria & Léo" helper="Aparece na capa do site." />
           <Input label="E-mail" type="email" placeholder="voce@exemplo.com" error="Informe um e-mail válido." />
           <Select label="Ocasião" defaultValue="">
             <option value="" disabled>Selecione…</option>
@@ -251,7 +251,7 @@ export function UiKitDemo() {
           }
         >
           <p className="text-ui-ink-soft">
-            O site ficará disponível em <span className="font-medium text-ui-ink">ana-e-leo.seuconviteia.com</span>.
+            O site ficará disponível em <span className="font-medium text-ui-ink">maria-e-leo.seuconviteia.com</span>.
             Você pode continuar editando depois.
           </p>
         </Modal>
@@ -264,7 +264,7 @@ export function UiKitDemo() {
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-ui-rose-ink">
               Save the date
             </p>
-            <p className="font-display text-3xl italic text-ui-ink">Ana &amp; Léo</p>
+            <p className="font-display text-3xl italic text-ui-ink">Maria &amp; Léo</p>
             <p className="text-sm text-ui-ink-soft">Prévia responsiva — modo {device}</p>
           </div>
         </DevicePreview>
@@ -306,7 +306,7 @@ export function UiKitDemo() {
       <Secao titulo="Event cards (Meus sites)">
         <div className="grid gap-5 sm:grid-cols-2">
           <EventCard
-            nome="Casamento Ana & Léo"
+            nome="Casamento Maria & Léo"
             status="publicado"
             template="Aurora"
             data="12 out 2026"
