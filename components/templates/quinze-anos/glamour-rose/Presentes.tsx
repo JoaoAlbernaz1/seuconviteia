@@ -6,6 +6,7 @@ import type { PaginaTemplateProps } from "@/components/templates/registro";
 import { Reveal } from "@/components/evt/Reveal";
 import { Flourish } from "@/components/evt/icons";
 import { PainelPresentes } from "@/components/evt/PainelPresentes";
+import { VitrinePresentes } from "@/components/evt/VitrinePresentes";
 
 function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
@@ -27,9 +28,13 @@ export function PresentesQuinzeGlamour({ evento, presentear }: PaginaTemplatePro
     evento.presentesTexto ??
     "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui.";
 
+  // Vitrine (grade de cards, estilo Wedy) quando há o fluxo de presentear;
+  // senão, o painel único antigo (fallback / compat).
+  const temVitrine = !!presentear && presentear.itens.length > 0;
+
   return (
     <main data-sec="presentes" className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">
-      <div className="mx-auto max-w-[860px]">
+      <div className={`mx-auto ${temVitrine ? "max-w-[1120px]" : "max-w-[860px]"}`}>
         <Reveal>
           <Heading eyebrow="Presentes" title="Sua presença é o presente" />
         </Reveal>
@@ -39,17 +44,23 @@ export function PresentesQuinzeGlamour({ evento, presentear }: PaginaTemplatePro
           </p>
         </Reveal>
 
-        <Reveal delay={200} className="mt-12">
-          <PainelPresentes
-            fotoUrl={evento.presentesFotoUrl}
-            fotoPos="50% 40%"
-            itens={itens}
-            pixChave={evento.pixChave}
-            pixNome={evento.pixNome}
-            pixQrUrl={evento.pixQrUrl}
-            presentear={presentear}
-          />
-        </Reveal>
+        <div className="mt-12">
+          {temVitrine ? (
+            <VitrinePresentes itens={itens} presentear={presentear} />
+          ) : (
+            <Reveal delay={200}>
+              <PainelPresentes
+                fotoUrl={evento.presentesFotoUrl}
+                fotoPos="50% 40%"
+                itens={itens}
+                pixChave={evento.pixChave}
+                pixNome={evento.pixNome}
+                pixQrUrl={evento.pixQrUrl}
+                presentear={presentear}
+              />
+            </Reveal>
+          )}
+        </div>
       </div>
     </main>
   );
