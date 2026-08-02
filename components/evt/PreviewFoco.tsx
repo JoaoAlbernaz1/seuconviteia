@@ -45,7 +45,10 @@ const ROTULOS: Record<string, string> = {
 export function PreviewFoco({ sec }: { sec?: string }) {
   useEffect(() => {
     if (!sec) return;
-    const alvos = Array.from(document.querySelectorAll<HTMLElement>(`[data-sec="${sec}"]`));
+    // "livre-textos": rola até os textos (data-sec="carta") SEM desenhar o anel.
+    const semMarca = sec === "livre-textos";
+    const alvoSec = semMarca ? "carta" : sec;
+    const alvos = Array.from(document.querySelectorAll<HTMLElement>(`[data-sec="${alvoSec}"]`));
     const el = alvos.find((e) => e.getBoundingClientRect().width > 0) ?? alvos[0];
     if (!el) return;
     // A seção pode estar ESCONDIDA ao vivo (largura 0 — ex.: traje desligado sem
@@ -118,56 +121,56 @@ export function PreviewFoco({ sec }: { sec?: string }) {
     };
     window.addEventListener("scroll", salvarY, { passive: true });
 
-    // destaque em volta do elemento (herda --ev-rosa do .evt).
-    const mark = document.createElement("div");
-    mark.className = mesmaSecao ? "evt-foco-mark evt-foco-mark--estatico" : "evt-foco-mark";
-    // etiqueta com o nome da área
-    const label = document.createElement("div");
-    label.className = "evt-foco-label";
-    label.textContent = ROTULOS[sec] ?? "Editando";
-    mark.appendChild(label);
-    const host = document.querySelector<HTMLElement>(".evt") ?? document.body;
-    host.appendChild(mark);
+    // Destaque (anel) — PULADO no modo "livre-textos" (rola sem indicar a seção).
+    let cleanupMark = () => {};
+    if (!semMarca) {
+      const mark = document.createElement("div");
+      mark.className = mesmaSecao ? "evt-foco-mark evt-foco-mark--estatico" : "evt-foco-mark";
+      const label = document.createElement("div");
+      label.className = "evt-foco-label";
+      label.textContent = ROTULOS[sec] ?? "Editando";
+      mark.appendChild(label);
+      const host = document.querySelector<HTMLElement>(".evt") ?? document.body;
+      host.appendChild(mark);
 
-    const posicionar = () => {
-      const r = el.getBoundingClientRect();
-      // Seção escondida ao vivo (ex.: traje desligado): oculta o anel — reaparece
-      // quando a seção volta (o ResizeObserver dispara este posicionar de novo).
-      if (r.width === 0) {
-        mark.style.display = "none";
-        return;
-      }
-      mark.style.display = "";
-      const padX = 12;
-      const padY = 8;
-      const vw = document.documentElement.clientWidth;
-      const left = Math.max(3, r.left + window.scrollX - padX);
-      const width = Math.min(vw - left - 6, r.width + padX * 2);
-      mark.style.left = `${left}px`;
-      mark.style.top = `${r.top + window.scrollY - padY}px`;
-      mark.style.width = `${Math.max(0, width)}px`;
-      mark.style.height = `${r.height + padY * 2}px`;
-      // etiqueta acima do anel quando há espaço; senão, dentro do topo.
-      const acima = r.top > 34;
-      label.style.top = acima ? "-27px" : "8px";
-    };
-    posicionar();
-    const t1 = setTimeout(posicionar, 420);
-    window.addEventListener("resize", posicionar);
-    window.addEventListener("scroll", posicionar, true);
-    // A seção pode sumir/voltar AO VIVO (toggle sem reload) — o anel acompanha:
-    // observa o tamanho da própria seção e reposiciona (some quando vira 0).
-    const ro = new ResizeObserver(() => posicionar());
-    ro.observe(el);
+      const posicionar = () => {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0) {
+          mark.style.display = "none";
+          return;
+        }
+        mark.style.display = "";
+        const padX = 12;
+        const padY = 8;
+        const vw = document.documentElement.clientWidth;
+        const left = Math.max(3, r.left + window.scrollX - padX);
+        const width = Math.min(vw - left - 6, r.width + padX * 2);
+        mark.style.left = `${left}px`;
+        mark.style.top = `${r.top + window.scrollY - padY}px`;
+        mark.style.width = `${Math.max(0, width)}px`;
+        mark.style.height = `${r.height + padY * 2}px`;
+        const acima = r.top > 34;
+        label.style.top = acima ? "-27px" : "8px";
+      };
+      posicionar();
+      const t1 = setTimeout(posicionar, 420);
+      window.addEventListener("resize", posicionar);
+      window.addEventListener("scroll", posicionar, true);
+      const ro = new ResizeObserver(() => posicionar());
+      ro.observe(el);
+      cleanupMark = () => {
+        clearTimeout(t1);
+        window.removeEventListener("resize", posicionar);
+        window.removeEventListener("scroll", posicionar, true);
+        ro.disconnect();
+        mark.remove();
+      };
+    }
 
     return () => {
-      clearTimeout(t1);
       restauracoes.forEach((id) => clearTimeout(id));
-      window.removeEventListener("resize", posicionar);
-      window.removeEventListener("scroll", posicionar, true);
       window.removeEventListener("scroll", salvarY);
-      ro.disconnect();
-      mark.remove();
+      cleanupMark();
     };
   }, [sec]);
 

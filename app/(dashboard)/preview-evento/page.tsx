@@ -55,7 +55,7 @@ export default async function PreviewEventoPage({
   const { s, p, f } = await searchParams;
   const SECOES_OK = [
     "capa", "capa-nome", "capa-idade", "monograma",
-    "carta", "carta-titulo", "carta-texto", "assinatura",
+    "carta", "carta-titulo", "carta-texto", "assinatura", "livre-textos",
     "quando", "onde", "traje", "programacao", "cta", "presentes", "galeria",
     "rsvp", "rsvp-extras", "pix", "recados", "rodape",
     "obrigada-sim", "obrigada-nao",
