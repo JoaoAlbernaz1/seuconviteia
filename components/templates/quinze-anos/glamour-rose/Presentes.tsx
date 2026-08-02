@@ -22,7 +22,7 @@ function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-export function PresentesQuinzeGlamour({ evento, presentear }: PaginaTemplateProps) {
+export function PresentesQuinzeGlamour({ evento, presentear, usarVitrine }: PaginaTemplateProps) {
   const itens = (evento.presentes ?? []).map((p) => ({ nome: p.titulo, detalhe: p.descricao, valor: p.valorLabel }));
   const texto =
     evento.presentesTexto ??
@@ -30,7 +30,7 @@ export function PresentesQuinzeGlamour({ evento, presentear }: PaginaTemplatePro
 
   // Vitrine (grade de cards, estilo Wedy) quando há o fluxo de presentear;
   // senão, o painel único antigo (fallback / compat).
-  const temVitrine = !!presentear && presentear.itens.length > 0;
+  const temVitrine = !!usarVitrine && !!presentear && presentear.itens.length > 0;
 
   return (
     <main data-sec="presentes" className="bg-transparent px-[clamp(1.25rem,5vw,2rem)] pb-[clamp(5rem,10vw,8rem)] pt-32">

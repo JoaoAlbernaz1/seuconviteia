@@ -46,6 +46,8 @@ export type PaginaTemplateProps = {
   recursos: TogglesSite;
   /** Dados p/ presentear via Pix (só a /presentes usa; opcional). */
   presentear?: PresentearData;
+  /** Usar a VITRINE (grade de cards) na /presentes; senão o painel. Só plano pago. */
+  usarVitrine?: boolean;
 };
 
 /** Componentes de pagina que um template fornece (todos com os mesmos dados). */

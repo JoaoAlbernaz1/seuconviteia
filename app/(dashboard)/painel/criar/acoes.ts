@@ -24,7 +24,7 @@ import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
-import { limiteEventos, rotuloPlano } from "@/lib/plans";
+import { limiteEventos, podeVitrine, rotuloPlano } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
 import { protocoloDe } from "@/lib/tenant";
 
@@ -103,6 +103,7 @@ const payloadSchema = z.object({
   pixNome: z.string().trim().max(140).optional(),
   pixChave: z.string().trim().max(200).optional(),
   presentesTexto: z.string().trim().max(600).optional(),
+  listaModelo: z.enum(["painel", "vitrine"]).optional(),
   presentes: z.array(giftSchema).max(60).optional(),
   recursosOff: z.array(z.enum(RECURSO_KEYS)).max(6).optional(),
   pais: z
@@ -276,6 +277,7 @@ export async function criarConvite(
     pixNome: txt(d.pixNome),
     pixChave: txt(d.pixChave),
     presentesTexto: txt(d.presentesTexto),
+    listaModelo: podeVitrine(prof.plan) ? d.listaModelo ?? "painel" : "painel",
     recursos,
     pais: paisPreenchido,
     rsvpConfig: d.rsvpConfig,

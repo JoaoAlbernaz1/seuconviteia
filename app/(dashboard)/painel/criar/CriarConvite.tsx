@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
 import { previewLink } from "@/lib/linkAcoes";
+import { podeVitrine, type Plan } from "@/lib/plans";
 import { PreviewSite } from "../_ui/PreviewSite";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
@@ -197,6 +198,7 @@ function montarRascunho(S: State) {
       ? S.giftList.filter((g) => g.n.trim()).map(giftParaPresente)
       : [],
     rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
+    listaModelo: S.listaModelo,
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
       !S.gifts ? "presentes" : null,
@@ -322,6 +324,7 @@ type State = {
   rsvpDataLimite: string; rsvpCorBotao: string; rsvpMsgSim: string; rsvpMsgNao: string;
   gifts: boolean; free: boolean; giftList: GiftRow[]; pixNome: string; pixChave: string; presentesTexto: string;
   gal: boolean; rec: boolean; recSt: string[];
+  listaModelo: "painel" | "vitrine";
   animacoes: boolean;
   published: boolean; copied: boolean; pvMode: "celular" | "desktop";
 };
@@ -344,7 +347,7 @@ const INICIAL: State = {
   rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0, corBtn: 0,
   rsvpDataLimite: "10/11/2026", rsvpCorBotao: "#CE578B",
   rsvpMsgSim: MSG_CONFIRMA_PADRAO, rsvpMsgNao: MSG_RECUSA_PADRAO,
-  gifts: true, free: true,
+  gifts: true, free: true, listaModelo: "painel",
   giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
   pixNome: "Maria Martins", pixChave: "maria.martins@email.com", presentesTexto: "",
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
@@ -479,7 +482,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-export function CriarConvite() {
+export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   const router = useRouter();
   const [S, setS] = useState<State>(INICIAL);
   // Persistencia: id do convite ja gravado (idempotente), link publico apos
@@ -685,6 +688,7 @@ export function CriarConvite() {
     presentes: S.gifts
       ? S.giftList.filter((g) => g.n.trim()).map(giftParaPresente)
       : [],
+    listaModelo: S.listaModelo,
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
       !S.gifts ? "presentes" : null,
@@ -1440,6 +1444,35 @@ export function CriarConvite() {
                   </div>
                   {S.gifts && (
                     <div className="mt-5 flex flex-col gap-4">
+                      <div>
+                        <Label>Modelo da lista</Label>
+                        <div className="mt-1 grid grid-cols-2 gap-2">
+                          {([
+                            { k: "painel", nome: "Painel", desc: "Foto + lista, clássico", trava: false },
+                            { k: "vitrine", nome: "Vitrine", desc: "Cards com foto, estilo loja", trava: !podeVitrine(plano) },
+                          ] as const).map((m) => {
+                            const ativo = S.listaModelo === m.k;
+                            return (
+                              <button
+                                key={m.k}
+                                type="button"
+                                disabled={m.trava}
+                                onClick={() => !m.trava && upd({ listaModelo: m.k })}
+                                className={`rounded-xl border p-3 text-left transition-colors ${ativo ? "border-[#7C3AED] bg-[#F6F3FE]" : "border-[#E4E4EA] bg-white hover:bg-[#FAFAFC]"} ${m.trava ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                              >
+                                <div className="flex items-center gap-1.5 text-[13.5px] font-bold text-[#17171B]">
+                                  {m.nome}
+                                  {m.trava && <span className="text-[11px]">🔒</span>}
+                                </div>
+                                <div className="mt-0.5 text-[11.5px] text-[#6e6e76]">{m.desc}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {!podeVitrine(plano) && (
+                          <p className="mt-1.5 text-[11.5px] text-[#A6A6AE]">A Vitrine (cards com foto) está disponível nos planos pagos.</p>
+                        )}
+                      </div>
                       <div>
                         <Label>Texto de apresentação</Label>
                         <input value={S.presentesTexto} onChange={inp("presentesTexto")} placeholder="Escolha um presente e ajude a tornar essa noite ainda mais especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />

@@ -35,6 +35,7 @@ const rascunhoSchema = z
     mensagem: z.string().max(2200),
     aberturaTitulo: z.string().max(140),
     presentesTexto: z.string().max(600),
+    listaModelo: z.enum(["painel", "vitrine"]),
     pixNome: z.string().max(140),
     pixChave: z.string().max(200),
     local: z.string().max(220),

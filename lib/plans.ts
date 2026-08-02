@@ -84,6 +84,11 @@ export function planoPermite(plan: Plan, recurso: Recurso): boolean {
  * PLACEHOLDER de negocio (decisao do dono — ajustar aqui quando ele definir);
  * Classico/Premium sao ilimitados, como anunciado em PLANOS_INFO.
  */
+/** Modelo VITRINE (grade de cards) da lista de presentes: só nos planos pagos. */
+export function podeVitrine(plan: Plan): boolean {
+  return plan !== "BASICO";
+}
+
 export function limiteEventos(plan: Plan): number | null {
   return plan === "BASICO" ? 3 : null;
 }

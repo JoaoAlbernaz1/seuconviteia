@@ -8,6 +8,7 @@ import { carregarEventoFesta } from "@/lib/eventoFesta";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { prisma } from "@/lib/db";
+import { podeVitrine } from "@/lib/plans";
 import type { GiftPricing } from "@/lib/pagamentos/contribuicao";
 import type { PresentearData, PresenteInterativo } from "@/lib/presentesTipos";
 
@@ -42,6 +43,8 @@ export default async function PresentesPage({
   }
 
   const presentear = await montarPresentear(event);
+  const modelo = (event.customization as { listaModelo?: string } | null)?.listaModelo;
+  const usarVitrine = modelo === "vitrine" && podeVitrine(event.plan);
 
   return (
     <PaginaPresentes
@@ -49,6 +52,7 @@ export default async function PresentesPage({
       nicho={event.type}
       recursos={recursosDoSite(event.plan, event.customization)}
       presentear={presentear}
+      usarVitrine={usarVitrine}
     />
   );
 }

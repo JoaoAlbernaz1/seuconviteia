@@ -18,7 +18,7 @@ import { ocasiaoDoNicho } from "@/lib/templates";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey, lerTemaCor } from "@/lib/temas";
 import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
-import { planoPermite } from "@/lib/plans";
+import { planoPermite, podeVitrine } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
 
 import { SiteAtmosphere } from "@/components/evt/SiteAtmosphere";
@@ -88,6 +88,7 @@ export default async function PreviewEventoPage({
 
   // Presentear na PRÉVIA: reflete os modos (fixo/cotas/a partir de) do rascunho.
   // Nada arrecadado ainda (é preview) e os botões ficam inertes no preview.
+  const usarVitrinePreview = rascunho.listaModelo === "vitrine" && podeVitrine(prof.plan);
   const presentearPreview = {
     eventId: "preview",
     itens: (rascunho.presentes ?? []).map((p, i) => {
@@ -118,7 +119,7 @@ export default async function PreviewEventoPage({
     );
   } else if (pagina === "presentes") {
     corpo = recursos.presentes ? (
-      <PaginaPresentes evento={evento} nicho={sintetico.type} recursos={recursos} presentear={presentearPreview} />
+      <PaginaPresentes evento={evento} nicho={sintetico.type} recursos={recursos} presentear={presentearPreview} usarVitrine={usarVitrinePreview} />
     ) : (
       <RecursoIndisponivel
         titulo="Lista de presentes"

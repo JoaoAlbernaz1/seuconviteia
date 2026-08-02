@@ -10,16 +10,19 @@ export function PaginaPresentes({
   nicho,
   recursos,
   presentear,
+  usarVitrine,
 }: {
   evento: EventoFesta;
   nicho: string;
   recursos: TogglesSite;
   presentear?: PresentearData;
+  usarVitrine?: boolean;
 }) {
   return createElement(presentesDoTemplate(evento.templateId), {
     evento,
     nicho,
     recursos,
     presentear,
+    usarVitrine,
   });
 }
