@@ -319,12 +319,12 @@ type State = {
 
 const INICIAL: State = {
   step: 1, sv: "salvo", showErr: false, foco: "capa",
-  nome: "Luiza", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Renata Martins",
+  nome: "Taynara", data: "23/11/2026", hIni: "19:00", pai: "Marcos Martins", mae: "Renata Martins",
   cep: "", local: "Espaço Villa Eventos", endereco: "Av. das Palmeiras, 1200", cidade: "São Paulo", uf: "SP",
-  traje: "Esporte fino", slug: "luiza15",
+  traje: "Esporte fino", slug: "taynara15",
   capaFoto: "", capaFotoDesktop: "", capaDoisFotos: false,
   idade: "15", monograma: true, monogramaFoto: "",
-  capaT: "Luiza", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
+  capaT: "Taynara", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
   tema: "rose", corCustom: "#CE578B", fonte: "classica",
   szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: false,
   acc: 0, abT: "Vem comemorar comigo!",
