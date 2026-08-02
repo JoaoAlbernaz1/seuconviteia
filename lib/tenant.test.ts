@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appUrl, eventPublicUrl, resolveSubdomain, slugify } from "./tenant";
+import { appUrl, eventPublicUrl, protocoloDe, resolveSubdomain, slugify } from "./tenant";
 
 const ROOT = "seuconviteia.com";
 
@@ -103,6 +103,25 @@ describe("appUrl — link absoluto pro painel (app.<root>)", () => {
   it("normaliza caminho sem barra inicial", () => {
     expect(appUrl("cadastrar", "localhost:3000")).toBe(
       "http://app.localhost:3000/cadastrar",
+    );
+  });
+});
+
+describe("protocoloDe", () => {
+  it("http para localhost", () => {
+    expect(protocoloDe("localhost:3000")).toBe("http");
+  });
+  it("http para IP cru e nip.io/sslip.io (rede local)", () => {
+    expect(protocoloDe("192.168.1.4:3000")).toBe("http");
+    expect(protocoloDe("192.168.1.4.nip.io:3000")).toBe("http");
+    expect(protocoloDe("10.0.0.2.sslip.io")).toBe("http");
+  });
+  it("https para dominio publico", () => {
+    expect(protocoloDe("seuconviteia.com")).toBe("https");
+  });
+  it("eventPublicUrl usa http em rede local", () => {
+    expect(eventPublicUrl("ana", "192.168.1.4.nip.io:3000")).toBe(
+      "http://ana.192.168.1.4.nip.io:3000",
     );
   });
 });

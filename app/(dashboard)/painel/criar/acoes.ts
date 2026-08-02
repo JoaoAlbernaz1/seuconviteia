@@ -26,6 +26,7 @@ import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
 import { limiteEventos, rotuloPlano } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
+import { protocoloDe } from "@/lib/tenant";
 
 export type CriarConviteResult =
   | { ok: true; id: string; subdomain: string; host: string; url: string }
@@ -153,7 +154,7 @@ function txt(v: string | undefined): string | undefined {
 function enderecoPublico(subdomain: string): { host: string; url: string } {
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
   const host = `${subdomain}.${root.replace(/:\d+$/, "")}`;
-  const proto = root.startsWith("localhost") ? "http" : "https";
+  const proto = protocoloDe(root);
   return { host, url: `${proto}://${subdomain}.${root}` };
 }
 

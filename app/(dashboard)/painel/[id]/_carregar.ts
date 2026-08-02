@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { rascunhoDoEvento } from "@/lib/previewEvento";
+import { protocoloDe } from "@/lib/tenant";
 
 export const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 
@@ -15,7 +16,7 @@ export function hostDoEvento(subdomain: string): string {
 
 /** URL pública completa do evento (com porta em dev). */
 export function urlDoEvento(subdomain: string): string {
-  const proto = ROOT_DOMAIN.startsWith("localhost") ? "http" : "https";
+  const proto = protocoloDe(ROOT_DOMAIN);
   return `${proto}://${subdomain}.${ROOT_DOMAIN}`;
 }
 

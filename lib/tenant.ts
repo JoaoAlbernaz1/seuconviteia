@@ -110,8 +110,16 @@ export function resolveSubdomain(
  *   eventPublicUrl("ana", "seuconviteia.com") // "https://ana.seuconviteia.com"
  */
 export function eventPublicUrl(subdomain: string, rootDomain: string): string {
-  const protocol = rootDomain.includes("localhost") ? "http" : "https";
-  return `${protocol}://${subdomain}.${rootDomain}`;
+  return `${protocoloDe(rootDomain)}://${subdomain}.${rootDomain}`;
+}
+
+/**
+ * Protocolo do link: `http` para dev/rede local (localhost, IP cru, ou wildcard
+ * de teste nip.io/sslip.io); `https` para um dominio publico de verdade.
+ */
+export function protocoloDe(rootDomain: string): "http" | "https" {
+  const localish = /localhost|nip\.io|sslip\.io|^\d{1,3}(\.\d{1,3}){3}(:|$)/;
+  return localish.test(rootDomain) ? "http" : "https";
 }
 
 /**

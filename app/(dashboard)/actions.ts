@@ -17,6 +17,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
+import { protocoloDe } from "@/lib/tenant";
 import { enviarEmail } from "@/lib/email";
 import { MARCA } from "@/lib/email/remetente";
 import { emailBoasVindas } from "@/lib/email/templates";
@@ -47,7 +48,7 @@ export type SignupState = {
  */
 function urlDoPainel(): string {
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "seuconviteia.com";
-  const protocolo = root.startsWith("localhost") ? "http" : "https";
+  const protocolo = protocoloDe(root);
   return `${protocolo}://app.${root}/painel`;
 }
 
