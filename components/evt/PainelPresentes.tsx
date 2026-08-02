@@ -72,6 +72,7 @@ export function PainelPresentes({
           <ul className="mt-6 flex flex-col">
             {itens.map((it, i) => {
               const pi = presentear?.itens[i];
+              const ehLink = pi?.tipo === "LINK";
               const esgotado = pi?.esgotado ?? false;
               const cotasInfo =
                 pi?.pricingMode === "COTAS" && pi.quotaCount
@@ -84,6 +85,14 @@ export function PainelPresentes({
                     i > 0 ? "border-t border-[var(--line)]" : ""
                   }`}
                 >
+                  {ehLink && pi?.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pi.imageUrl}
+                      alt=""
+                      className="h-16 w-16 flex-none rounded-[12px] border border-[var(--line)] object-cover"
+                    />
+                  )}
                   <div className="min-w-0 sm:flex-1">
                     <span className="font-evt-body text-[clamp(1.35rem,5vw,1.6rem)] text-evt-ink">{it.nome}</span>
                     {it.detalhe && (
@@ -103,7 +112,16 @@ export function PainelPresentes({
                         {it.valor}
                       </span>
                     )}
-                    {interativo ? (
+                    {ehLink ? (
+                      <a
+                        href={pi?.storeUrl ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
+                      >
+                        Comprar na loja
+                      </a>
+                    ) : interativo ? (
                       esgotado ? (
                         <span className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-black/5 px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.16em] text-evt-ink-soft">
                           Realizado 🎉

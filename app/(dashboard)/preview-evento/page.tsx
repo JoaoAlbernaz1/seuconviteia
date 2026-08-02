@@ -91,12 +91,16 @@ export default async function PreviewEventoPage({
   const presentearPreview = {
     eventId: "preview",
     itens: (rascunho.presentes ?? []).map((p, i) => {
+      const ehLink = p.tipo === "LINK";
       const reais = parseFloat((p.valor ?? "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
       const priceCents = Math.round(reais * 100);
       return {
         id: `preview-${i}`,
         titulo: p.titulo,
         valorLabel: undefined,
+        tipo: ehLink ? ("LINK" as const) : ("PIX" as const),
+        storeUrl: ehLink ? p.link || undefined : undefined,
+        imageUrl: ehLink ? p.foto || undefined : undefined,
         pricingMode: p.modo ?? ("FIXO" as const),
         priceCents,
         quotaCount: p.cotas ?? null,

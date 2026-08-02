@@ -18,6 +18,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
+import { previewLink } from "@/lib/linkAcoes";
 import { PreviewSite } from "../_ui/PreviewSite";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
@@ -33,13 +34,21 @@ const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
 const BTN_HREFS = ["/confirmar", "/evento", "/presentes"] as const;
 const BTN_LABELS = ["Confirmar presença", "Ver localização", "Ver presentes"] as const;
 
-/** Linha da lista de presentes no editor (v = valor em "R$ 123"). Cada presente
- * é simples: nome + valor fixo. (Modos cotas/a-partir-de existem no backend, mas
- * a UI ficou só o essencial, a pedido do cliente.) */
-type GiftRow = { n: string; desc: string; v: string };
+/** Tipo do presente: PIX (dinheiro pela plataforma) ou LINK (loja externa). */
+type GiftTipo = "PIX" | "LINK";
+/** Linha da lista de presentes no editor. PIX = nome + valor; LINK = nome + link + foto. */
+type GiftRow = { n: string; desc: string; v: string; tipo?: GiftTipo; link?: string; foto?: string };
 /** Mapeia uma linha do editor para o item `presentes` do payload/rascunho. */
 function giftParaPresente(g: GiftRow) {
-  return { titulo: g.n, descricao: g.desc, valor: g.v };
+  const tipo: GiftTipo = g.tipo ?? "PIX";
+  return {
+    titulo: g.n,
+    descricao: g.desc,
+    valor: tipo === "PIX" ? g.v : "",
+    tipo,
+    link: tipo === "LINK" ? g.link?.trim() || undefined : undefined,
+    foto: tipo === "LINK" ? g.foto?.trim() || undefined : undefined,
+  };
 }
 
 /** Junta nomes em pt-BR — MESMA regra do adapter (lib/eventoFesta). */
@@ -249,7 +258,7 @@ function estruturalDoEditor(S: State): string {
     S.btnDest, S.btnTx, S.btnAcima,
     S.data, S.hIni,
     S.gifts, S.free,
-    S.gifts ? S.giftList.map((g) => `${g.n}${g.v}${g.desc}`).join("") : "",
+    S.gifts ? S.giftList.map((g) => `${g.n}${g.v}${g.desc}${g.tipo ?? ""}${g.link ?? ""}${g.foto ?? ""}`).join("") : "",
     S.gifts ? S.pixNome : "", S.gifts ? S.pixChave : "", S.gifts ? S.presentesTexto : "",
     S.gal, S.rec,
     // Só o liga/desliga GERAL da confirmação fica no reload (some/adiciona a
@@ -486,6 +495,9 @@ export function CriarConvite() {
   const [capaDeskErro, setCapaDeskErro] = useState("");
   const [monoEnviando, setMonoEnviando] = useState(false);
   const [monoErro, setMonoErro] = useState("");
+  // Busca de prévia do link de loja (presente tipo LINK).
+  const [buscandoLink, setBuscandoLink] = useState<number | null>(null);
+  const [linkErro, setLinkErro] = useState<{ i: number; msg: string } | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // AUTOSAVE (rascunho): refs pra salvar sem fechar sobre estado velho.
   const salvarRef = useRef<() => Promise<void>>(async () => {});
@@ -506,6 +518,31 @@ export function CriarConvite() {
   // a seção correspondente (o campo/grupo leva `data-foco="<secao>"`). Só muda o
   // alvo da prévia (não marca "salvando").
   const setFoco = (sec: string) => setS((s) => (s.foco === sec ? s : { ...s, foco: sec }));
+
+  // Presente tipo LINK: busca nome+foto do link colado (cai pro manual se falhar).
+  async function buscarLink(i: number, url: string) {
+    const u = url.trim();
+    if (u.length < 8) return;
+    setLinkErro(null);
+    setBuscandoLink(i);
+    try {
+      const r = await previewLink(u);
+      if (r.ok) {
+        setS((s) => ({
+          ...s,
+          giftList: s.giftList.map((x, j) =>
+            j === i
+              ? { ...x, n: x.n.trim() ? x.n : r.titulo ?? x.n, foto: r.imagem ?? x.foto }
+              : x,
+          ),
+        }));
+      } else {
+        setLinkErro({ i, msg: r.erro ?? "Não deu pra ler. Preencha nome e foto manualmente." });
+      }
+    } finally {
+      setBuscandoLink(null);
+    }
+  }
   const onFocoCampo = (e: React.FocusEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
     const alvo = (e.target as HTMLElement).closest("[data-foco]");
     const sec = alvo?.getAttribute("data-foco");
@@ -1439,31 +1476,37 @@ export function CriarConvite() {
                             Nenhum presente ainda. Toque numa sugestão acima ou em “Adicionar presente”.
                           </div>
                         )}
-                        {S.giftList.map((g, i) => (
+                        {S.giftList.map((g, i) => {
+                          const tipo = g.tipo ?? "PIX";
+                          const setRow = (patch: Partial<GiftRow>) =>
+                            upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+                          return (
                           <div key={i} className="rounded-2xl border border-[#ECECF0] bg-white p-3 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
                             <div className="flex items-center gap-2.5">
                               <span className="grid size-6 flex-none place-items-center rounded-full bg-[#F3EFFE] text-[11px] font-bold text-[#7C3AED]">{i + 1}</span>
                               <input
                                 value={g.n}
-                                onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, n: e.target.value } : x)) })}
+                                onChange={(e) => setRow({ n: e.target.value })}
                                 placeholder="Nome do presente"
                                 style={{ borderColor: "#E4E4EA" }}
                                 className={`${inputCls} flex-1 font-semibold`}
                               />
-                              <div className="relative w-[120px] flex-none">
-                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#8b8b93]">R$</span>
-                                <input
-                                  value={g.v.replace(/[^\d]/g, "")}
-                                  onChange={(e) => {
-                                    const digits = e.target.value.replace(/\D/g, "");
-                                    upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, v: digits ? `R$ ${digits}` : "" } : x)) });
-                                  }}
-                                  inputMode="numeric"
-                                  placeholder="0"
-                                  style={{ borderColor: "#E4E4EA" }}
-                                  className={`${inputCls} pl-9 text-right font-semibold`}
-                                />
-                              </div>
+                              {tipo === "PIX" && (
+                                <div className="relative w-[120px] flex-none">
+                                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#8b8b93]">R$</span>
+                                  <input
+                                    value={g.v.replace(/[^\d]/g, "")}
+                                    onChange={(e) => {
+                                      const digits = e.target.value.replace(/\D/g, "");
+                                      setRow({ v: digits ? `R$ ${digits}` : "" });
+                                    }}
+                                    inputMode="numeric"
+                                    placeholder="0"
+                                    style={{ borderColor: "#E4E4EA" }}
+                                    className={`${inputCls} pl-9 text-right font-semibold`}
+                                  />
+                                </div>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => upd({ giftList: S.giftList.filter((_, j) => j !== i) })}
@@ -1473,15 +1516,62 @@ export function CriarConvite() {
                                 <Ic d={IC.x} size={15} stroke="currentColor" width={2} />
                               </button>
                             </div>
+
+                            {/* Tipo do presente: Pix (dinheiro) ou Link de loja */}
+                            <div className="mt-2 flex flex-wrap items-center gap-2 pl-[38px]">
+                              <div className="inline-flex overflow-hidden rounded-lg border border-[#E4E4EA]">
+                                <button type="button" onClick={() => setRow({ tipo: "PIX" })} className={`px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${tipo === "PIX" ? "bg-[#7C3AED] text-white" : "bg-white text-[#6e6e76] hover:bg-[#F6F3FE]"}`}>💰 Pix</button>
+                                <button type="button" onClick={() => setRow({ tipo: "LINK" })} className={`px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${tipo === "LINK" ? "bg-[#7C3AED] text-white" : "bg-white text-[#6e6e76] hover:bg-[#F6F3FE]"}`}>🔗 Link</button>
+                              </div>
+                              <span className="text-[11px] text-[#A6A6AE]">{tipo === "PIX" ? "Recebe por Pix (com a taxa)" : "Compra direto na loja (sem taxa)"}</span>
+                            </div>
+
+                            {/* Campos do LINK de loja */}
+                            {tipo === "LINK" && (
+                              <div className="mt-2 flex flex-col gap-2 pl-[38px]">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    value={g.link ?? ""}
+                                    onChange={(e) => setRow({ link: e.target.value })}
+                                    onBlur={(e) => buscarLink(i, e.target.value)}
+                                    placeholder="Cole o link da loja (Amazon, Magalu…)"
+                                    style={{ borderColor: "#E4E4EA" }}
+                                    className={`${inputCls} flex-1 text-[13px]`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => buscarLink(i, g.link ?? "")}
+                                    disabled={buscandoLink === i}
+                                    className="flex-none rounded-[10px] border border-[#DCCDFB] bg-[#F6F3FE] px-3 py-2 text-[12.5px] font-semibold text-[#6D28D9] hover:bg-[#EFE7FE] disabled:opacity-60"
+                                  >
+                                    {buscandoLink === i ? "Buscando…" : "Buscar"}
+                                  </button>
+                                </div>
+                                {(g.foto || (linkErro && linkErro.i === i)) && (
+                                  <div className="flex items-center gap-2.5">
+                                    {g.foto && (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={g.foto} alt="" className="h-12 w-12 flex-none rounded-lg border border-[#ECECF0] object-cover" />
+                                    )}
+                                    {g.foto && <span className="text-[11.5px] font-medium text-emerald-600">Foto do produto ✓</span>}
+                                    {linkErro && linkErro.i === i && (
+                                      <span className="text-[11.5px] text-[#c2410c]">{linkErro.msg}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <input
                               value={g.desc}
-                              onChange={(e) => upd({ giftList: S.giftList.map((x, j) => (j === i ? { ...x, desc: e.target.value } : x)) })}
+                              onChange={(e) => setRow({ desc: e.target.value })}
                               placeholder="Descrição (opcional) — ex.: “o momento mais esperado”"
                               style={{ borderColor: "transparent" }}
                               className="mt-1.5 w-full rounded-[9px] bg-transparent px-2 py-1.5 pl-[38px] text-[12.5px] text-[#6e6e76] outline-none focus:bg-[#FAFAFC]"
                             />
                           </div>
-                        ))}
+                          );
+                        })}
                         <button
                           type="button"
                           onClick={() => upd({ giftList: [...S.giftList, { n: "", desc: "", v: "" }] })}

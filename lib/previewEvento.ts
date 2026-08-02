@@ -51,6 +51,9 @@ const rascunhoSchema = z
           valor: z.string().max(20).optional(),
           modo: z.enum(["FIXO", "COTAS", "LIVRE"]).optional(),
           cotas: z.coerce.number().int().optional(),
+          tipo: z.enum(["PIX", "LINK"]).optional(),
+          link: z.string().max(2000).optional(),
+          foto: z.string().max(2000).optional(),
         }),
       )
       .max(60),
@@ -115,6 +118,9 @@ export function rascunhoDoEvento(event: {
     priceCents?: number | null;
     pricingMode?: string | null;
     quotaCount?: number | null;
+    mode?: string | null;
+    storeUrl?: string | null;
+    imageUrl?: string | null;
   }[];
   photos?: { url: string }[];
 }): RascunhoPreview {
@@ -162,6 +168,9 @@ export function rascunhoDoEvento(event: {
           : undefined,
       modo: (g.pricingMode as "FIXO" | "COTAS" | "LIVRE" | undefined) ?? undefined,
       cotas: typeof g.quotaCount === "number" ? g.quotaCount : undefined,
+      tipo: g.mode === "ITEM" ? ("LINK" as const) : ("PIX" as const),
+      link: g.storeUrl ?? undefined,
+      foto: g.imageUrl ?? undefined,
     })),
     fotoUrl: s("fotoUrl"),
     presentesFotoUrl: s("presentesFotoUrl"),

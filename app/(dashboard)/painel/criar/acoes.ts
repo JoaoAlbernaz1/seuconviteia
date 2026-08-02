@@ -38,6 +38,10 @@ const giftSchema = z.object({
   valor: z.string().trim().max(20).optional(),
   modo: z.enum(["FIXO", "COTAS", "LIVRE"]).optional(),
   cotas: z.coerce.number().int().min(2).max(1000).optional(),
+  // Presente tipo LINK (loja externa): link + foto (mode=ITEM no banco).
+  tipo: z.enum(["PIX", "LINK"]).optional(),
+  link: z.string().trim().max(2000).optional(),
+  foto: z.string().trim().max(2000).optional(),
 });
 
 const RECURSO_KEYS = [
@@ -345,15 +349,20 @@ export async function criarConvite(
       const itens = d.presentes.filter((g) => g.titulo.trim());
       if (itens.length) {
         await prisma.giftItem.createMany({
-          data: itens.map((g) => ({
-            eventId,
-            title: g.titulo,
-            description: txt(g.descricao) ?? null,
-            priceCents: brlParaCents(g.valor ?? "") ?? 0,
-            mode: "PIX" as const,
-            pricingMode: g.modo ?? "FIXO",
-            quotaCount: g.modo === "COTAS" ? (g.cotas ?? null) : null,
-          })),
+          data: itens.map((g) => {
+            const ehLink = g.tipo === "LINK";
+            return {
+              eventId,
+              title: g.titulo,
+              description: txt(g.descricao) ?? null,
+              priceCents: ehLink ? 0 : brlParaCents(g.valor ?? "") ?? 0,
+              mode: ehLink ? ("ITEM" as const) : ("PIX" as const),
+              pricingMode: !ehLink && g.modo ? g.modo : "FIXO",
+              quotaCount: !ehLink && g.modo === "COTAS" ? (g.cotas ?? null) : null,
+              storeUrl: ehLink ? txt(g.link) ?? null : null,
+              imageUrl: ehLink ? txt(g.foto) ?? null : null,
+            };
+          }),
         });
       }
     }
