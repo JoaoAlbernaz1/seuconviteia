@@ -316,7 +316,7 @@ type State = {
   capaFoto: string; capaFotoDesktop: string; capaDoisFotos: boolean;
   idade: string; monograma: boolean; monogramaFoto: string;
   capaT: string; capaS: string; capaD: string;
-  tema: string; corCustom: string; fonte: string;
+  tema: string; corCustom: string; fonte: string; corFocou: boolean;
   szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
   paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; btnAcima: string; rodapeTx: string;
@@ -337,7 +337,7 @@ const INICIAL: State = {
   capaFoto: "", capaFotoDesktop: "", capaDoisFotos: false,
   idade: "15", monograma: true, monogramaFoto: "",
   capaT: "Teste", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
-  tema: "rose", corCustom: "#CE578B", fonte: "classica",
+  tema: "rose", corCustom: "#CE578B", fonte: "classica", corFocou: false,
   szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: false,
   acc: 0, abT: "Vem comemorar comigo!",
   abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
@@ -1127,11 +1127,13 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 {/* data-foco="livre": ao trocar a cor NÃO destaca uma seção só — a
                     prévia fica livre pra pessoa ver o site inteiro re-tingido. */}
-                <div data-foco="livre">
+                {/* 1ª troca de cor: data-foco = seção dos textos (rola até lá).
+                    Depois vira "livre" (não rola de novo enquanto mexe na cor). */}
+                <div data-foco={S.corFocou ? "livre" : "carta"}>
                   <div className="mb-1 text-[13.5px] font-bold">Paleta de cores</div>
                   <div className="mb-3 text-[12px] text-[#6e6e76]">Muda a cor do convite inteiro. Escolha uma das mais usadas ou qualquer cor.</div>
-                  <Paletas value={S.tema} onChange={(k) => upd({ tema: k })} />
-                  <CorPersonalizada ativo={S.tema === "custom"} cor={S.corCustom} onPick={(hex) => upd({ tema: "custom", corCustom: hex })} />
+                  <Paletas value={S.tema} onChange={(k) => upd({ tema: k, corFocou: true })} />
+                  <CorPersonalizada ativo={S.tema === "custom"} cor={S.corCustom} onPick={(hex) => upd({ tema: "custom", corCustom: hex, corFocou: true })} />
                 </div>
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 <div className="flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
