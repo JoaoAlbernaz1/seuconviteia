@@ -153,6 +153,9 @@ model GiftItem {
   // total, dividido em quotaCount cotas; LIVRE = priceCents e o valor MINIMO.
   pricingMode GiftPricing @default(FIXO)
   quotaCount  Int?
+  // Presente tipo LINK de loja (mode=ITEM): URL externa (Amazon etc.). O convidado
+  // compra direto na loja; nao passa pela plataforma (sem taxa/cofre).
+  storeUrl    String?     @db.Text
   pixPayload  String?     @db.Text
   purchased   Boolean     @default(false)
   buyerName   String?
