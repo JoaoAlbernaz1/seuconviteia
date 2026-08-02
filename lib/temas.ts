@@ -270,9 +270,18 @@ export function lerTemaCor(customization: unknown): string | undefined {
  * família derivada; senao cai para o preset, ou "rose" se desconhecido.
  */
 export function varsDoTema(tema?: string | null, corCustom?: string | null): Record<string, string> {
-  if (tema === TEMA_CUSTOM && corCustom) return { ...deriveTemaVars(corCustom) };
-  const escolhido = (tema && TEMAS[tema]) || TEMAS[TEMA_PADRAO];
-  return { ...escolhido.vars };
+  // Fundo dos blocos das seções (`--ev-block`): no tema PADRÃO (rosé) fica sutil
+  // — fundo branco, igual ao site da Maria; em QUALQUER outra paleta (ou cor
+  // personalizada) o bloco mostra a cor escolhida.
+  const SUTIL = "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)";
+  const FORTE = "color-mix(in srgb, var(--ev-blush) 62%, transparent)";
+  if (tema === TEMA_CUSTOM && corCustom) {
+    return { ...deriveTemaVars(corCustom), "--ev-block": FORTE };
+  }
+  // Resolve a chave (desconhecida/vazia -> rose, o padrão).
+  const chave = tema && TEMAS[tema] ? tema : TEMA_PADRAO;
+  const bloco = chave === TEMA_PADRAO ? SUTIL : FORTE;
+  return { ...TEMAS[chave].vars, "--ev-block": bloco };
 }
 
 /** Hex do acento principal do tema (`--ev-rosa`) — usado p/ derivar particulas. */

@@ -23,6 +23,7 @@ import { PreviewSite } from "../_ui/PreviewSite";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
+import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 
 // Passo 2: o controle "Tamanho dos textos" (Pequeno/Médio/Grande) vira este
 // multiplicador do lockup da capa — mexe no nome e na idade JUNTOS (uniforme),
@@ -112,7 +113,7 @@ function paginaDoPasso(step: number, foco?: string): string {
 
 // Passo 3 (Conteúdo) tem accordions (accDefs, na ordem abaixo). Cada um aponta
 // para a seção do site que a prévia deve rolar até e destacar.
-const ACC_SEC = ["carta-titulo", "assinatura", "quando", "traje", "cta", "rodape"];
+const ACC_SEC = ["carta-titulo", "assinatura", "quando", "traje", "programacao", "cta", "rodape"];
 
 /** Tipo do accordion (a.kind) → seção do site para a prévia focar. */
 const KIND_SEC: Record<string, string> = {
@@ -120,6 +121,7 @@ const KIND_SEC: Record<string, string> = {
   pais: "assinatura",
   local: "quando",
   traje: "traje",
+  programacao: "programacao",
   botao: "cta",
   rodape: "rodape",
 };
@@ -199,6 +201,7 @@ function montarRascunho(S: State) {
       : [],
     rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
     listaModelo: S.listaModelo,
+    programacao: S.programacao.filter((p) => p.hora.trim() || p.titulo.trim()),
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
       !S.gifts ? "presentes" : null,
@@ -262,6 +265,7 @@ function estruturalDoEditor(S: State): string {
     S.gifts, S.free, S.listaModelo,
     S.gifts ? S.giftList.map((g) => `${g.n}${g.v}${g.desc}${g.foto ?? ""}${g.modo ?? ""}${g.cotas ?? ""}`).join("") : "",
     S.gifts ? S.pixNome : "", S.gifts ? S.pixChave : "", S.gifts ? S.presentesTexto : "",
+    S.programacao.map((p) => `${p.hora}|${p.titulo}`).join("~"),
     S.gal, S.rec,
     // Só o liga/desliga GERAL da confirmação fica no reload (some/adiciona a
     // página inteira). As OPÇÕES do RSVP (acompanhantes/telefone/e-mail/restrição/
@@ -323,6 +327,7 @@ type State = {
   rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
   rsvpDataLimite: string; rsvpCorBotao: string; rsvpMsgSim: string; rsvpMsgNao: string;
   gifts: boolean; free: boolean; giftList: GiftRow[]; pixNome: string; pixChave: string; presentesTexto: string;
+  programacao: ItemProgramacao[];
   gal: boolean; rec: boolean; recSt: string[];
   listaModelo: "painel" | "vitrine";
   animacoes: boolean;
@@ -350,6 +355,7 @@ const INICIAL: State = {
   gifts: true, free: true, listaModelo: "painel",
   giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
   pixNome: "Maria Martins", pixChave: "maria.martins@email.com", presentesTexto: "",
+  programacao: programacaoSugerida("QUINZE_ANOS"),
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
   animacoes: false,
   published: false, copied: false, pvMode: "celular",
@@ -679,6 +685,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       ? S.giftList.filter((g) => g.n.trim()).map(giftParaPresente)
       : [],
     listaModelo: S.listaModelo,
+    programacao: S.programacao.filter((p) => p.hora.trim() || p.titulo.trim()),
     recursosOff: [
       !S.rsvp ? "rsvp" : null,
       !S.gifts ? "presentes" : null,
@@ -818,6 +825,13 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     { name: "Pais e família", tag: "· opcional", kind: "pais", st: S.paisOn ? "Visível" : "Oculta", ok: S.paisOn },
     { name: "Data e local", tag: "", kind: "local", st: reqDataLocal ? "Preenchido" : "Faltando", ok: reqDataLocal },
     { name: "Traje", tag: "· opcional", kind: "traje", st: S.trajeOn ? "Visível" : "Oculta", ok: S.trajeOn },
+    {
+      name: "Programação da festa",
+      tag: "· opcional",
+      kind: "programacao",
+      st: S.programacao.some((p) => p.hora.trim() || p.titulo.trim()) ? "Preenchida" : "Vazia",
+      ok: S.programacao.some((p) => p.hora.trim() || p.titulo.trim()),
+    },
     { name: "Botão principal", tag: "", kind: "botao", st: "Configurado", ok: true },
     { name: "Rodapé", tag: "", kind: "rodape", st: "Preenchido", ok: true },
   ];
@@ -1252,6 +1266,75 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                                 <Label>Descrição (ex.: Traje social · Esporte fino)</Label>
                                 <input value={S.traje} onChange={inp("traje")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                               </div>
+                            </div>
+                          )}
+                          {a.kind === "programacao" && (
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[12.5px] text-[#6e6e76]">
+                                  A festa hora a hora — aparece na página do evento. Deixe vazio pra esconder.
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => upd({ programacao: programacaoSugerida("QUINZE_ANOS") })}
+                                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#F6F3FE] px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#EFE7FE]"
+                                >
+                                  ✨ Sugerir
+                                </button>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                {S.programacao.map((p, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <input
+                                      value={p.hora}
+                                      onChange={(e) =>
+                                        upd({
+                                          programacao: S.programacao.map((x, j) =>
+                                            j === i ? { ...x, hora: e.target.value } : x,
+                                          ),
+                                        })
+                                      }
+                                      placeholder="20h30"
+                                      maxLength={20}
+                                      style={{ borderColor: "#E4E4EA" }}
+                                      className="w-[86px] flex-none rounded-[11px] border bg-white px-2 py-2.5 text-center text-[14px] font-semibold text-[#17171B]"
+                                    />
+                                    <input
+                                      value={p.titulo}
+                                      onChange={(e) =>
+                                        upd({
+                                          programacao: S.programacao.map((x, j) =>
+                                            j === i ? { ...x, titulo: e.target.value } : x,
+                                          ),
+                                        })
+                                      }
+                                      placeholder="Recepção"
+                                      maxLength={140}
+                                      style={{ borderColor: "#E4E4EA" }}
+                                      className={`${inputCls} min-w-0 flex-1`}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        upd({ programacao: S.programacao.filter((_, j) => j !== i) })
+                                      }
+                                      title="Remover momento"
+                                      className="grid size-8 flex-none cursor-pointer place-items-center rounded-lg text-[#A6A6AE] hover:bg-[#FDECEF] hover:text-[#E11D48]"
+                                    >
+                                      <Ic d={IC.x} size={15} stroke="currentColor" width={2} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  upd({ programacao: [...S.programacao, { hora: "", titulo: "" }] })
+                                }
+                                className="w-full cursor-pointer rounded-[11px] border-[1.5px] border-dashed border-[#D5D5DC] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#7C3AED] hover:border-[#7C3AED] hover:bg-[#FBFAFE]"
+                              >
+                                + Adicionar momento
+                              </button>
                             </div>
                           )}
                           {a.kind === "botao" && (

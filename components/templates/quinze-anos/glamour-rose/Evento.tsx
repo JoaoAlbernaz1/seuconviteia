@@ -45,7 +45,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
   return (
     <main className="bg-transparent">
       {/* ═══ TOPO — O convite (carta) ═══ */}
-      <section data-sec="carta" className={`${PAD} pb-[clamp(4rem,9vw,7rem)] pt-32`} style={{ background: "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)" }}>
+      <section data-sec="carta" className={`${PAD} pb-[clamp(4rem,9vw,7rem)] pt-32`} style={{ background: "var(--ev-block)" }}>
         <div className="mx-auto max-w-[680px] text-center">
           <Reveal dataSec="carta-titulo">
             <Heading eyebrow={evento.secoes.abertura.eyebrow} title={evento.secoes.abertura.titulo} liveKey="carta-titulo" />
@@ -123,7 +123,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       {/* Sempre no DOM (mesmo sem texto) pra o toggle "Mostrar traje" do editor
           refletir na hora via [data-live]; escondida por CSS (data-hide-empty)
           quando o texto está vazio — ver regra em globals.css. */}
-      <section data-sec="traje" data-hide-empty="traje" className={`${PAD} py-[clamp(3.5rem,7vw,5rem)]`} style={{ background: "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)" }}>
+      <section data-sec="traje" data-hide-empty="traje" className={`${PAD} py-[clamp(3.5rem,7vw,5rem)]`} style={{ background: "var(--ev-block)" }}>
         <Reveal className={`flex flex-col items-center gap-3 text-center ${WRAP}`}>
           <p className="eyebrow text-evt-rosa-ink">Traje</p>
           <p data-live="traje" className="font-evt-script text-[clamp(3.3rem,8.5vw,4rem)] text-evt-ink">{evento.traje ?? ""}</p>

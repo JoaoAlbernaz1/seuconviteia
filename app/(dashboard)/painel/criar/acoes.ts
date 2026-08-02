@@ -104,6 +104,10 @@ const payloadSchema = z.object({
   pixChave: z.string().trim().max(200).optional(),
   presentesTexto: z.string().trim().max(600).optional(),
   listaModelo: z.enum(["painel", "vitrine"]).optional(),
+  programacao: z
+    .array(z.object({ hora: z.string().trim().max(20), titulo: z.string().trim().max(140) }))
+    .max(30)
+    .optional(),
   presentes: z.array(giftSchema).max(60).optional(),
   recursosOff: z.array(z.enum(RECURSO_KEYS)).max(6).optional(),
   pais: z
@@ -278,6 +282,10 @@ export async function criarConvite(
     pixChave: txt(d.pixChave),
     presentesTexto: txt(d.presentesTexto),
     listaModelo: podeVitrine(prof.plan) ? d.listaModelo ?? "painel" : "painel",
+    programacao: (() => {
+      const p = (d.programacao ?? []).filter((x) => x.hora.trim() || x.titulo.trim());
+      return p.length ? p : undefined;
+    })(),
     recursos,
     pais: paisPreenchido,
     rsvpConfig: d.rsvpConfig,

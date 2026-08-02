@@ -42,10 +42,16 @@ describe("temas (presets de cor)", () => {
   });
 
   it("varsDoTema cai para 'rose' quando a chave e desconhecida ou vazia", () => {
-    expect(varsDoTema("inexistente")).toEqual(TEMAS[TEMA_PADRAO].vars);
-    expect(varsDoTema(undefined)).toEqual(TEMAS[TEMA_PADRAO].vars);
-    expect(varsDoTema(null)).toEqual(TEMAS[TEMA_PADRAO].vars);
+    // Alem das vars do preset, varsDoTema injeta `--ev-block` (bloco tingido):
+    // sutil no tema PADRAO (rose), colorido nas demais paletas.
+    const blocoRose = "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)";
+    const blocoOutro = "color-mix(in srgb, var(--ev-blush) 62%, transparent)";
+    expect(varsDoTema("inexistente")).toEqual({ ...TEMAS[TEMA_PADRAO].vars, "--ev-block": blocoRose });
+    expect(varsDoTema(undefined)).toEqual({ ...TEMAS[TEMA_PADRAO].vars, "--ev-block": blocoRose });
+    expect(varsDoTema(null)).toEqual({ ...TEMAS[TEMA_PADRAO].vars, "--ev-block": blocoRose });
     expect(varsDoTema("dourado")["--ev-rosa"]).toBe("#C9A24B");
+    expect(varsDoTema("rose")["--ev-block"]).toBe(blocoRose);
+    expect(varsDoTema("azul")["--ev-block"]).toBe(blocoOutro);
   });
 
   it("acentoDoTema devolve o --ev-rosa do preset (default rose)", () => {

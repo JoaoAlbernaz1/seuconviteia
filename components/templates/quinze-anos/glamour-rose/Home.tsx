@@ -18,8 +18,9 @@ import { CapaGlamour } from "./Capa";
 const PAD = "px-[clamp(1.25rem,5vw,2rem)]";
 const RHYTHM = "py-[clamp(5rem,10vw,8rem)]";
 const WRAP = "mx-auto max-w-[1100px]";
-// bg-blush-soft/55 do site real (translúcido sobre a atmosfera).
-const BLUSH_55 = "color-mix(in srgb, var(--ev-blush-soft) 55%, transparent)";
+// Bloco tingido: `--ev-block` (definido em varsDoTema) — sutil no tema padrão
+// (rosé = igual site da Maria, fundo branco) e colorido nas demais paletas.
+const BLUSH_55 = "var(--ev-block)";
 
 export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
   const nome = evento.primeiroNome;
