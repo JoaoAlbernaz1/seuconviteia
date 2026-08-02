@@ -6,7 +6,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import type { PresenteInterativo } from "@/lib/presentesTipos";
-import { iniciarPresente, confirmarPresente } from "@/lib/presentear";
+import { iniciarPresente, confirmarPresente, checarPagamento } from "@/lib/presentear";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const fmt = (cents: number) => brl.format(cents / 100);
@@ -16,10 +16,13 @@ type Etapa = "form" | "pix" | "ok";
 export function PresentearModal({
   item,
   eventId,
+  simulado,
   onClose,
 }: {
   item: PresenteInterativo;
   eventId: string;
+  /** true = provedor simulado (dev): confirmação manual. false = Pix real: aguarda o webhook. */
+  simulado: boolean;
   onClose: () => void;
 }) {
   const cotaCents =
@@ -84,7 +87,8 @@ export function PresentearModal({
     });
   }
 
-  function confirmar() {
+  // Modo simulado (dev): confirma na mão.
+  function confirmarSimulado() {
     if (!pix) return;
     startConfirmar(async () => {
       const r = await confirmarPresente(pix.contributionId);
@@ -92,6 +96,28 @@ export function PresentearModal({
       else setErro("Não conseguimos confirmar. Tente de novo.");
     });
   }
+
+  // Pix real: consulta o status agora ("Já paguei"). O webhook confirma sozinho.
+  function verificarAgora() {
+    if (!pix) return;
+    setErro(null);
+    startConfirmar(async () => {
+      const r = await checarPagamento(pix.contributionId);
+      if (r.status === "PAID") setEtapa("ok");
+      else if (r.status === "FAILED") setErro("O pagamento não foi identificado. Tente de novo.");
+      else setErro("Ainda não identificamos seu Pix. Assim que cair, esta tela confirma sozinha.");
+    });
+  }
+
+  // Pix real: enquanto o QR está na tela, consulta o status a cada 4s até cair.
+  useEffect(() => {
+    if (etapa !== "pix" || simulado || !pix) return;
+    const t = setInterval(async () => {
+      const r = await checarPagamento(pix.contributionId);
+      if (r.status === "PAID") setEtapa("ok");
+    }, 4000);
+    return () => clearInterval(t);
+  }, [etapa, simulado, pix]);
 
   async function copiar() {
     if (!pix) return;
@@ -224,17 +250,35 @@ export function PresentearModal({
               {copiado ? "Copiado!" : "Copiar código Pix"}
             </button>
 
-            <button
-              type="button"
-              onClick={confirmar}
-              disabled={confirmando}
-              className="mt-6 w-full rounded-full bg-evt-framboesa px-6 py-3.5 font-evt-util text-[0.72rem] font-medium uppercase tracking-[0.22em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep disabled:opacity-60"
-            >
-              {confirmando ? "Confirmando…" : "Confirmar pagamento"}
-            </button>
-            <p className="mt-3 font-evt-util text-[0.66rem] uppercase tracking-[0.16em] text-evt-ink-soft">
-              Pagamento simulado (teste)
-            </p>
+            {simulado ? (
+              <>
+                <button
+                  type="button"
+                  onClick={confirmarSimulado}
+                  disabled={confirmando}
+                  className="mt-6 w-full rounded-full bg-evt-framboesa px-6 py-3.5 font-evt-util text-[0.72rem] font-medium uppercase tracking-[0.22em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep disabled:opacity-60"
+                >
+                  {confirmando ? "Confirmando…" : "Confirmar pagamento"}
+                </button>
+                <p className="mt-3 font-evt-util text-[0.66rem] uppercase tracking-[0.16em] text-evt-ink-soft">
+                  Pagamento simulado (teste)
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-5 font-evt-body text-[0.95rem] text-evt-ink-soft">
+                  Pague o Pix no app do seu banco. Assim que cair, esta tela confirma sozinha.
+                </p>
+                <button
+                  type="button"
+                  onClick={verificarAgora}
+                  disabled={confirmando}
+                  className="mt-3 w-full rounded-full border border-evt-rosa-ink px-6 py-3 font-evt-util text-[0.7rem] font-medium uppercase tracking-[0.2em] text-evt-rosa-ink transition-colors hover:bg-evt-rosa-ink/5 disabled:opacity-60"
+                >
+                  {confirmando ? "Verificando…" : "Já paguei"}
+                </button>
+              </>
+            )}
             {erro && <p className="mt-2 font-evt-body text-[0.95rem] text-red-600">{erro}</p>}
           </div>
         )}

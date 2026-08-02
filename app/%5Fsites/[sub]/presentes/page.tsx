@@ -8,6 +8,7 @@ import { carregarEventoFesta } from "@/lib/eventoFesta";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { prisma } from "@/lib/db";
+import { getPaymentProvider } from "@/lib/pagamentos";
 import { podeVitrine } from "@/lib/plans";
 import type { GiftPricing } from "@/lib/pagamentos/contribuicao";
 import type { PresentearData, PresenteInterativo } from "@/lib/presentesTipos";
@@ -86,22 +87,20 @@ async function montarPresentear(event: {
   const porItem = new Map(sums.map((s) => [s.giftItemId, s._sum]));
 
   const itens: PresenteInterativo[] = event.gifts.map((g) => {
-    const ehLink = g.mode === "ITEM";
     const soma = porItem.get(g.id);
     const arrecadadoCents = soma?.grossCents ?? 0;
     const cotasVendidas = soma?.quotas ?? 0;
     const mode = g.pricingMode as GiftPricing;
     const esgotado =
-      !ehLink &&
-      (g.purchased ||
-        (mode === "FIXO" && arrecadadoCents >= g.priceCents) ||
-        (mode === "COTAS" && g.quotaCount != null && cotasVendidas >= g.quotaCount));
+      g.purchased ||
+      (mode === "FIXO" && g.priceCents > 0 && arrecadadoCents >= g.priceCents) ||
+      (mode === "COTAS" && g.quotaCount != null && cotasVendidas >= g.quotaCount);
     return {
       id: g.id,
       titulo: g.title,
-      valorLabel: !ehLink && g.priceCents > 0 ? brl.format(g.priceCents / 100) : undefined,
-      tipo: ehLink ? "LINK" : "PIX",
-      storeUrl: ehLink ? g.storeUrl ?? undefined : undefined,
+      valorLabel: g.priceCents > 0 ? brl.format(g.priceCents / 100) : undefined,
+      tipo: "PIX",
+      storeUrl: undefined,
       imageUrl: g.imageUrl ?? undefined,
       pricingMode: mode,
       priceCents: g.priceCents,
@@ -112,5 +111,5 @@ async function montarPresentear(event: {
     };
   });
 
-  return { eventId: event.id, itens };
+  return { eventId: event.id, itens, simulado: getPaymentProvider().nome === "fake" };
 }

@@ -22,7 +22,7 @@ import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
 import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
 import { TEMPLATES, TEMPLATE_PADRAO } from "@/lib/templates";
-import { limiteEventos, rotuloPlano } from "@/lib/plans";
+import { limiteEventos, podeVitrine, rotuloPlano } from "@/lib/plans";
 import {
   TEMA_KEYS,
   montarMapsUrls,
@@ -431,10 +431,23 @@ export async function salvarPresentes(
   }
   const { pixNome, pixChave, pixQrUrl, presentesTexto } = parsed.data;
 
+  // Modelo da lista (painel/vitrine). A vitrine é gateada pelo plano REAL do dono.
+  const prof = await prisma.professional.findUnique({
+    where: { id: event.professionalId },
+    select: { plan: true },
+  });
+  const listaModelo =
+    str(formData, "listaModelo") === "vitrine" && prof && podeVitrine(prof.plan)
+      ? "vitrine"
+      : "painel";
+
   const presentes = parsePresentes(
     formData.getAll("gift_titulo").map(String),
     formData.getAll("gift_descricao").map(String),
     formData.getAll("gift_valor").map(String),
+    formData.getAll("gift_foto").map(String),
+    formData.getAll("gift_modo").map(String),
+    formData.getAll("gift_cotas").map(String),
   );
 
   await prisma.event.update({
@@ -445,20 +458,38 @@ export async function salvarPresentes(
         pixChave,
         pixQrUrl,
         presentesTexto,
+        listaModelo,
       }),
     },
   });
-  await prisma.giftItem.deleteMany({ where: { eventId: event.id } });
-  if (presentes.length) {
-    await prisma.giftItem.createMany({
-      data: presentes.map((g) => ({
-        eventId: event.id,
-        title: g.titulo,
-        description: g.descricao ?? null,
-        priceCents: g.valorCents ?? 0,
-        mode: "PIX" as const,
-      })),
-    });
+
+  // PROTEÇÃO DO LEDGER: se já houve contribuição, NÃO reescreve a lista — o
+  // deleteMany cascatearia (onDelete: Cascade) e apagaria o histórico de Pix.
+  const temContrib = await prisma.giftContribution.count({
+    where: { eventId: event.id },
+  });
+  if (temContrib === 0) {
+    await prisma.giftItem.deleteMany({ where: { eventId: event.id } });
+    if (presentes.length) {
+      await prisma.giftItem.createMany({
+        data: presentes.map((g) => {
+          const cents = g.valorCents ?? 0;
+          const ehCota = g.modo === "COTAS" && !!g.cotas && cents > 0;
+          // Valor único SEM preço não pode existir (checkout quebra): vira valor livre.
+          const pricingMode = ehCota ? "COTAS" : cents > 0 ? "FIXO" : "LIVRE";
+          return {
+            eventId: event.id,
+            title: g.titulo,
+            description: g.descricao ?? null,
+            priceCents: cents,
+            imageUrl: g.foto ?? null,
+            mode: "PIX" as const,
+            pricingMode: pricingMode as "FIXO" | "COTAS" | "LIVRE",
+            quotaCount: ehCota ? g.cotas : null,
+          };
+        }),
+      });
+    }
   }
   revalidatePath("/painel");
   redirect(destinoVoltar(formData, `/painel/${event.id}`));

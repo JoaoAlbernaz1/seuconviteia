@@ -91,16 +91,19 @@ export default async function PreviewEventoPage({
   const usarVitrinePreview = rascunho.listaModelo === "vitrine" && podeVitrine(prof.plan);
   const presentearPreview = {
     eventId: "preview",
+    simulado: true,
     itens: (rascunho.presentes ?? []).map((p, i) => {
-      const ehLink = p.tipo === "LINK";
       const reais = parseFloat((p.valor ?? "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
       const priceCents = Math.round(reais * 100);
       return {
         id: `preview-${i}`,
         titulo: p.titulo,
-        valorLabel: undefined,
-        tipo: ehLink ? ("LINK" as const) : ("PIX" as const),
-        storeUrl: ehLink ? p.link || undefined : undefined,
+        valorLabel:
+          priceCents > 0
+            ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(priceCents / 100)
+            : undefined,
+        tipo: "PIX" as const,
+        storeUrl: undefined,
         imageUrl: p.foto || undefined,
         pricingMode: p.modo ?? ("FIXO" as const),
         priceCents,

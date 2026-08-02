@@ -1,13 +1,14 @@
 // Adapter de pagamento (seam de producao, espelha lib/storage/index.ts):
-//   - ASAAS_API_KEY setado -> AsaasPaymentProvider (Fatia 4, ainda stub)
-//   - sem chave (dev)       -> FakePaymentProvider (Pix simulado)
+//   - MERCADO_PAGO_ACCESS_TOKEN setado -> MercadoPagoPaymentProvider (Pix real)
+//   - sem chave (dev)                  -> FakePaymentProvider (Pix simulado)
 import type { PayStatus } from "./contribuicao";
+import { MercadoPagoPaymentProvider } from "./mercadopago";
 
 export interface CobrancaPixInput {
   valorCents: number;
   descricao: string;
   referencia: string; // ex.: id da contribuicao
-  pagador?: { nome?: string };
+  pagador?: { nome?: string; email?: string };
 }
 export interface CobrancaPix {
   chargeId: string;
@@ -59,21 +60,7 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 }
 
-/** Stub — implementado na Fatia 4 (igual VercelBlobStorage). */
-export class AsaasPaymentProvider implements PaymentProvider {
-  readonly nome = "asaas";
-  async criarCobrancaPix(): Promise<CobrancaPix> {
-    throw new Error("Asaas ainda nao implementado — rode sem ASAAS_API_KEY (Pix simulado) em dev.");
-  }
-  async consultarCobranca(): Promise<{ status: PayStatus }> {
-    throw new Error("Asaas ainda nao implementado.");
-  }
-  async transferir(): Promise<Transferencia> {
-    throw new Error("Asaas ainda nao implementado.");
-  }
-}
-
 export function getPaymentProvider(): PaymentProvider {
-  if (process.env.ASAAS_API_KEY) return new AsaasPaymentProvider();
+  if (process.env.MERCADO_PAGO_ACCESS_TOKEN) return new MercadoPagoPaymentProvider();
   return new FakePaymentProvider();
 }

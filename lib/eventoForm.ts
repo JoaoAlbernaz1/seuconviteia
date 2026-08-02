@@ -48,6 +48,10 @@ export type PresenteParsed = {
   titulo: string;
   descricao?: string;
   valorCents?: number;
+  foto?: string;
+  /** Cobrança: ausente = valor único (FIXO); "COTAS" = dividido em `cotas`. */
+  modo?: "COTAS";
+  cotas?: number;
 };
 
 /** Texto limpo -> `undefined` quando vazio. */
@@ -122,17 +126,32 @@ export function parsePresentes(
   titulos: readonly string[],
   descricoes: readonly string[],
   valores: readonly string[],
+  fotos: readonly string[] = [],
+  modos: readonly string[] = [],
+  cotas: readonly string[] = [],
 ): PresenteParsed[] {
-  const n = Math.max(titulos.length, descricoes.length, valores.length);
+  const n = Math.max(
+    titulos.length,
+    descricoes.length,
+    valores.length,
+    fotos.length,
+    modos.length,
+    cotas.length,
+  );
   const itens: PresenteParsed[] = [];
   for (let i = 0; i < n; i += 1) {
     const titulo = texto(titulos[i]);
     if (!titulo) continue;
     const cents = brlParaCents(valores[i]);
+    const ehCota = modos[i] === "COTAS";
+    const nCotas = ehCota ? Number.parseInt(cotas[i] ?? "", 10) : NaN;
     itens.push({
       titulo,
       descricao: texto(descricoes[i]),
       valorCents: cents != null ? cents : undefined,
+      foto: texto(fotos[i]),
+      modo: ehCota ? "COTAS" : undefined,
+      cotas: ehCota && Number.isFinite(nCotas) && nCotas >= 2 ? nCotas : undefined,
     });
   }
   return itens;

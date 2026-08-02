@@ -98,6 +98,37 @@ describe("parsePresentes", () => {
       { titulo: "Presente", descricao: undefined, valorCents: undefined },
     ]);
   });
+
+  it("zipa a foto (4o array, opcional) e apara vazios", () => {
+    expect(
+      parsePresentes(
+        ["Air Fryer", "Cota"],
+        ["", ""],
+        ["", "150"],
+        ["  https://x/a.png  ", ""],
+      ),
+    ).toEqual([
+      { titulo: "Air Fryer", descricao: undefined, valorCents: undefined, foto: "https://x/a.png" },
+      { titulo: "Cota", descricao: undefined, valorCents: 15000, foto: undefined },
+    ]);
+  });
+
+  it("zipa modo/cotas: COTAS válido vira {modo:'COTAS', cotas}; resto fica undefined", () => {
+    expect(
+      parsePresentes(
+        ["Vestido", "Buquê", "Jantar"],
+        ["", "", ""],
+        ["2000", "300", "180"],
+        ["", "", ""],
+        ["COTAS", "COTAS", "FIXO"],
+        ["20", "1", ""], // 2o item: 1 cota é inválido (< 2) -> ignora cotas
+      ),
+    ).toEqual([
+      { titulo: "Vestido", descricao: undefined, valorCents: 200000, foto: undefined, modo: "COTAS", cotas: 20 },
+      { titulo: "Buquê", descricao: undefined, valorCents: 30000, foto: undefined, modo: "COTAS", cotas: undefined },
+      { titulo: "Jantar", descricao: undefined, valorCents: 18000, foto: undefined, modo: undefined, cotas: undefined },
+    ]);
+  });
 });
 
 describe("parseFotos", () => {

@@ -33,7 +33,6 @@ export function VitrinePresentes({
         {itens.map((it, i) => {
           const pi = presentear.itens[i];
           if (!pi) return null;
-          const ehLink = pi.tipo === "LINK";
           const esgotado = pi.esgotado;
           const pct =
             pi.pricingMode === "COTAS" && pi.quotaCount
@@ -58,11 +57,6 @@ export function VitrinePresentes({
                     <div className="flex h-full w-full items-center justify-center" style={{ background: COVER_PIX }}>
                       <Flourish className="h-5 w-24 text-evt-rosa" />
                     </div>
-                  )}
-                  {ehLink && (
-                    <span className="absolute left-3 top-3 rounded-full bg-white/85 px-3 py-1 font-evt-util text-[0.56rem] font-medium uppercase tracking-[0.18em] text-evt-rosa-ink backdrop-blur">
-                      Loja
-                    </span>
                   )}
                   {esgotado && (
                     <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 font-evt-util text-[0.56rem] font-medium uppercase tracking-[0.14em] text-white">
@@ -98,11 +92,7 @@ export function VitrinePresentes({
                       <span aria-hidden />
                     )}
 
-                    {ehLink ? (
-                      <a href={pi.storeUrl ?? "#"} target="_blank" rel="noopener noreferrer" className={BTN}>
-                        Comprar na loja
-                      </a>
-                    ) : esgotado ? (
+                    {esgotado ? (
                       <span className="font-evt-util text-[0.62rem] uppercase tracking-[0.16em] text-evt-ink-soft">
                         Realizado
                       </span>
@@ -120,7 +110,12 @@ export function VitrinePresentes({
       </div>
 
       {aberto && (
-        <PresentearModal item={aberto} eventId={presentear.eventId} onClose={() => setAberto(null)} />
+        <PresentearModal
+          item={aberto}
+          eventId={presentear.eventId}
+          simulado={presentear.simulado}
+          onClose={() => setAberto(null)}
+        />
       )}
     </>
   );

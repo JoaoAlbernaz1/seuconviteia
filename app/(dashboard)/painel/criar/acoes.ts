@@ -352,16 +352,19 @@ export async function criarConvite(
       if (itens.length) {
         await prisma.giftItem.createMany({
           data: itens.map((g) => {
-            const ehLink = g.tipo === "LINK";
+            const cents = brlParaCents(g.valor ?? "") ?? 0;
+            const ehCota = g.modo === "COTAS" && !!g.cotas && cents > 0;
+            // Valor único SEM preço não pode existir (checkout quebra): vira valor livre.
+            const pricingMode = ehCota ? "COTAS" : cents > 0 ? "FIXO" : "LIVRE";
             return {
               eventId,
               title: g.titulo,
               description: txt(g.descricao) ?? null,
-              priceCents: ehLink ? 0 : brlParaCents(g.valor ?? "") ?? 0,
-              mode: ehLink ? ("ITEM" as const) : ("PIX" as const),
-              pricingMode: !ehLink && g.modo ? g.modo : "FIXO",
-              quotaCount: !ehLink && g.modo === "COTAS" ? (g.cotas ?? null) : null,
-              storeUrl: ehLink ? txt(g.link) ?? null : null,
+              priceCents: cents,
+              mode: "PIX" as const,
+              pricingMode: pricingMode as "FIXO" | "COTAS" | "LIVRE",
+              quotaCount: ehCota ? (g.cotas ?? null) : null,
+              storeUrl: null,
               imageUrl: txt(g.foto) ?? null,
             };
           }),

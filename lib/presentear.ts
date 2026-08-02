@@ -2,10 +2,11 @@
 
 // Server actions do fluxo "presentear" (site público do evento).
 //
-// Modelo "conta única + carteira interna" (spec 2026-07-31): o convidado paga a
-// PLATAFORMA (Pix, hoje simulado pelo FakePaymentProvider); retemos a taxa e
-// creditamos o líquido no cofre do convite. A confirmação (`confirmarPresente`)
-// é o "webhook fake" — na Fatia 4 (Asaas) ela vira o webhook assinado de verdade.
+// Modelo "conta única + carteira interna": o convidado paga a PLATAFORMA (Pix,
+// via Mercado Pago em prod ou FakePaymentProvider em dev); retemos a taxa e
+// creditamos o líquido no cofre do convite. Em produção quem confirma é o webhook
+// assinado do MP (/api/webhooks/mercadopago); `confirmarPresente` é o atalho
+// manual usado só no modo simulado (dev).
 //
 // Segurança/tenant: o eventId e o giftItemId chegam do cliente mas são
 // RE-RESOLVIDOS e RE-VALIDADOS no servidor (evento publicado + item pertence ao
@@ -16,6 +17,10 @@ import { eventoPublico } from "@/lib/event";
 import { getPaymentProvider } from "@/lib/pagamentos";
 import { calcularTaxaCents, calcularLiquidoCents } from "@/lib/pagamentos/taxa";
 import { valorDaContribuicao, type GiftPricing } from "@/lib/pagamentos/contribuicao";
+import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
+
+const ehEmail = (v: string | undefined): v is string =>
+  !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 const iniciarSchema = z.object({
   eventId: z.string().min(1),
@@ -118,7 +123,10 @@ export async function iniciarPresente(input: IniciarPresenteInput): Promise<Inic
       valorCents: valor.brutoCents,
       descricao: item.title,
       referencia: contrib.id,
-      pagador: { nome: dados.buyerName },
+      pagador: {
+        nome: dados.buyerName,
+        email: ehEmail(dados.buyerContact) ? dados.buyerContact : undefined,
+      },
     });
     await prisma.giftContribution.update({
       where: { id: contrib.id },
@@ -146,50 +154,45 @@ export async function iniciarPresente(input: IniciarPresenteInput): Promise<Inic
 }
 
 /**
- * "Webhook fake": confirma o pagamento de uma contribuição (idempotente).
- * Marca PAID, registra a Transação (ledger) e, se o item ficou completo, o
- * marca como realizado. Na Fatia 4 (Asaas) isto vira o webhook assinado.
+ * Confirmação MANUAL (só modo simulado/dev): o modal chama isto no botão
+ * "Confirmar pagamento". Em produção quem confirma é o webhook do gateway
+ * (/api/webhooks/mercadopago) — este atalho não existe no fluxo real.
  */
 export async function confirmarPresente(contributionId: string): Promise<{ ok: boolean }> {
   const id = z.string().min(1).safeParse(contributionId);
   if (!id.success) return { ok: false };
+  // Trava de segurança: só o provedor simulado permite confirmação manual.
+  if (getPaymentProvider().nome !== "fake") return { ok: false };
+  const ok = await confirmarContribuicaoPaga(id.data);
+  return { ok };
+}
+
+/**
+ * Consulta o status REAL da cobrança no gateway (polling do modal). Se o
+ * pagamento caiu (approved), confirma a contribuição e devolve "PAID". Nunca
+ * confia no cliente: re-lê a contribuição e usa o chargeId salvo no servidor.
+ */
+export async function checarPagamento(
+  contributionId: string,
+): Promise<{ status: "PENDING" | "PAID" | "FAILED" }> {
+  const id = z.string().min(1).safeParse(contributionId);
+  if (!id.success) return { status: "PENDING" };
 
   const contrib = await prisma.giftContribution.findUnique({ where: { id: id.data } });
-  if (!contrib) return { ok: false };
-  if (contrib.status === "PAID") return { ok: true }; // idempotente
+  if (!contrib) return { status: "FAILED" };
+  if (contrib.status === "PAID") return { status: "PAID" };
+  if (!contrib.providerChargeId) return { status: "PENDING" };
 
-  await prisma.giftContribution.update({
-    where: { id: contrib.id },
-    data: { status: "PAID", paidAt: new Date() },
-  });
-
-  await prisma.transaction.create({
-    data: {
-      eventId: contrib.eventId,
-      amountCents: contrib.grossCents,
-      kind: "GIFT_PIX",
-      status: "PAID",
-      providerId: contrib.providerChargeId,
-    },
-  });
-
-  // Marca o item como realizado quando totalmente arrecadado.
-  const item = await prisma.giftItem.findUnique({ where: { id: contrib.giftItemId } });
-  if (item) {
-    let completo = false;
-    if (item.pricingMode === "FIXO") {
-      completo = true; // FIXO: uma contribuição paga o item inteiro
-    } else if (item.pricingMode === "COTAS") {
-      const s = await prisma.giftContribution.aggregate({
-        where: { giftItemId: item.id, status: "PAID" },
-        _sum: { quotas: true },
-      });
-      completo = (s._sum.quotas ?? 0) >= (item.quotaCount ?? 0);
+  try {
+    const { status } = await getPaymentProvider().consultarCobranca(contrib.providerChargeId);
+    if (status === "PAID") {
+      await confirmarContribuicaoPaga(contrib.id);
+      return { status: "PAID" };
     }
-    if (completo && !item.purchased) {
-      await prisma.giftItem.update({ where: { id: item.id }, data: { purchased: true } });
-    }
+    if (status === "FAILED" || status === "REFUNDED") return { status: "FAILED" };
+    return { status: "PENDING" };
+  } catch (err) {
+    console.error("[presentear] falha ao consultar pagamento:", err);
+    return { status: "PENDING" };
   }
-
-  return { ok: true };
 }

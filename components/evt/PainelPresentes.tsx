@@ -72,7 +72,6 @@ export function PainelPresentes({
           <ul className="mt-6 flex flex-col">
             {itens.map((it, i) => {
               const pi = presentear?.itens[i];
-              const ehLink = pi?.tipo === "LINK";
               const esgotado = pi?.esgotado ?? false;
               const cotasInfo =
                 pi?.pricingMode === "COTAS" && pi.quotaCount
@@ -85,7 +84,7 @@ export function PainelPresentes({
                     i > 0 ? "border-t border-[var(--line)]" : ""
                   }`}
                 >
-                  {ehLink && pi?.imageUrl && (
+                  {pi?.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={pi.imageUrl}
@@ -112,16 +111,7 @@ export function PainelPresentes({
                         {it.valor}
                       </span>
                     )}
-                    {ehLink ? (
-                      <a
-                        href={pi?.storeUrl ?? "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
-                      >
-                        Comprar na loja
-                      </a>
-                    ) : interativo ? (
+                    {interativo ? (
                       esgotado ? (
                         <span className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-black/5 px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.16em] text-evt-ink-soft">
                           Realizado 🎉
@@ -202,7 +192,12 @@ export function PainelPresentes({
       </div>
 
       {aberto && presentear && (
-        <PresentearModal item={aberto} eventId={presentear.eventId} onClose={() => setAberto(null)} />
+        <PresentearModal
+          item={aberto}
+          eventId={presentear.eventId}
+          simulado={presentear.simulado}
+          onClose={() => setAberto(null)}
+        />
       )}
     </div>
   );

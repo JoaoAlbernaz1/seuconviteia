@@ -2,8 +2,9 @@
 
 // Server actions do "cofre" do convite (painel do dono): cadastrar a chave Pix
 // de recebimento e resgatar (sacar) o saldo. Modelo "conta única + carteira
-// interna" (spec 2026-07-31): o resgate cria um Payout e chama o provider de
-// transferência (hoje FakePaymentProvider → PAID na hora; Asaas na Fatia 4).
+// interna": o resgate cria um Payout e chama o provider de transferência (hoje
+// FakePaymentProvider → PAID na hora; o payout real via Mercado Pago é a próxima
+// etapa — `transferir` ainda não implementado no MercadoPagoPaymentProvider).
 //
 // Segurança: toda ação valida OWNERSHIP (o evento tem de ser do usuário logado).
 import { z } from "zod";

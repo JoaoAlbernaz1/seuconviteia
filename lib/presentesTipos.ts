@@ -32,4 +32,7 @@ export type PresenteInterativo = {
 export type PresentearData = {
   eventId: string;
   itens: PresenteInterativo[];
+  /** true = provedor de pagamento simulado (dev). O modal mostra o fluxo de
+   *  teste (confirmação manual) em vez de aguardar o Pix real. */
+  simulado: boolean;
 };

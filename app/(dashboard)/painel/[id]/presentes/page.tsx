@@ -9,6 +9,7 @@ import {
   voltarDe,
 } from "../_carregar";
 import { rascunhoDoEvento } from "@/lib/previewEvento";
+import { podeVitrine } from "@/lib/plans";
 import { PresentesCliente } from "./PresentesCliente";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,9 @@ export default async function PresentesPage({
   const event = await carregarEventoDono(id);
   const c = event.customization;
 
+  const modeloInicial =
+    lerCustomStr(c, "listaModelo") === "vitrine" ? "vitrine" : "painel";
+
   return (
     <PresentesCliente
       eventId={event.id}
@@ -32,12 +36,18 @@ export default async function PresentesPage({
       host={hostDoEvento(event.subdomain)}
       tipo={event.type}
       rascunhoBase={rascunhoDoEvento(event)}
+      podeVitrine={podeVitrine(event.professional.plan)}
+      listaModeloInicial={modeloInicial}
       pixNomeInicial={lerCustomStr(c, "pixNome") ?? ""}
       pixChaveInicial={lerCustomStr(c, "pixChave") ?? ""}
       pixQrUrlInicial={lerCustomStr(c, "pixQrUrl") ?? ""}
       presentesTextoInicial={lerCustomStr(c, "presentesTexto") ?? ""}
       giftsIniciais={event.gifts.map((g) => ({
         titulo: g.title,
+        descricao: g.description ?? "",
+        foto: g.imageUrl ?? "",
+        modo: g.pricingMode === "COTAS" ? ("COTAS" as const) : ("FIXO" as const),
+        cotas: g.quotaCount ?? undefined,
         valor:
           g.priceCents > 0
             ? (g.priceCents / 100).toFixed(2).replace(".", ",")

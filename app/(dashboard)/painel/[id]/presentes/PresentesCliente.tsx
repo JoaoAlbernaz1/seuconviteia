@@ -12,7 +12,7 @@ import type { RascunhoPreview } from "@/lib/previewEvento";
 import { textosDoNicho } from "@/lib/textos";
 import { presentesSugeridos } from "@/lib/sugestoes";
 import { PreviewSite } from "../../_ui/PreviewSite";
-import { EscolherFoto, useEnvio } from "../../_ui/Uploads";
+import { EscolherFoto, enviarUpload, useEnvio } from "../../_ui/Uploads";
 import {
   BTN_PRIMARIO,
   BTN_VOLTAR,
@@ -27,7 +27,17 @@ import {
 const BTN_SUGERIR =
   "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-lilac px-3 py-1.5 text-[12px] font-semibold text-scv-violet transition hover:brightness-110";
 
-type Linha = { id: number; titulo: string; valor: string };
+type GiftModo = "FIXO" | "COTAS";
+type Linha = {
+  id: number;
+  titulo: string;
+  descricao: string;
+  valor: string;
+  foto: string;
+  modo: GiftModo;
+  cotas?: number;
+};
+type ListaModelo = "painel" | "vitrine";
 
 export function PresentesCliente({
   eventId,
@@ -35,6 +45,8 @@ export function PresentesCliente({
   host,
   tipo,
   rascunhoBase,
+  podeVitrine,
+  listaModeloInicial,
   pixNomeInicial,
   pixChaveInicial,
   pixQrUrlInicial,
@@ -46,19 +58,42 @@ export function PresentesCliente({
   host: string;
   tipo: string;
   rascunhoBase: RascunhoPreview;
+  podeVitrine: boolean;
+  listaModeloInicial: ListaModelo;
   pixNomeInicial: string;
   pixChaveInicial: string;
   pixQrUrlInicial: string;
   presentesTextoInicial: string;
-  giftsIniciais: { titulo: string; valor: string }[];
+  giftsIniciais: {
+    titulo: string;
+    descricao: string;
+    foto: string;
+    modo: GiftModo;
+    cotas?: number;
+    valor: string;
+  }[];
 }) {
-  const base = giftsIniciais.length ? giftsIniciais : [{ titulo: "", valor: "" }];
+  const base = giftsIniciais.length
+    ? giftsIniciais
+    : [{ titulo: "", descricao: "", foto: "", modo: "FIXO" as const, cotas: undefined, valor: "" }];
   const [pixQrUrl, setPixQrUrl] = useState(pixQrUrlInicial);
   const [presentesTexto, setPresentesTexto] = useState(presentesTextoInicial);
+  const [listaModelo, setListaModelo] = useState<ListaModelo>(
+    listaModeloInicial === "vitrine" && podeVitrine ? "vitrine" : "painel",
+  );
   const [linhas, setLinhas] = useState<Linha[]>(() =>
-    base.map((g, i) => ({ id: i, titulo: g.titulo, valor: g.valor })),
+    base.map((g, i) => ({
+      id: i,
+      titulo: g.titulo,
+      descricao: g.descricao,
+      valor: g.valor,
+      foto: g.foto,
+      modo: g.modo,
+      cotas: g.cotas,
+    })),
   );
   const proxId = useRef(base.length);
+  const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
 
   const [state, formAction, pending] = useActionState<AcaoEventoState, FormData>(
     salvarPresentes,
@@ -73,22 +108,47 @@ export function PresentesCliente({
     setLinhas((xs) => (xs.length > 1 ? xs.filter((l) => l.id !== id) : xs));
   }
   function adicionar() {
-    setLinhas((xs) => [...xs, { id: proxId.current++, titulo: "", valor: "" }]);
+    setLinhas((xs) => [
+      ...xs,
+      { id: proxId.current++, titulo: "", descricao: "", valor: "", foto: "", modo: "FIXO" },
+    ]);
   }
   function sugerirItens() {
     setLinhas(
       presentesSugeridos(tipo).map((p) => ({
         id: proxId.current++,
         titulo: p.titulo,
+        descricao: "",
         valor: p.valor,
+        foto: "",
+        modo: "FIXO" as const,
       })),
     );
+  }
+  async function subirFotoGift(id: number, file: File) {
+    setSubindoFoto(id);
+    try {
+      const url = await enviarUpload(file);
+      atualizar(id, { foto: url });
+    } catch {
+      /* ignora — o preview segue sem a foto */
+    } finally {
+      setSubindoFoto(null);
+    }
   }
 
   const rascunhoJson = JSON.stringify({
     ...rascunhoBase,
+    listaModelo,
     presentesTexto: presentesTexto || undefined,
-    presentes: linhas.map((l) => ({ titulo: l.titulo, valor: l.valor || undefined })),
+    presentes: linhas.map((l) => ({
+      titulo: l.titulo,
+      descricao: l.descricao || undefined,
+      valor: l.valor || undefined,
+      foto: l.foto || undefined,
+      modo: l.modo,
+      cotas: l.modo === "COTAS" ? l.cotas : undefined,
+    })),
   });
 
   return (
@@ -110,6 +170,49 @@ export function PresentesCliente({
           <input type="hidden" name="eventId" value={eventId} />
           <input type="hidden" name="voltar" value={voltar} />
           <input type="hidden" name="pixQrUrl" value={pixQrUrl} />
+          <input type="hidden" name="listaModelo" value={listaModelo} />
+
+          {/* Modelo da lista: Painel (foto + lista) x Vitrine (cards com foto) */}
+          <div className={`${CARD} p-5 sm:p-6`}>
+            <h2 className="text-[15px] font-semibold text-scv-ink">Modelo da lista</h2>
+            <p className="mt-0.5 text-[12.5px] text-scv-muted">
+              Como os presentes aparecem para o convidado.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              {(
+                [
+                  { k: "painel", nome: "Painel", desc: "Foto + lista, clássico", trava: false },
+                  { k: "vitrine", nome: "Vitrine", desc: "Cards com foto, estilo loja", trava: !podeVitrine },
+                ] as const
+              ).map((m) => {
+                const ativo = listaModelo === m.k;
+                return (
+                  <button
+                    key={m.k}
+                    type="button"
+                    disabled={m.trava}
+                    onClick={() => !m.trava && setListaModelo(m.k)}
+                    className={`rounded-[13px] border p-3.5 text-left transition-colors ${
+                      ativo
+                        ? "border-violeta bg-scv-lilac/50"
+                        : "border-scv-line bg-scv-card hover:bg-scv-soft"
+                    } ${m.trava ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                  >
+                    <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-scv-ink">
+                      {m.nome}
+                      {m.trava && <i className="bi bi-lock-fill text-[11px]" aria-hidden />}
+                    </div>
+                    <div className="mt-0.5 text-[11.5px] text-scv-muted">{m.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+            {!podeVitrine && (
+              <p className="mt-2 text-[11.5px] text-scv-faint">
+                A Vitrine (cards com foto) está disponível nos planos pagos.
+              </p>
+            )}
+          </div>
 
           {/* a. Chave Pix */}
           <div className={`${CARD} p-5 sm:p-6`}>
@@ -242,35 +345,152 @@ export function PresentesCliente({
               </button>
             </div>
 
-            <div className="mt-4 flex flex-col gap-2.5">
+            <div className="mt-4 flex flex-col gap-3">
               {linhas.map((l) => (
-                <div key={l.id} className="flex items-center gap-2">
+                <div
+                  key={l.id}
+                  className="rounded-[13px] border border-scv-line bg-scv-card p-3.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      name="gift_titulo"
+                      value={l.titulo}
+                      onChange={(e) => atualizar(l.id, { titulo: e.target.value })}
+                      placeholder="Cota da festa"
+                      maxLength={140}
+                      className={`${INPUT} flex-1 font-medium`}
+                    />
+                    <div className="relative shrink-0 basis-[110px]">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12.5px] font-semibold text-scv-faint">
+                        R$
+                      </span>
+                      <input
+                        name="gift_valor"
+                        value={l.valor}
+                        onChange={(e) => atualizar(l.id, { valor: e.target.value })}
+                        placeholder="150,00"
+                        inputMode="decimal"
+                        className={`${INPUT} pl-8 text-right`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => remover(l.id)}
+                      disabled={linhas.length <= 1}
+                      aria-label="Remover presente"
+                      className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-600 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
+                    >
+                      <i className="bi bi-trash" aria-hidden />
+                    </button>
+                  </div>
+
+                  {/* Descrição (aparece abaixo do nome, na lista do convite) */}
                   <input
-                    name="gift_titulo"
-                    value={l.titulo}
-                    onChange={(e) => atualizar(l.id, { titulo: e.target.value })}
-                    placeholder="Cota da festa"
-                    maxLength={140}
-                    className={`${INPUT} flex-1`}
+                    name="gift_descricao"
+                    value={l.descricao}
+                    onChange={(e) => atualizar(l.id, { descricao: e.target.value })}
+                    placeholder="Descrição (opcional) — ex.: “o momento mais esperado”"
+                    maxLength={240}
+                    className={`${INPUT} mt-2 text-[13px]`}
                   />
-                  <input
-                    name="gift_valor"
-                    value={l.valor}
-                    onChange={(e) => atualizar(l.id, { valor: e.target.value })}
-                    placeholder="150,00"
-                    inputMode="decimal"
-                    className={`${INPUT} basis-[100px] shrink-0 text-center`}
-                  />
-                  <input type="hidden" name="gift_descricao" value="" />
-                  <button
-                    type="button"
-                    onClick={() => remover(l.id)}
-                    disabled={linhas.length <= 1}
-                    aria-label="Remover presente"
-                    className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-600 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
-                  >
-                    <i className="bi bi-trash" aria-hidden />
-                  </button>
+
+                  {/* Foto do presente (opcional) */}
+                  <div className="mt-2 flex items-center gap-2.5">
+                    {l.foto ? (
+                      <div className="relative size-11 shrink-0 overflow-hidden rounded-[9px] ring-1 ring-scv-line">
+                        <Image src={l.foto} alt="" fill unoptimized className="object-cover" />
+                      </div>
+                    ) : null}
+                    <EscolherFoto
+                      enviando={subindoFoto === l.id}
+                      onFile={(files) => subirFotoGift(l.id, files[0])}
+                      className="rounded-[10px] border border-scv-line bg-scv-soft px-3 py-1.5 text-[12px] font-semibold text-scv-violet transition hover:border-violeta"
+                    >
+                      {subindoFoto === l.id
+                        ? "Enviando…"
+                        : l.foto
+                          ? "Trocar foto"
+                          : "Adicionar foto (opcional)"}
+                    </EscolherFoto>
+                    {l.foto ? (
+                      <button
+                        type="button"
+                        onClick={() => atualizar(l.id, { foto: "" })}
+                        className="text-[11.5px] font-medium text-scv-faint transition hover:text-red-600"
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                    <input type="hidden" name="gift_foto" value={l.foto} />
+                  </div>
+
+                  {/* Cobrança: valor único ou dividido em cotas (presente caro → 1 cota) */}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex overflow-hidden rounded-[9px] border border-scv-line">
+                      <button
+                        type="button"
+                        onClick={() => atualizar(l.id, { modo: "FIXO" })}
+                        className={`px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${
+                          l.modo !== "COTAS"
+                            ? "bg-violeta text-white"
+                            : "bg-scv-card text-scv-muted hover:bg-scv-soft"
+                        }`}
+                      >
+                        Valor único
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => atualizar(l.id, { modo: "COTAS", cotas: l.cotas ?? 10 })}
+                        className={`px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${
+                          l.modo === "COTAS"
+                            ? "bg-violeta text-white"
+                            : "bg-scv-card text-scv-muted hover:bg-scv-soft"
+                        }`}
+                      >
+                        Em cotas
+                      </button>
+                    </div>
+                    {l.modo === "COTAS" ? (
+                      <label className="flex items-center gap-1.5 text-[12px] text-scv-muted">
+                        dividir em
+                        <input
+                          type="number"
+                          min={2}
+                          max={200}
+                          value={l.cotas ?? 10}
+                          onChange={(e) =>
+                            atualizar(l.id, {
+                              cotas: Math.max(2, Math.min(200, parseInt(e.target.value, 10) || 2)),
+                            })
+                          }
+                          className="w-[62px] rounded-[8px] border border-scv-line px-2 py-1 text-center text-[12.5px] font-semibold"
+                        />
+                        cotas
+                        {l.valor ? (
+                          <span className="text-scv-faint">
+                            · R${" "}
+                            {(
+                              (parseFloat(l.valor.replace(/\./g, "").replace(",", ".")) || 0) /
+                              (l.cotas ?? 10)
+                            )
+                              .toFixed(2)
+                              .replace(".", ",")}{" "}
+                            cada
+                          </span>
+                        ) : null}
+                      </label>
+                    ) : (
+                      <span className="text-[11px] text-scv-faint">
+                        {l.valor ? "O convidado paga o valor cheio" : "Sem valor: o convidado escolhe quanto dar"}
+                      </span>
+                    )}
+                    <input type="hidden" name="gift_modo" value={l.modo} />
+                    <input
+                      type="hidden"
+                      name="gift_cotas"
+                      value={l.modo === "COTAS" ? String(l.cotas ?? "") : ""}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
