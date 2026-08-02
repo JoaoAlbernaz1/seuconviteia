@@ -1127,9 +1127,10 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 {/* data-foco="livre": ao trocar a cor NÃO destaca uma seção só — a
                     prévia fica livre pra pessoa ver o site inteiro re-tingido. */}
-                {/* 1ª troca de cor: data-foco = seção dos textos (rola até lá).
-                    Depois vira "livre" (não rola de novo enquanto mexe na cor). */}
-                <div data-foco={S.corFocou ? "livre" : "carta"}>
+                {/* Trocar a cor RECARREGA a prévia (re-tinge). Mantendo foco="carta"
+                    (seção dos textos), todo reload rola pros textos — nunca sobe pra
+                    capa. A 1ª cor desce até lá; as próximas ficam lá. */}
+                <div data-foco="carta">
                   <div className="mb-1 text-[13.5px] font-bold">Paleta de cores</div>
                   <div className="mb-3 text-[12px] text-[#6e6e76]">Muda a cor do convite inteiro. Escolha uma das mais usadas ou qualquer cor.</div>
                   <Paletas value={S.tema} onChange={(k) => upd({ tema: k, corFocou: true })} />
