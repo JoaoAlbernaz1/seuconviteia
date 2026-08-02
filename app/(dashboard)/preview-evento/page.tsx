@@ -101,7 +101,7 @@ export default async function PreviewEventoPage({
         valorLabel: undefined,
         tipo: ehLink ? ("LINK" as const) : ("PIX" as const),
         storeUrl: ehLink ? p.link || undefined : undefined,
-        imageUrl: ehLink ? p.foto || undefined : undefined,
+        imageUrl: p.foto || undefined,
         pricingMode: p.modo ?? ("FIXO" as const),
         priceCents,
         quotaCount: p.cotas ?? null,

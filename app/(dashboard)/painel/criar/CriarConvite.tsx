@@ -48,7 +48,7 @@ function giftParaPresente(g: GiftRow) {
     valor: tipo === "PIX" ? g.v : "",
     tipo,
     link: tipo === "LINK" ? g.link?.trim() || undefined : undefined,
-    foto: tipo === "LINK" ? g.foto?.trim() || undefined : undefined,
+    foto: g.foto?.trim() || undefined,
   };
 }
 
@@ -542,6 +542,22 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       } else {
         setLinkErro({ i, msg: r.erro ?? "Não deu pra ler. Preencha nome e foto manualmente." });
       }
+    } finally {
+      setBuscandoLink(null);
+    }
+  }
+
+  // Foto do presente (Pix): upload manual -> imageUrl do card na vitrine.
+  async function subirFotoGift(i: number, file: File) {
+    setBuscandoLink(i);
+    try {
+      const url = await enviarUpload(file);
+      setS((s) => ({
+        ...s,
+        giftList: s.giftList.map((x, j) => (j === i ? { ...x, foto: url } : x)),
+      }));
+    } catch {
+      /* ignora */
     } finally {
       setBuscandoLink(null);
     }
@@ -1595,6 +1611,21 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                               </div>
                             )}
 
+                            {tipo === "PIX" && (
+                              <div className="mt-2 flex flex-wrap items-center gap-2.5 pl-[38px]">
+                                {g.foto && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={g.foto} alt="" className="h-11 w-11 flex-none rounded-lg border border-[#ECECF0] object-cover" />
+                                )}
+                                <label className="cursor-pointer rounded-[10px] border border-[#DCCDFB] bg-[#F6F3FE] px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#EFE7FE]">
+                                  {buscandoLink === i ? "Enviando…" : g.foto ? "Trocar foto" : "Adicionar foto (opcional)"}
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) subirFotoGift(i, f); e.target.value = ""; }} />
+                                </label>
+                                {g.foto && (
+                                  <button type="button" onClick={() => setRow({ foto: "" })} className="text-[11.5px] text-[#A6A6AE] hover:text-[#E11D48]">Remover</button>
+                                )}
+                              </div>
+                            )}
                             <input
                               value={g.desc}
                               onChange={(e) => setRow({ desc: e.target.value })}

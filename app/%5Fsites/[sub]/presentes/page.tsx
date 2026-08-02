@@ -102,7 +102,7 @@ async function montarPresentear(event: {
       valorLabel: !ehLink && g.priceCents > 0 ? brl.format(g.priceCents / 100) : undefined,
       tipo: ehLink ? "LINK" : "PIX",
       storeUrl: ehLink ? g.storeUrl ?? undefined : undefined,
-      imageUrl: ehLink ? g.imageUrl ?? undefined : undefined,
+      imageUrl: g.imageUrl ?? undefined,
       pricingMode: mode,
       priceCents: g.priceCents,
       quotaCount: g.quotaCount,

@@ -362,7 +362,7 @@ export async function criarConvite(
               pricingMode: !ehLink && g.modo ? g.modo : "FIXO",
               quotaCount: !ehLink && g.modo === "COTAS" ? (g.cotas ?? null) : null,
               storeUrl: ehLink ? txt(g.link) ?? null : null,
-              imageUrl: ehLink ? txt(g.foto) ?? null : null,
+              imageUrl: txt(g.foto) ?? null,
             };
           }),
         });
