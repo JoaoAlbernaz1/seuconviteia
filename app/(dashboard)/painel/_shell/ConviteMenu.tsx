@@ -64,7 +64,7 @@ export function ConviteMenu({
   return (
     <div className="relative flex items-center gap-2.5">
       <Link
-        href={publicado ? `/painel/${fid}` : `/painel/${fid}/publicar`}
+        href={publicado ? `/painel/${fid}` : `/painel/${fid}/detalhes`}
         className="cursor-pointer rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
       >
         {publicado ? "Gerenciar convite" : "Continuar edição"}

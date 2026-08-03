@@ -87,8 +87,25 @@ export function FotosCliente({
         </div>
       </div>
 
-      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <form action={formAction} className="flex flex-col gap-3.5">
+      <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
+        <form action={formAction} className={`${CARD} flex flex-col overflow-hidden`}>
+          <div className="relative p-4">
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
+            />
+            <i className="bi bi-camera absolute right-4 top-3.5 text-[20px] text-white/35" aria-hidden />
+            <div className="relative">
+              <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
+                As fotos do convite
+              </div>
+              <div className="mt-1 font-display text-[19px] font-semibold leading-tight text-white">
+                Fotos do site
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 p-5 sm:p-6">
           <input type="hidden" name="eventId" value={eventId} />
           <input type="hidden" name="voltar" value={voltar} />
           <input type="hidden" name="fotoUrl" value={fotoUrl} />
@@ -98,7 +115,7 @@ export function FotosCliente({
           ))}
 
           {/* a. Foto de capa */}
-          <div className={`${CARD} p-5 sm:p-6`}>
+          <div className="rounded-[13px] border border-scv-line p-4 sm:p-5">
             <h2 className="text-[15px] font-semibold text-scv-ink">Foto de capa</h2>
             <p className="mt-0.5 text-[12.5px] text-scv-muted">
               É o fundo da primeira tela do site.
@@ -149,7 +166,7 @@ export function FotosCliente({
           </div>
 
           {/* b. Álbum */}
-          <div className={`${CARD} p-5 sm:p-6`}>
+          <div className="rounded-[13px] border border-scv-line p-4 sm:p-5">
             <h2 className="text-[15px] font-semibold text-scv-ink">Álbum</h2>
             <p className="mt-0.5 text-[12.5px] text-scv-muted">
               A galeria do site. Pode enviar várias de uma vez.
@@ -180,7 +197,7 @@ export function FotosCliente({
           </div>
 
           {/* c. Foto da lista de presentes */}
-          <div className={`${CARD} p-5 sm:p-6`}>
+          <div className="rounded-[13px] border border-scv-line p-4 sm:p-5">
             <h2 className="text-[15px] font-semibold text-scv-ink">
               Foto da lista de presentes
             </h2>
@@ -246,13 +263,15 @@ export function FotosCliente({
             </p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={pending}
-            className={`${BTN_PRIMARIO} w-full`}
-          >
-            {pending ? "Salvando…" : "Pronto, voltar"}
-          </button>
+          <div className="mt-1 flex items-center justify-end gap-3 border-t border-scv-line pt-4">
+            <Link href={voltar} className="text-[13.5px] font-semibold text-scv-muted transition hover:text-scv-ink">
+              Cancelar
+            </Link>
+            <button type="submit" disabled={pending} className={BTN_PRIMARIO}>
+              {pending ? "Salvando…" : "Salvar fotos"}
+            </button>
+          </div>
+          </div>
         </form>
 
         <div className="lg:sticky lg:top-[86px]">

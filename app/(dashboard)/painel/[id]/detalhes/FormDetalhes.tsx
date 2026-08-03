@@ -70,8 +70,25 @@ export function FormDetalhes({
   });
 
   return (
-    <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-      <form action={formAction} className={`${CARD} flex flex-col gap-4 p-7`}>
+    <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
+      <form action={formAction} className={`${CARD} flex flex-col overflow-hidden`}>
+        <div className="relative p-4">
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
+          />
+          <i className="bi bi-card-text absolute right-4 top-3.5 text-[20px] text-white/35" aria-hidden />
+          <div className="relative">
+            <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
+              O essencial do convite
+            </div>
+            <div className="mt-1 font-display text-[19px] font-semibold leading-tight text-white">
+              Detalhes da festa
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 p-5 sm:p-6">
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="voltar" value={voltar} />
 
@@ -180,6 +197,7 @@ export function FormDetalhes({
           <button type="submit" disabled={pending} className={`${BTN_PRIMARIO} flex-1`}>
             {pending ? "Salvando…" : "Salvar"}
           </button>
+        </div>
         </div>
       </form>
 

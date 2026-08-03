@@ -550,6 +550,43 @@ export async function excluirEvento(formData: FormData): Promise<void> {
   redirect("/painel");
 }
 
+// Exclusao EM LOTE (selecao multipla em "Meus convites"). Recebe os ids,
+// mantem so os que sao MESMO do dono (nunca apaga de outro tenant) e remove
+// tudo de cada evento. Nao redireciona: quem chama e um client component que
+// revalida a lista no lugar.
+export async function excluirEventos(ids: string[]): Promise<void> {
+  const session = await auth();
+  if (!session?.user) redirect("/entrar");
+  const uid = session.user.id;
+
+  const alvos = Array.from(new Set(ids)).filter(
+    (x): x is string => typeof x === "string" && x.length > 0,
+  );
+  if (alvos.length === 0) return;
+
+  // Ownership: so os ids que pertencem ao profissional logado.
+  const meus = await prisma.event.findMany({
+    where: { id: { in: alvos }, professionalId: uid },
+    select: { id: true },
+  });
+  const idsOk = meus.map((e) => e.id);
+  if (idsOk.length === 0) return;
+
+  const emEventos = { where: { eventId: { in: idsOk } } };
+  // Filhos primeiro, depois os eventos.
+  await prisma.guest.deleteMany(emEventos);
+  await prisma.giftItem.deleteMany(emEventos);
+  await prisma.photo.deleteMany(emEventos);
+  await prisma.recado.deleteMany(emEventos);
+  await prisma.giftContribution.deleteMany(emEventos);
+  await prisma.transaction.deleteMany(emEventos);
+  await prisma.payout.deleteMany(emEventos);
+  await prisma.event.deleteMany({ where: { id: { in: idsOk } } });
+
+  revalidatePath("/painel/convites");
+  revalidatePath("/painel");
+}
+
 // ----------------------------------------------------------------------------
 // Convidados (lista manual para acompanhar confirmações)
 // ----------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 "use client";
 
-// Formulário "Programação" com prévia AO VIVO da página /evento. As linhas viajam
-// como colunas paralelas (`programacao_hora` / `programacao_titulo`) e a gravação
-// usa a server action `salvarProgramacao` (retorna void -> `<form action={...}>`,
-// com o pending do botão via `useFormStatus`).
+// Tela "Programação" — mesma família visual do resto do editor (cartão com capa
+// em gradiente + linhas compactas em timeline), mantendo a PRÉVIA AO VIVO da
+// página /evento ao lado. As linhas viajam como colunas paralelas
+// (`programacao_hora` / `programacao_titulo`); a gravação usa `salvarProgramacao`
+// (retorna void -> `<form action>`), com o pending do botão via `useFormStatus`.
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -11,27 +12,15 @@ import { salvarProgramacao } from "../../acoes";
 import type { RascunhoPreview } from "@/lib/previewEvento";
 import { programacaoSugerida } from "@/lib/sugestoes";
 import { PreviewSite } from "../../_ui/PreviewSite";
-import {
-  BTN_PRIMARIO,
-  BTN_VOLTAR,
-  CARD,
-  COLUNA,
-  INPUT,
-  SUB,
-  TITULO,
-} from "../../_ui/estilos";
-
-const BTN_SUGERIR =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-lilac px-3 py-1.5 text-[12px] font-semibold text-scv-violet transition hover:brightness-110";
+import { BTN_PRIMARIO, BTN_VOLTAR, CARD, SUB, TITULO } from "../../_ui/estilos";
 
 type Linha = { id: number; hora: string; titulo: string };
 
-/** Botão de submit com estado de envio (form action sem useActionState). */
-function BotaoPronto() {
+function BotaoSalvar() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={`${BTN_PRIMARIO} w-full`}>
-      {pending ? "Salvando…" : "Pronto, voltar"}
+    <button type="submit" disabled={pending} className={BTN_PRIMARIO}>
+      {pending ? "Salvando…" : "Salvar programação"}
     </button>
   );
 }
@@ -67,55 +56,75 @@ export function ProgramacaoCliente({
   }
   function sugerir() {
     setLinhas(
-      programacaoSugerida(tipo).map((p) => ({
-        id: proxId.current++,
-        hora: p.hora,
-        titulo: p.titulo,
-      })),
+      programacaoSugerida(tipo).map((p) => ({ id: proxId.current++, hora: p.hora, titulo: p.titulo })),
     );
   }
 
+  const nItens = linhas.filter((l) => l.titulo.trim()).length;
   const rascunhoJson = JSON.stringify({
     ...rascunhoBase,
     programacao: linhas.map((l) => ({ hora: l.hora, titulo: l.titulo })),
   });
 
   return (
-    <div className={`${COLUNA} scv-fade py-9 pb-20`}>
-      <div className="flex items-center gap-3.5">
+    <div className="mx-auto w-full max-w-[1120px] scv-fade px-4 py-9 pb-24 sm:px-7">
+      {/* CABEÇALHO */}
+      <div className="flex flex-wrap items-center gap-3.5">
         <Link href={voltar} aria-label="Voltar" className={BTN_VOLTAR}>
           <i className="bi bi-chevron-left" aria-hidden />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className={TITULO}>Programação</h1>
           <p className={`mt-1 ${SUB}`}>A linha do tempo da festa, hora a hora.</p>
         </div>
       </div>
 
-      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <form action={salvarProgramacao} className="flex flex-col gap-3.5">
-          <input type="hidden" name="eventId" value={eventId} />
-          <input type="hidden" name="voltar" value={voltar} />
+      <form action={salvarProgramacao} className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
+        <input type="hidden" name="eventId" value={eventId} />
+        <input type="hidden" name="voltar" value={voltar} />
 
-          <div className={`${CARD} p-5 sm:p-6`}>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-[15px] font-semibold text-scv-ink">Horários</h2>
-              <button type="button" onClick={sugerir} className={BTN_SUGERIR}>
-                <i className="bi bi-stars" aria-hidden />
-                Sugerir
+        {/* ESQUERDA — cartão com capa + timeline */}
+        <div className={`${CARD} overflow-hidden`}>
+          <div className="relative p-5">
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
+            />
+            <i className="bi bi-clock-history absolute right-4 top-3.5 text-[22px] text-white/35" aria-hidden />
+            <div className="relative flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
+                  Cronograma da festa
+                </div>
+                <div className="mt-1.5 font-display text-[24px] font-semibold leading-tight text-white">
+                  {nItens > 0 ? `${nItens} momento${nItens === 1 ? "" : "s"}` : "Monte a linha do tempo"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={sugerir}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-sm transition hover:bg-white/30"
+              >
+                <i className="bi bi-stars" aria-hidden /> Sugerir
               </button>
             </div>
+          </div>
 
-            <div className="mt-4 flex flex-col gap-2.5">
+          <div className="p-4">
+            {/* timeline */}
+            <div className="relative flex flex-col gap-2.5">
               {linhas.map((l) => (
-                <div key={l.id} className="flex items-center gap-2">
+                <div key={l.id} className="flex items-center gap-3 rounded-[13px] border border-scv-line bg-scv-card p-2.5">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-scv-lilac text-scv-violet">
+                    <i className="bi bi-clock text-[14px]" aria-hidden />
+                  </span>
                   <input
                     name="programacao_hora"
                     value={l.hora}
                     onChange={(e) => atualizar(l.id, { hora: e.target.value })}
                     placeholder="20h30"
                     maxLength={20}
-                    className={`${INPUT} basis-[90px] shrink-0 text-center`}
+                    className="w-[84px] shrink-0 rounded-[10px] border border-scv-line bg-scv-field py-2 text-center text-[13.5px] font-semibold text-scv-ink outline-none transition focus:border-violeta"
                   />
                   <input
                     name="programacao_titulo"
@@ -123,16 +132,16 @@ export function ProgramacaoCliente({
                     onChange={(e) => atualizar(l.id, { titulo: e.target.value })}
                     placeholder="Recepção dos convidados"
                     maxLength={140}
-                    className={`${INPUT} flex-1`}
+                    className="min-w-0 flex-1 bg-transparent text-[14px] text-scv-ink outline-none placeholder:text-scv-faint"
                   />
                   <button
                     type="button"
                     onClick={() => remover(l.id)}
                     disabled={linhas.length <= 1}
                     aria-label="Remover horário"
-                    className="grid size-[46px] shrink-0 place-items-center rounded-[11px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-600 disabled:opacity-40 disabled:hover:border-scv-line disabled:hover:text-scv-faint"
+                    className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-scv-line text-scv-faint transition hover:border-scv-dash hover:text-red-600 disabled:opacity-40"
                   >
-                    <i className="bi bi-trash" aria-hidden />
+                    <i className="bi bi-trash text-[14px]" aria-hidden />
                   </button>
                 </div>
               ))}
@@ -141,19 +150,25 @@ export function ProgramacaoCliente({
             <button
               type="button"
               onClick={adicionar}
-              className="mt-2.5 w-full rounded-[11px] border border-dashed border-scv-dash py-2.5 text-[13px] font-semibold text-scv-muted transition hover:border-violeta hover:text-scv-violet"
+              className="mt-3 w-full rounded-[12px] border border-dashed border-scv-dash py-2.5 text-[13px] font-semibold text-scv-muted transition hover:border-violeta hover:text-scv-violet"
             >
-              + Adicionar horário
+              <i className="bi bi-plus-lg mr-1" aria-hidden /> Adicionar horário
             </button>
+
+            <div className="mt-5 flex items-center justify-end gap-3 border-t border-scv-line pt-4">
+              <Link href={voltar} className="text-[13.5px] font-semibold text-scv-muted transition hover:text-scv-ink">
+                Cancelar
+              </Link>
+              <BotaoSalvar />
+            </div>
           </div>
-
-          <BotaoPronto />
-        </form>
-
-        <div className="lg:sticky lg:top-[86px]">
-          <PreviewSite rascunhoJson={rascunhoJson} pagina="evento" host={host} />
         </div>
-      </div>
+
+        {/* DIREITA — prévia ao vivo (mantida) */}
+        <div className="lg:sticky lg:top-[84px]">
+          <PreviewSite rascunhoJson={rascunhoJson} pagina="evento" host={host} rotulo="Como aparece no site" />
+        </div>
+      </form>
     </div>
   );
 }

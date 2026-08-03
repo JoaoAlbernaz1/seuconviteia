@@ -8,7 +8,6 @@ import {
   lerCustomStr,
   voltarDe,
 } from "../_carregar";
-import { rascunhoDoEvento } from "@/lib/previewEvento";
 import { podeVitrine } from "@/lib/plans";
 import { PresentesCliente } from "./PresentesCliente";
 
@@ -35,7 +34,6 @@ export default async function PresentesPage({
       voltar={voltarDe(sp, `/painel/${event.id}`)}
       host={hostDoEvento(event.subdomain)}
       tipo={event.type}
-      rascunhoBase={rascunhoDoEvento(event)}
       podeVitrine={podeVitrine(event.professional.plan)}
       listaModeloInicial={modeloInicial}
       pixNomeInicial={lerCustomStr(c, "pixNome") ?? ""}

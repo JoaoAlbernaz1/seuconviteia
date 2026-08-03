@@ -52,8 +52,25 @@ export function EscolherEstilo({
   const rascunhoJson = JSON.stringify({ ...rascunhoBase, tema, fontes, template });
 
   return (
-    <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-      <form action={salvarEstilo} className="flex flex-col gap-5">
+    <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
+      <form action={salvarEstilo} className={`${CARD} flex flex-col overflow-hidden`}>
+        <div className="relative p-4">
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
+          />
+          <i className="bi bi-palette absolute right-4 top-3.5 text-[20px] text-white/35" aria-hidden />
+          <div className="relative">
+            <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
+              O visual do site
+            </div>
+            <div className="mt-1 font-display text-[19px] font-semibold leading-tight text-white">
+              Estilo do convite
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-5 p-5 sm:p-6">
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="voltar" value={voltar} />
         <input type="hidden" name="tema" value={tema} />
@@ -83,7 +100,7 @@ export function EscolherEstilo({
         </div>
 
         {/* 2 · COR (qualquer paleta) */}
-        <div className={`${CARD} flex flex-wrap items-center gap-3 px-4 py-3.5`}>
+        <div className="flex flex-wrap items-center gap-3 rounded-[13px] border border-scv-line px-4 py-3.5">
           <span className="shrink-0 text-[12.5px] font-semibold text-scv-ink">Cor do site</span>
           <span className="flex flex-wrap gap-2">
             {Object.values(TEMAS).map((t) => {
@@ -110,7 +127,7 @@ export function EscolherEstilo({
         </div>
 
         {/* 3 · LETRAS (qualquer dupla) */}
-        <div className={`${CARD} flex flex-wrap items-center gap-3 px-4 py-3.5`}>
+        <div className="flex flex-wrap items-center gap-3 rounded-[13px] border border-scv-line px-4 py-3.5">
           <span className="shrink-0 text-[12.5px] font-semibold text-scv-ink">Letras</span>
           <span className="flex flex-wrap gap-2">
             {Object.values(FONTES).map((f) => {
@@ -137,6 +154,7 @@ export function EscolherEstilo({
         <button type="submit" className={`${BTN_PRIMARIO} mt-1 w-full`}>
           Salvar estilo
         </button>
+        </div>
       </form>
 
       <div className="lg:sticky lg:top-[86px]">
