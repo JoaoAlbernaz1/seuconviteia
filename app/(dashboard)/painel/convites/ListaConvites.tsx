@@ -166,11 +166,11 @@ export function ListaConvites({ items }: { items: ItemConvite[] }) {
               {!modo && (
                 <div className="mt-4 flex items-center gap-2.5 pt-1">
                   <Link
-                    href={`/painel/${ev.id}/detalhes`}
+                    href={`/painel/${ev.id}`}
                     className="flex flex-1 items-center justify-center gap-2 rounded-[11px] bg-[#7C3AED] px-4 py-2.5 text-[13.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
                   >
                     <Ic d={IC.edit} size={14} stroke="#fff" width={2} />
-                    Editar
+                    Gerenciar
                   </Link>
                   <a
                     href={ev.url}
