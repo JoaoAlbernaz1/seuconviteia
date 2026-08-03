@@ -64,7 +64,7 @@ export function extrairMetaOg(html: string): {
     if (key && content && !(key in map)) map[key] = content;
   }
 
-  let titulo = map["og:title"] ?? map["twitter:title"];
+  let titulo: string | undefined = map["og:title"] ?? map["twitter:title"];
   if (!titulo) {
     const t = html.match(/<title[^>]*>([^<]*)<\/title>/i);
     titulo = t?.[1];
