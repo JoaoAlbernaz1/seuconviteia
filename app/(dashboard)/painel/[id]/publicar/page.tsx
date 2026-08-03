@@ -190,26 +190,32 @@ export default async function PublicarPage({
               </a>
             </div>
           ) : (
-            <div className="rounded-2xl bg-scv-btn p-6 text-scv-btn-ink">
-              <h2 className="font-display text-[20px] font-semibold">Publicar o site</h2>
-              <p className="mt-1 text-[13px] text-scv-btn-ink/70">
-                Seu site vai ficar disponível em
-              </p>
-              <div className="mt-2.5 rounded-lg bg-black/5 px-3 py-2 text-[13.5px] font-semibold">
-                {host}
+            <div className="relative overflow-hidden rounded-2xl p-6 text-white">
+              <div
+                className="absolute inset-0"
+                style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
+              />
+              <div className="relative">
+                <h2 className="font-display text-[20px] font-semibold">Publicar o site</h2>
+                <p className="mt-1 text-[13px] text-white/75">
+                  Seu site vai ficar disponível em
+                </p>
+                <div className="mt-2.5 rounded-lg bg-white/15 px-3 py-2 text-[13.5px] font-semibold backdrop-blur-sm">
+                  {host}
+                </div>
+                <form action={publicarEComemorar} className="mt-4">
+                  <input type="hidden" name="eventId" value={event.id} />
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl bg-white px-6 py-3.5 text-[14.5px] font-semibold text-scv-violet shadow-[0_14px_30px_-14px_rgba(0,0,0,0.4)] transition hover:bg-white/90"
+                  >
+                    Publicar meu site
+                  </button>
+                </form>
+                <p className="mt-3 text-[11.5px] text-white/70">
+                  Publicação incluída no seu plano · você pode editar o site depois
+                </p>
               </div>
-              <form action={publicarEComemorar} className="mt-4">
-                <input type="hidden" name="eventId" value={event.id} />
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] px-6 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_14px_30px_-12px_rgba(109,40,217,0.7)] transition hover:brightness-110"
-                >
-                  Publicar meu site
-                </button>
-              </form>
-              <p className="mt-3 text-[11.5px] text-scv-btn-ink/60">
-                Publicação incluída no seu plano · você pode editar o site depois
-              </p>
             </div>
           )}
         </div>
