@@ -1,6 +1,7 @@
 // Layout do PAINEL — shell do Claude Design (sidebar escura + topbar). Protege
-// a área: sem sessão volta para /entrar. Passa ao shell o nome/e-mail reais e o
-// id do convite em destaque (o mais recente) para os links da navegação.
+// a área: sem sessão volta para /entrar. Passa ao shell o nome/e-mail reais e a
+// LISTA de convites (o shell tem um seletor de convite ativo — quem tem vários
+// escolhe qual está gerenciando; Convidados/Presentes/Recebimentos o seguem).
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -16,15 +17,15 @@ export default async function PainelLayout({
   const session = await auth();
   if (!session?.user) redirect("/entrar");
 
-  const [prof, ultimo] = await Promise.all([
+  const [prof, convites] = await Promise.all([
     prisma.professional.findUnique({
       where: { id: session.user.id },
       select: { name: true, email: true },
     }),
-    prisma.event.findFirst({
+    prisma.event.findMany({
       where: { professionalId: session.user.id },
       orderBy: { createdAt: "desc" },
-      select: { id: true },
+      select: { id: true, title: true, status: true },
     }),
   ]);
 
@@ -32,7 +33,11 @@ export default async function PainelLayout({
   const email = prof?.email ?? session.user.email ?? "";
 
   return (
-    <DashShell nome={nome} email={email} fid={ultimo?.id ?? null}>
+    <DashShell
+      nome={nome}
+      email={email}
+      convites={convites.map((c) => ({ id: c.id, title: c.title, noAr: c.status === "PUBLISHED" }))}
+    >
       {children}
     </DashShell>
   );

@@ -3,14 +3,20 @@
 // Shell do PAINEL — réplica fiel do Claude Design "seuconvite - Dashboard".
 // Sidebar escura (#080808) com grupos de navegação + topbar clara (busca,
 // ajuda, notificações, menu do usuário). No mobile a sidebar vira drawer.
-// Recebe dados reais do servidor (nome, e-mail, id do convite em destaque).
+// Recebe do servidor nome/e-mail + a LISTA de convites: a TOPBAR tem o SELETOR
+// de convite ativo — sempre à vista (quem tem vários escolhe qual está
+// gerenciando; Convidados/Presentes/Recebimentos seguem o ativo). A URL manda:
+// numa tela /painel/<id>/... o ativo é o da URL; trocar no seletor leva à mesma
+// tela do outro convite.
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { sair } from "../../actions";
 import { Ic, IC } from "./Ic";
 
 type NavItem = { label: string; d: string; href: string; match: (p: string) => boolean };
+
+export type ConviteResumo = { id: string; title: string; noAr: boolean };
 
 function iniciais(nome: string): string {
   return (
@@ -26,19 +32,40 @@ function iniciais(nome: string): string {
 export function DashShell({
   nome,
   email,
-  fid,
+  convites,
   children,
 }: {
   nome: string;
   email: string;
-  fid: string | null;
+  convites: ConviteResumo[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [drawer, setDrawer] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
+  const [selAberto, setSelAberto] = useState(false);
+  const [selId, setSelId] = useState<string | null>(null);
   const primeiro = nome.split(" ")[0] || "Você";
   const ini = iniciais(nome);
+
+  // Convite ATIVO: o da URL quando estamos numa tela de convite (fonte da
+  // verdade); senão o escolhido no seletor; senão o mais recente.
+  const idDaUrl = pathname.match(/^\/painel\/([^/]+)/)?.[1] ?? null;
+  const urlId = idDaUrl && convites.some((c) => c.id === idDaUrl) ? idDaUrl : null;
+  const ativo =
+    convites.find((c) => c.id === (urlId ?? selId)) ?? convites[0] ?? null;
+  const fid = ativo?.id ?? null;
+
+  /** Troca o convite ativo; numa tela de convite, vai à MESMA tela do outro. */
+  function trocarConvite(id: string) {
+    setSelId(id);
+    setSelAberto(false);
+    if (urlId && urlId !== id) {
+      router.push(pathname.replace(`/painel/${urlId}`, `/painel/${id}`));
+      setDrawer(false);
+    }
+  }
   const groups: { title: string; items: NavItem[] }[] = [
     {
       title: "INÍCIO",
@@ -182,6 +209,80 @@ export function DashShell({
           >
             <Ic d={IC.menu} size={18} stroke="#6E6E76" width={2} />
           </button>
+
+          {/* SELETOR DE CONVITE — sempre à vista: qual convite está sendo
+              gerenciado; Convidados/Presentes/Recebimentos seguem o escolhido. */}
+          {ativo && (
+            <div className="relative min-w-0">
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={selAberto}
+                title="Trocar o convite que você está gerenciando"
+                onClick={() => setSelAberto((v) => !v)}
+                className="flex min-w-0 items-center gap-2 rounded-[11px] border border-[#ececf0] px-3 py-[8px] transition-colors hover:bg-[#f4f4f6]"
+              >
+                <span className="hidden text-[11px] font-medium text-[#8b8b93] md:inline">Convite</span>
+                <span
+                  className={`size-2 shrink-0 rounded-full ${ativo.noAr ? "bg-[#0EA5A6]" : "bg-[#F59E0B]"}`}
+                  aria-hidden
+                />
+                <span className="max-w-[120px] truncate text-[13.5px] font-semibold text-[#17171b] sm:max-w-[180px]">
+                  {ativo.title}
+                </span>
+                <Ic d={IC.chevronDown} size={13} stroke="#A6A6AE" width={2} />
+              </button>
+              {selAberto && (
+                <>
+                  <button
+                    aria-hidden
+                    tabIndex={-1}
+                    onClick={() => setSelAberto(false)}
+                    className="fixed inset-0 z-10 cursor-default"
+                  />
+                  <div
+                    role="listbox"
+                    className="dash-fade absolute left-0 top-[50px] z-20 max-h-[300px] w-[250px] overflow-y-auto rounded-2xl border border-[#ececf0] bg-white p-1.5 shadow-[0_14px_34px_rgba(23,23,27,0.14)]"
+                  >
+                    {convites.map((c) => {
+                      const sel = c.id === ativo.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          role="option"
+                          aria-selected={sel}
+                          onClick={() => trocarConvite(c.id)}
+                          className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                            sel ? "bg-[#f6f3fe]" : "hover:bg-[#f4f4f6]"
+                          }`}
+                        >
+                          <span
+                            className={`size-2 shrink-0 rounded-full ${c.noAr ? "bg-[#0EA5A6]" : "bg-[#F59E0B]"}`}
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#17171b]">
+                            {c.title}
+                          </span>
+                          <span className={`shrink-0 text-[10.5px] ${sel ? "text-[#7C3AED]" : "text-[#a6a6ae]"}`}>
+                            {sel ? "✓" : c.noAr ? "No ar" : "Rascunho"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <Link
+                      href="/painel/novo"
+                      onClick={() => setSelAberto(false)}
+                      className="mt-0.5 flex items-center gap-2.5 rounded-lg border-t border-[#ececf0] px-3 py-2.5 text-[13px] font-medium !text-[#6e6e76] transition-colors hover:bg-[#f4f4f6]"
+                    >
+                      <Ic d={IC.plus} size={13} stroke="#6E6E76" width={2} />
+                      Novo convite
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="hidden items-center gap-2.5 rounded-xl border border-[#ececf0] bg-[#f4f4f6] px-3.5 py-[9px] sm:flex sm:w-[300px] lg:w-[340px]">
             <Ic d={IC.search} size={15} stroke="#A6A6AE" width={2} />

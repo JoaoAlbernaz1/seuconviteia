@@ -133,10 +133,7 @@ async function main() {
     fotoDesktopUrl: "/demo/maria-clara/capa-desktop.jpg",
     presentesFotoUrl: "/demo/maria-clara/g8.jpg",
     presentesTexto:
-      "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui.",
-    pixNome: "Maria Clara Martins Albernaz",
-    pixChave: "",
-    pixQrUrl: "/demo/maria-clara/pix-qr.png",
+      "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias aqui embaixo.",
   };
 
   const event = await prisma.event.upsert({
@@ -298,6 +295,69 @@ async function main() {
       },
     });
   }
+
+  // 8) SEGUNDO evento demo — "Helena" (keyed por subdomain). Existe para o
+  //    cenário MULTI-CONVITE do cerimonialista: o painel demo sempre nasce com
+  //    2 convites, exercitando o seletor de convite ativo (sidebar + telas).
+  //    Sem fotos próprias -> o site usa a arte demo do template.
+  const eventDate2 = new Date("2026-11-21T20:00:00-03:00");
+  const event2 = await prisma.event.upsert({
+    where: { subdomain: "helena" },
+    update: {
+      title: "Helena",
+      professionalId: professional.id,
+      templateId: quinzeTemplateId,
+      type: EventType.QUINZE_ANOS,
+      eventDate: eventDate2,
+      expiresAt: new Date(eventDate2.getTime() + 30 * DAY_MS),
+      status: EventStatus.PUBLISHED,
+      plan: Plan.PREMIUM,
+      customization: {
+        template: "quinze-anos-glamour-rose",
+        local: "Espaço Villa Eventos",
+        endereco: "SGAS 915 — Asa Sul, Brasília – DF",
+        cidade: "Brasília",
+        traje: "Esporte fino",
+      },
+    },
+    create: {
+      professionalId: professional.id,
+      templateId: quinzeTemplateId,
+      type: EventType.QUINZE_ANOS,
+      subdomain: "helena",
+      title: "Helena",
+      eventDate: eventDate2,
+      expiresAt: new Date(eventDate2.getTime() + 30 * DAY_MS),
+      status: EventStatus.PUBLISHED,
+      plan: Plan.PREMIUM,
+      customization: {
+        template: "quinze-anos-glamour-rose",
+        local: "Espaço Villa Eventos",
+        endereco: "SGAS 915 — Asa Sul, Brasília – DF",
+        cidade: "Brasília",
+        traje: "Esporte fino",
+      },
+    },
+  });
+
+  await prisma.guest.upsert({
+    where: { id: "guest-helena-1" },
+    update: { eventId: event2.id, name: "Beatriz Rocha", status: GuestStatus.CONFIRMED, companions: 1 },
+    create: { id: "guest-helena-1", eventId: event2.id, name: "Beatriz Rocha", status: GuestStatus.CONFIRMED, companions: 1 },
+  });
+  await prisma.guest.upsert({
+    where: { id: "guest-helena-2" },
+    update: { eventId: event2.id, name: "Pedro Martins", status: GuestStatus.PENDING, companions: 0 },
+    create: { id: "guest-helena-2", eventId: event2.id, name: "Pedro Martins", status: GuestStatus.PENDING, companions: 0 },
+  });
+
+  await prisma.giftItem.deleteMany({ where: { eventId: event2.id } });
+  await prisma.giftItem.createMany({
+    data: [
+      { id: "gift-helena-1", eventId: event2.id, title: "Cota da festa", description: "", priceCents: 0, mode: GiftMode.ITEM },
+      { id: "gift-helena-2", eventId: event2.id, title: "Perfumes", description: "", priceCents: 0, mode: GiftMode.ITEM },
+    ],
+  });
 
   // Resumo.
   const [professionals, templates, events, guests, gifts, recados] = await Promise.all([
