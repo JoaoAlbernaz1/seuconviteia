@@ -142,12 +142,12 @@ export function CapaGlamour({
         .qgr-scroll-cue { animation: qgrHeroFade 1.2s ease 1.8s both; }
         /* Tamanho do lockup — escala uniforme (nome+idade juntos) via --capa-escala,
            multiplicando os tamanhos responsivos (clamp) p/ ficar ajustado em qualquer tela. */
-        .qgr-nome   { font-size: calc(clamp(3.2rem,13.5vw,4.8rem) * var(--capa-escala, 1)); }
+        .qgr-nome   { font-size: calc(clamp(3.2rem,13.5vw,4.8rem) * var(--capa-escala, 1) * var(--ev-capa-fator, 1)); }
         .qgr-idade-m{ font-size: calc(clamp(3.6rem,14vw,4.6rem) * var(--capa-escala, 1)); }
         .qgr-anos-m { font-size: calc(0.72rem * var(--capa-escala, 1)); }
         .qgr-idade-d{ font-size: calc(clamp(3rem,4.4vw,4rem) * var(--capa-escala, 1)); }
         @media (min-width: 768px) {
-          .qgr-nome { font-size: calc(clamp(4.5rem,6.5vw,7.2rem) * var(--capa-escala, 1)); }
+          .qgr-nome { font-size: calc(clamp(4.5rem,6.5vw,7.2rem) * var(--capa-escala, 1) * var(--ev-capa-fator, 1)); }
         }
         @media (prefers-reduced-motion: reduce) {
           .qgr-hero-photo { opacity: 1 !important; animation: none !important; transform: none !important; }

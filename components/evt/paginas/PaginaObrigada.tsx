@@ -67,7 +67,7 @@ export function PaginaObrigada({
           </div>
 
           <p
-            className="fade-up mt-5 font-evt-script text-6xl leading-none text-[var(--plum)]"
+            className="fade-up mt-5 font-evt-script text-[calc(3.75rem*var(--ev-fonte-fator,1))] leading-none text-[var(--plum)]"
             style={{ animationDelay: "200ms" }}
           >
             Obrigada

@@ -40,7 +40,7 @@ export function MapEmbed({
         >
           <path d="M12 2a7 7 0 0 0-7 7c0 4.6 6.1 12.2 6.4 12.5a.8.8 0 0 0 1.2 0C13 21.2 19 13.6 19 9a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" />
         </svg>
-        <p className="px-6 text-center font-evt-script text-[clamp(1.6rem,4vw,2.1rem)] leading-tight text-evt-ink">
+        <p className="px-6 text-center font-evt-script text-[calc(clamp(1.6rem,4vw,2.1rem)*var(--ev-fonte-fator,1))] leading-tight text-evt-ink">
           {local}
         </p>
       </div>

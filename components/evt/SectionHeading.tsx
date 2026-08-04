@@ -22,7 +22,7 @@ export function SectionHeading({
     <div className={`${left ? "text-left" : "text-center"} ${className}`}>
       {eyebrow && <p className="eyebrow text-evt-rosa-ink">{eyebrow}</p>}
       <h2
-        className={`font-evt-script leading-[1.04] text-[clamp(3.4rem,10vw,4.8rem)] text-evt-ink ${
+        className={`font-evt-script leading-[1.04] text-[calc(clamp(3.4rem,10vw,4.8rem)*var(--ev-fonte-fator,1))] text-evt-ink ${
           eyebrow ? "mt-3" : ""
         }`}
       >

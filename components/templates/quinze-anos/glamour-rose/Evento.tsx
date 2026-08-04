@@ -22,7 +22,7 @@ function Heading({ eyebrow, title, liveKey }: { eyebrow: string; title: string; 
   return (
     <div className="text-center">
       <p className="eyebrow text-evt-rosa-ink">{eyebrow}</p>
-      <h2 data-live={liveKey} className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
+      <h2 data-live={liveKey} className="mt-3 font-evt-script leading-[1.04] text-[calc(clamp(4.01rem,11.2vw,5.66rem)*var(--ev-fonte-fator,1))] text-evt-ink">
         {title}
       </h2>
       <div className="mt-5 flex items-center justify-center" aria-hidden>
@@ -70,8 +70,8 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
             </div>
           </Reveal>
           <Reveal delay={200} dataSec="assinatura" className="mt-8 flex flex-col items-center gap-2">
-            <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
-            <p data-live="assinatura" className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
+            <p className="font-evt-script text-[calc(clamp(2.5rem,11vw,4.1rem)*var(--ev-fonte-fator,1))] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
+            <p data-live="assinatura" className="leading-[1.12] font-evt-script text-[calc(clamp(2.5rem,11vw,4.1rem)*var(--ev-fonte-fator,1))] text-evt-rosa-ink">
               {assinatura}
             </p>
           </Reveal>
@@ -91,7 +91,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
             <div className="grid gap-8 sm:grid-cols-2">
               <div className="text-center sm:text-left">
                 <p className="eyebrow text-evt-rosa-ink">Quando</p>
-                <p data-live="data" className="mt-4 font-evt-script text-[clamp(3rem,7vw,3.5rem)] leading-tight text-evt-ink">
+                <p data-live="data" className="mt-4 font-evt-script text-[calc(clamp(3rem,7vw,3.5rem)*var(--ev-fonte-fator,1))] leading-tight text-evt-ink">
                   {evento.data}
                 </p>
                 <p data-live="horario" className="mt-1 font-evt-display text-[clamp(2.2rem,6.6vw,2.7rem)] tracking-[0.04em] text-evt-rosa-ink">
@@ -100,7 +100,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
               </div>
               <div data-sec="onde" className="text-center sm:border-l sm:border-[var(--line)] sm:pl-8 sm:text-left">
                 <p className="eyebrow text-evt-rosa-ink">Onde</p>
-                <p data-live="local" className="mt-4 font-evt-script text-[clamp(3rem,7vw,3.5rem)] leading-tight text-evt-ink">
+                <p data-live="local" className="mt-4 font-evt-script text-[calc(clamp(3rem,7vw,3.5rem)*var(--ev-fonte-fator,1))] leading-tight text-evt-ink">
                   {local}
                 </p>
                 {evento.endereco && (
@@ -126,7 +126,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
       <section data-sec="traje" data-hide-empty="traje" className={`${PAD} py-[clamp(3.5rem,7vw,5rem)]`} style={{ background: "var(--ev-block)" }}>
         <Reveal className={`flex flex-col items-center gap-3 text-center ${WRAP}`}>
           <p className="eyebrow text-evt-rosa-ink">Traje</p>
-          <p data-live="traje" className="font-evt-script text-[clamp(3.3rem,8.5vw,4rem)] text-evt-ink">{evento.traje ?? ""}</p>
+          <p data-live="traje" className="font-evt-script text-[calc(clamp(3.3rem,8.5vw,4rem)*var(--ev-fonte-fator,1))] text-evt-ink">{evento.traje ?? ""}</p>
         </Reveal>
       </section>
 
@@ -153,7 +153,7 @@ export function EventoQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
               <span className="rotate-45 text-[0.5rem]">◆</span>
               <span className="h-px w-12 bg-evt-rosa/50" />
             </span>
-            <h2 data-live="cta-lead" className="font-evt-script text-[clamp(3.8rem,10.5vw,5rem)] leading-tight text-evt-rosa-ink">
+            <h2 data-live="cta-lead" className="font-evt-script text-[calc(clamp(3.8rem,10.5vw,5rem)*var(--ev-fonte-fator,1))] leading-tight text-evt-rosa-ink">
               {evento.ctaLead ?? "Você vem?"}
             </h2>
             <ConfirmCTA label={evento.ctaLabel} href={evento.ctaHref} />

@@ -27,7 +27,7 @@ export function QgrCountdown({ alvoISO }: { alvoISO: string }) {
 
   // SSR / primeiro paint: reserva a altura (evita layout shift / hydration mismatch).
   if (!r) return <div className="h-[88px]" aria-hidden />;
-  if (r.chegou) return <p className="font-evt-script text-4xl text-evt-rosa-ink">É hoje! 💗</p>;
+  if (r.chegou) return <p className="font-evt-script text-[calc(2.25rem*var(--ev-fonte-fator,1))] text-evt-rosa-ink">É hoje! 💗</p>;
 
   return (
     <div

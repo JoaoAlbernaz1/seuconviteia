@@ -34,7 +34,7 @@ export function SiteFooter({
   return (
     <footer data-sec="rodape" className="border-t border-[var(--line)] bg-evt-ivory text-evt-ink">
       <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-6 px-[clamp(1.25rem,5vw,2rem)] py-[clamp(4rem,9vw,5.5rem)] text-center">
-        <p className={`font-evt-script text-[clamp(3rem,9vw,4.2rem)] leading-none ${nomeCor}`}>
+        <p className={`font-evt-script text-[calc(clamp(3rem,9vw,4.2rem)*var(--ev-fonte-fator,1))] leading-none ${nomeCor}`}>
           {nome}
         </p>
 

@@ -291,7 +291,7 @@ export function PresentearModal({
                 <path d="M20 6 9 17l-5-5" />
               </svg>
             </div>
-            <h3 className="mt-4 font-evt-script text-[clamp(2.2rem,8vw,2.8rem)] leading-tight text-evt-ink">
+            <h3 className="mt-4 font-evt-script text-[calc(clamp(2.2rem,8vw,2.8rem)*var(--ev-fonte-fator,1))] leading-tight text-evt-ink">
               Presente confirmado!
             </h3>
             <p className="mt-2 font-evt-body text-[1.05rem] text-evt-ink-soft">

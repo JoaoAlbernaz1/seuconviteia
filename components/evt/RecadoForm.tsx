@@ -48,7 +48,7 @@ export function RecadoForm({ eventId, nome }: { eventId: string; nome: string })
       >
         <div className="flex flex-col items-center gap-5">
           <Flourish className="h-5 w-32 text-evt-rosa" />
-          <p className="max-w-sm font-evt-script text-[clamp(1.8rem,6vw,2.4rem)] leading-tight text-evt-rosa-ink">
+          <p className="max-w-sm font-evt-script text-[calc(clamp(1.8rem,6vw,2.4rem)*var(--ev-fonte-fator,1))] leading-tight text-evt-rosa-ink">
             Recado enviado! Obrigada 💗
           </p>
           <p className="max-w-xs font-evt-body text-base text-evt-ink-soft">

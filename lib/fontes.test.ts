@@ -8,14 +8,21 @@ import {
 } from "./fontes";
 
 describe("FONTES", () => {
-  it("tem as 5 duplas nomeadas do brief", () => {
-    expect(Object.keys(FONTES)).toEqual([
+  it("tem o catalogo completo de duplas (15), comecando pelas do brief", () => {
+    const keys = Object.keys(FONTES);
+    expect(keys.length).toBe(15);
+    // As 5 originais do brief seguem presentes e na frente do catalogo.
+    expect(keys.slice(0, 5)).toEqual([
       "classica",
       "romantica",
       "moderna",
       "minimalista",
       "festiva",
     ]);
+    // Ampliacao de 2026-08-03 (fontes Google, nomes reais no seletor).
+    for (const k of ["glamour", "vintage", "suave", "realeza", "editorial", "fina", "urbana"]) {
+      expect(keys).toContain(k);
+    }
   });
 
   it("classica e a tipografia exata da festa (default nao muda o site)", () => {
@@ -47,14 +54,23 @@ describe("lerFonteKey / fonteDupla / varsDaFonte", () => {
     expect(lerFonteKey({ fontes: "festiva" })).toBe("festiva");
   });
 
-  it("varsDaFonte devolve as 4 variaveis --ev-font-*", () => {
+  it("varsDaFonte devolve as 4 variaveis --ev-font-* + os fatores de tamanho", () => {
     const vars = varsDaFonte("romantica");
     expect(Object.keys(vars).sort()).toEqual([
+      "--ev-capa-fator",
       "--ev-font-body",
       "--ev-font-display",
       "--ev-font-script",
       "--ev-font-util",
+      "--ev-fonte-fator",
     ]);
     expect(vars["--ev-font-script"]).toContain("--font-dancing");
+    // Fatores calibrados por fonte (capa e demais textos separados).
+    expect(vars["--ev-capa-fator"]).toBe("0.88");
+    expect(vars["--ev-fonte-fator"]).toBe("0.8");
+    // Milton (classica) fica 1/1 — fidelidade a festa original.
+    const cl = varsDaFonte("classica");
+    expect(cl["--ev-capa-fator"]).toBe("1");
+    expect(cl["--ev-fonte-fator"]).toBe("1");
   });
 });

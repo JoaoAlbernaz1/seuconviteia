@@ -67,7 +67,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
           <Reveal>
             <div className="text-center">
               <p className="eyebrow text-evt-rosa-ink">{evento.secoes.abertura.eyebrow}</p>
-              <h2 data-sec="carta-titulo" data-live="carta-titulo" className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
+              <h2 data-sec="carta-titulo" data-live="carta-titulo" className="mt-3 font-evt-script leading-[1.04] text-[calc(clamp(4.01rem,11.2vw,5.66rem)*var(--ev-fonte-fator,1))] text-evt-ink">
                 {evento.secoes.abertura.titulo}
               </h2>
               <div className="mt-5 flex items-center justify-center" aria-hidden>
@@ -95,8 +95,8 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
             </div>
           </Reveal>
           <Reveal delay={200} dataSec="assinatura" className="mt-9 flex flex-col items-center gap-2 text-center">
-            <p className="font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
-            <p data-live="assinatura" className="whitespace-nowrap font-evt-script text-[clamp(2.5rem,11vw,4.1rem)] text-evt-rosa-ink">
+            <p className="font-evt-script text-[calc(clamp(2.5rem,11vw,4.1rem)*var(--ev-fonte-fator,1))] text-evt-rosa-ink">{evento.secoes.assinaturaLead}</p>
+            <p data-live="assinatura" className="leading-[1.12] font-evt-script text-[calc(clamp(2.5rem,11vw,4.1rem)*var(--ev-fonte-fator,1))] text-evt-rosa-ink">
               {assinatura}
             </p>
             <Button href="/evento" variant="ghost" className="mt-5">
@@ -146,7 +146,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
                 <span className="rotate-45 text-[0.5rem]">◆</span>
                 <span className="h-px w-12 bg-evt-rosa/50" />
               </span>
-              <p data-live="cta-lead" className="font-evt-script text-[clamp(3.3rem,8.8vw,4.1rem)] text-evt-rosa-ink">
+              <p data-live="cta-lead" className="font-evt-script text-[calc(clamp(3.3rem,8.8vw,4.1rem)*var(--ev-fonte-fator,1))] text-evt-rosa-ink">
                 {evento.ctaLead ?? "Faça parte dessa noite"}
               </p>
               <ConfirmCTA label={evento.ctaLabel} href={evento.ctaHref} />
@@ -161,7 +161,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
           {evento.traje && (
             <Reveal className="flex flex-col items-center gap-3 text-center">
               <p className="eyebrow text-evt-rosa-ink">Traje</p>
-              <p className="font-evt-script text-[clamp(3.3rem,8.5vw,4rem)] text-evt-ink">{evento.traje}</p>
+              <p className="font-evt-script text-[calc(clamp(3.3rem,8.5vw,4rem)*var(--ev-fonte-fator,1))] text-evt-ink">{evento.traje}</p>
             </Reveal>
           )}
           {teasers.length > 0 && (
@@ -175,7 +175,7 @@ export function HomeQuinzeGlamour({ evento, recursos }: PaginaTemplateProps) {
                     >
                       <span className="mb-6 h-px w-12 bg-evt-rosa/60" aria-hidden />
                       <p className="eyebrow text-evt-rosa-ink">{t.eyebrow}</p>
-                      <h3 className="mt-3 font-evt-script text-[clamp(3.4rem,8.6vw,3.9rem)] leading-[1.08] text-evt-ink">
+                      <h3 className="mt-3 font-evt-script text-[calc(clamp(3.4rem,8.6vw,3.9rem)*var(--ev-fonte-fator,1))] leading-[1.08] text-evt-ink">
                         {t.titulo}
                       </h3>
                       <p className="mt-4 grow font-evt-body text-[1.14rem] leading-relaxed text-evt-ink-soft">

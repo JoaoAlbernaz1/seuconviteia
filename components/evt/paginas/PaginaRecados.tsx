@@ -62,7 +62,7 @@ export function PaginaRecados({
         {lista.length > 0 ? (
           <>
             <Reveal>
-              <p className="text-center font-evt-script text-[clamp(2rem,6vw,2.8rem)] text-evt-ink">
+              <p className="text-center font-evt-script text-[calc(clamp(2rem,6vw,2.8rem)*var(--ev-fonte-fator,1))] text-evt-ink">
                 Recados de quem ama
               </p>
               <div className="mt-6 flex justify-center" aria-hidden>

@@ -20,6 +20,7 @@ import { Ic, IC } from "../_shell/Ic";
 import { criarConvite } from "./acoes";
 import { podeVitrine, type Plan } from "@/lib/plans";
 import { PreviewSite } from "../_ui/PreviewSite";
+import { SeletorFontes } from "../_ui/SeletorFontes";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
@@ -354,7 +355,7 @@ const INICIAL: State = {
   rsvpMsgSim: MSG_CONFIRMA_PADRAO, rsvpMsgNao: MSG_RECUSA_PADRAO,
   gifts: true, free: true, listaModelo: "painel",
   giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
-  pixNome: "Maria Martins", pixChave: "maria.martins@email.com", presentesTexto: "",
+  pixNome: "", pixChave: "", presentesTexto: "",
   programacao: programacaoSugerida("QUINZE_ANOS"),
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
   animacoes: false,
@@ -1125,6 +1126,15 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                   <CorPersonalizada ativo={S.tema === "custom"} cor={S.corCustom} onPick={(hex) => upd({ tema: "custom", corCustom: hex, corFocou: true })} />
                 </div>
                 <div className="my-5 h-px bg-[#F0F0F3]" />
+                {/* Letras do convite — mesmo seletor visual da tela "Trocar o estilo".
+                    data-foco="livre": ao trocar a fonte a prévia recarrega re-fontada
+                    sem forçar rolagem (mostra o nome na capa). */}
+                <div data-foco="livre">
+                  <div className="mb-1 text-[13.5px] font-bold">Letras do convite</div>
+                  <div className="mb-3 text-[12px] text-[#6e6e76]">Toque para ver o nome do convite em cada estilo de fonte.</div>
+                  <SeletorFontes nome={S.nome} value={S.fonte} onChange={(k) => upd({ fonte: k })} />
+                </div>
+                <div className="my-5 h-px bg-[#F0F0F3]" />
                 <div className="flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
                   <div>
                     <div className="text-[13px] font-semibold">Escurecer a foto da capa</div>
@@ -1733,36 +1743,16 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 </div>
                 {S.gifts && (
                   <div className={cardCls}>
-                    <div className="text-[15.5px] font-bold">Recebimento por Pix</div>
-                    <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os convidados pagam usando o QR Code do seu banco.</div>
-                    <div className="flex flex-col gap-[18px] sm:flex-row">
-                      <div className="w-[130px] flex-none text-center">
-                        <div className="flex size-[130px] items-center justify-center rounded-[14px] border border-[#ECECF0] bg-white p-3">
-                          <QrMock size={90} />
-                        </div>
-                        <div className="mt-2 flex justify-center gap-1.5">
-                          <span className="cursor-pointer text-[11.5px] font-semibold text-[#7C3AED]">Trocar</span>
-                          <span className="cursor-pointer text-[11.5px] text-[#A6A6AE]">Remover</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-1 flex-col gap-3">
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div>
-                            <Label>Quem recebe</Label>
-                            <input value={S.pixNome} onChange={inp("pixNome")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                          </div>
-                          <div>
-                            <Label>Chave Pix</Label>
-                            <input value={S.pixChave} onChange={inp("pixChave")} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                          </div>
-                        </div>
-                        <div>
-                          <Label>Texto de orientação</Label>
-                          <input defaultValue="Aponte a câmera do celular para o QR Code ou copie a chave Pix" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                        </div>
-                        <div className="flex items-center gap-2 rounded-[11px] border border-[#D99B37]/30 bg-[#FFF8ED] px-3.5 py-2.5 text-[12.5px] text-[#9A6B15]">
-                          <Ic d={IC.alertTriangle} size={14} stroke="#C08A2D" width={2} />
-                          O QR Code precisa estar inteiro e legível. Confira a prévia antes de publicar.
+                    <div className="text-[15.5px] font-bold">Onde cai o dinheiro</div>
+                    <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os presentes em dinheiro entram pela plataforma e ficam na sua carteira.</div>
+                    <div className="flex items-center gap-3.5 rounded-[13px] border border-[#ECECF0] bg-[#F8F7FB] px-4 py-3.5">
+                      <span className="grid size-11 flex-none place-items-center rounded-[13px] bg-[#EDE9FE] text-[#7C3AED]">
+                        <Ic d={IC.card} size={19} stroke="#7C3AED" width={2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13.5px] font-semibold">O convidado paga pelo site — o valor cai na sua carteira</div>
+                        <div className="mt-0.5 text-[12.5px] leading-snug text-[#6e6e76]">
+                          Depois de publicar, ative a carteira em <span className="font-semibold text-[#17171b]">Recebimentos</span> e resgate por Pix quando quiser. Taxa de 5% por presente.
                         </div>
                       </div>
                     </div>
@@ -1943,13 +1933,3 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
 }
 
 // Mini QR decorativo (usado no passo "Presentes e Pix" do formulario).
-function QrMock({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 90 90" aria-hidden>
-      <path
-        d="M0 0h26v26H0zM8 8h10v10H8zM64 0h26v26H64zM72 8h10v10H72zM0 64h26v26H0zM8 72h10v10H8zM36 0h8v8h-8zM52 8h8v8h-8zM36 18h8v8h-8zM44 28h8v8h-8zM60 36h8v8h-8zM36 44h8v8h-8zM74 44h8v8h-8zM52 56h8v8h-8zM36 64h8v8h-8zM68 64h8v8h-8zM52 74h8v8h-8zM80 76h8v8h-8zM64 82h8v8h-8z"
-        fill="#17171B"
-      />
-    </svg>
-  );
-}

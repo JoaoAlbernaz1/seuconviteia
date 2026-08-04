@@ -74,7 +74,7 @@ export function QgrHeading({
     <div className={`${left ? "text-left" : "text-center"} ${className}`}>
       {eyebrow && <QgrEyebrow>{eyebrow}</QgrEyebrow>}
       <h2
-        className={`font-evt-script leading-[1.02] text-evt-ink text-[clamp(2.9rem,9vw,4.6rem)] ${
+        className={`font-evt-script leading-[1.02] text-evt-ink text-[calc(clamp(2.9rem,9vw,4.6rem)*var(--ev-fonte-fator,1))] ${
           eyebrow ? "mt-4" : ""
         }`}
       >

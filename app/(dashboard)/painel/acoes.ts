@@ -337,6 +337,11 @@ export async function salvarEstilo(formData: FormData): Promise<void> {
   if (typeof template === "string" && template in TEMPLATES) {
     patch.template = template === TEMPLATE_PADRAO ? undefined : template;
   }
+  // Tamanho das letras (multiplicador do lockup da capa: 0.9 / 1 / 1.15).
+  const capaEscala = Number(formData.get("capaEscala"));
+  if (Number.isFinite(capaEscala) && capaEscala >= 0.5 && capaEscala <= 2) {
+    patch.capaEscala = capaEscala === 1 ? undefined : capaEscala;
+  }
   await prisma.event.update({
     where: { id: event.id },
     data: { customization: mesclar(event.customization, patch) },

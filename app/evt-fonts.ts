@@ -20,6 +20,16 @@ import {
   Cinzel,
   EB_Garamond,
   Montserrat,
+  Allura,
+  Bodoni_Moda,
+  Parisienne,
+  Sacramento,
+  Lora,
+  Cinzel_Decorative,
+  Yeseva_One,
+  Tangerine,
+  Josefin_Sans,
+  Poppins,
 } from "next/font/google";
 import localFont from "next/font/local";
 
@@ -109,6 +119,81 @@ export const montserrat = Montserrat({
   display: "swap",
 });
 
+// ── Estilos NOVOS (mais opcoes p/ o cliente escolher) — `preload: false` porque
+//    so carregam quando a dupla e escolhida (evita preload de fonte nao usada). ─
+export const allura = Allura({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-allura",
+  display: "swap",
+  preload: false,
+});
+export const bodoni = Bodoni_Moda({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-bodoni",
+  display: "swap",
+  preload: false,
+});
+export const parisienne = Parisienne({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-parisienne",
+  display: "swap",
+  preload: false,
+});
+export const sacramento = Sacramento({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-sacramento",
+  display: "swap",
+  preload: false,
+});
+export const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-lora",
+  display: "swap",
+  preload: false,
+});
+export const cinzelDeco = Cinzel_Decorative({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-cinzeldeco",
+  display: "swap",
+  preload: false,
+});
+export const yeseva = Yeseva_One({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-yeseva",
+  display: "swap",
+  preload: false,
+});
+export const tangerine = Tangerine({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-tangerine",
+  display: "swap",
+  preload: false,
+});
+export const josefin = Josefin_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-josefin",
+  display: "swap",
+  preload: false,
+});
+export const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-poppins",
+  display: "swap",
+  preload: false,
+});
+
 /** Classe unica com TODAS as variaveis de fonte do site do evento. */
 export const EVT_FONTS_CLASS = [
   milton.variable,
@@ -124,4 +209,14 @@ export const EVT_FONTS_CLASS = [
   cinzel.variable,
   ebGaramond.variable,
   montserrat.variable,
+  allura.variable,
+  bodoni.variable,
+  parisienne.variable,
+  sacramento.variable,
+  lora.variable,
+  cinzelDeco.variable,
+  yeseva.variable,
+  tangerine.variable,
+  josefin.variable,
+  poppins.variable,
 ].join(" ");

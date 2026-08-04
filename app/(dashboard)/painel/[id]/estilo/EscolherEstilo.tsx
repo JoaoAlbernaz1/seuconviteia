@@ -11,13 +11,17 @@
 import { useState } from "react";
 import type { RascunhoPreview } from "@/lib/previewEvento";
 import { TEMAS } from "@/lib/temas";
-import { FONTES } from "@/lib/fontes";
 import { templatesPorOcasiao, ocasiaoDoNicho } from "@/lib/templates";
 import { capaDemo } from "@/lib/demoFotos";
 import { CardTemplate } from "../../_ui/CardTemplate";
+import { SeletorFontes } from "../../_ui/SeletorFontes";
 import { PreviewSite } from "../../_ui/PreviewSite";
 import { salvarEstilo } from "../../acoes";
 import { BTN_PRIMARIO, CARD } from "../../_ui/estilos";
+
+/** Multiplicador do tamanho do lockup da capa (mesmos passos do wizard). */
+const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
+const TAMANHOS = ["Pequeno", "Médio", "Grande"];
 
 export function EscolherEstilo({
   eventId,
@@ -44,12 +48,13 @@ export function EscolherEstilo({
   const [tema, setTema] = useState(temaAtual);
   const [fontes, setFontes] = useState(fonteAtual);
   const [template, setTemplate] = useState(templateAtual);
+  const [capaEscala, setCapaEscala] = useState<number>(rascunhoBase.capaEscala ?? 1);
 
   const ocasiao = ocasiaoDoNicho(nicho);
   const templates = templatesPorOcasiao(nicho);
   const fotoDemo = capaDemo(ocasiao);
 
-  const rascunhoJson = JSON.stringify({ ...rascunhoBase, tema, fontes, template });
+  const rascunhoJson = JSON.stringify({ ...rascunhoBase, tema, fontes, template, capaEscala });
 
   return (
     <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
@@ -76,6 +81,7 @@ export function EscolherEstilo({
         <input type="hidden" name="tema" value={tema} />
         <input type="hidden" name="fontes" value={fontes} />
         <input type="hidden" name="template" value={template} />
+        <input type="hidden" name="capaEscala" value={capaEscala} />
 
         {/* 1 · TEMPLATE (layout do site) */}
         <div>
@@ -126,29 +132,41 @@ export function EscolherEstilo({
           </span>
         </div>
 
-        {/* 3 · LETRAS (qualquer dupla) */}
-        <div className="flex flex-wrap items-center gap-3 rounded-[13px] border border-scv-line px-4 py-3.5">
-          <span className="shrink-0 text-[12.5px] font-semibold text-scv-ink">Letras</span>
-          <span className="flex flex-wrap gap-2">
-            {Object.values(FONTES).map((f) => {
-              const sel = fontes === f.key;
+        {/* 3 · LETRAS (dupla de fontes) — seletor visual compartilhado. */}
+        <div>
+          <p className="mb-1 text-[12.5px] font-semibold text-scv-ink">Letras do convite</p>
+          <p className="mb-3 text-[11.5px] text-scv-muted">
+            Toque para ver o nome em cada estilo.
+          </p>
+          <SeletorFontes nome={nome} value={fontes} onChange={setFontes} />
+        </div>
+
+        {/* 4 · TAMANHO das letras (escala do lockup da capa) */}
+        <div>
+          <p className="mb-1 text-[12.5px] font-semibold text-scv-ink">Tamanho das letras</p>
+          <p className="mb-3 text-[11.5px] text-scv-muted">
+            Deixa o nome e a idade maiores ou menores na capa.
+          </p>
+          <div className="inline-flex gap-0.5 rounded-[11px] border border-scv-line bg-scv-soft p-[3px]">
+            {TAMANHOS.map((l, i) => {
+              const on = capaEscala === ESCALAS_CAPA[i];
               return (
                 <button
-                  key={f.key}
+                  key={l}
                   type="button"
-                  aria-pressed={sel}
-                  onClick={() => setFontes(f.key)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                    sel
-                      ? "bg-violeta text-white"
-                      : "bg-scv-soft text-scv-muted hover:text-scv-ink"
+                  aria-pressed={on}
+                  onClick={() => setCapaEscala(ESCALAS_CAPA[i])}
+                  className={`cursor-pointer rounded-lg px-4 py-1.5 text-[12.5px] transition-colors ${
+                    on
+                      ? "bg-scv-card font-semibold text-scv-ink shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                      : "text-scv-muted hover:text-scv-ink"
                   }`}
                 >
-                  {f.label}
+                  {l}
                 </button>
               );
             })}
-          </span>
+          </div>
         </div>
 
         <button type="submit" className={`${BTN_PRIMARIO} mt-1 w-full`}>

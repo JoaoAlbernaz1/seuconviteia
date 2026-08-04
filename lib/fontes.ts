@@ -3,9 +3,8 @@
  * presets CURADOS, trocaveis por evento via `customization.fontes`, aplicados
  * como variaveis de runtime (`--ev-font-*`) no wrapper `.evt`.
  *
- * Regra de ouro (brief do editor): o cliente NUNCA ve nome tecnico de fonte —
- * cada dupla tem um NOME DE ESTILO ("Classica", "Romantica"...) e o card do
- * editor mostra o nome do evento renderizado naquela dupla.
+ * O card do editor mostra o NOME REAL da fonte (decisao do Joao: melhor que
+ * inventar nomes de estilo) + o nome do evento renderizado naquela fonte.
  *
  * A dupla "classica" e EXATAMENTE a tipografia da festa original (Milton One +
  * Classy Vogue + Cormorant + Jost) — e o padrao, entao eventos existentes nao
@@ -30,7 +29,7 @@ export type FonteVars = {
 export type FonteDupla = {
   /** Chave estavel (vai no `customization.fontes`). */
   key: string;
-  /** Nome de estilo mostrado ao cliente (nunca o nome tecnico da fonte). */
+  /** Nome REAL da fonte (o do "nome" do convite), mostrado no card do editor. */
   label: string;
   vars: FonteVars;
   /**
@@ -43,6 +42,20 @@ export type FonteDupla = {
    * ocupam mais caixa que versais — 1 = tamanho cheio).
    */
   scriptScale: number;
+  /**
+   * Fator de tamanho do NOME na CAPA do site (exposto como `--ev-capa-fator`),
+   * calibrado por fonte para o nome caber bem no celular e no PC. 1 = base
+   * (Milton, a festa original). Template novo: multiplicar o nome do hero
+   * pela var e herda a calibração.
+   */
+  capaFator?: number;
+  /**
+   * Fator dos DEMAIS textos na fonte do evento (headings/assinaturas/etc.,
+   * exposto como `--ev-fonte-fator`). Calibrado pelo pior caso medido (título
+   * de seção no celular); versais espaçadas precisam de fator menor que o da
+   * capa. Ausente = herda `capaFator`.
+   */
+  fonteFator?: number;
 };
 
 const CURSIVE_FALLBACK = '"Pinyon Script", cursive';
@@ -53,7 +66,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── CLASSICA — a tipografia EXATA da festa original (default) ──────────────
   classica: {
     key: "classica",
-    label: "Clássica",
+    label: "Milton One",
     scriptScale: 1,
     vars: {
       "--ev-font-script": `var(--font-milton), ${CURSIVE_FALLBACK}`,
@@ -66,7 +79,9 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── ROMANTICA — cursiva fluida + serifada editorial ────────────────────────
   romantica: {
     key: "romantica",
-    label: "Romântica",
+    fonteFator: 0.8,
+    capaFator: 0.88,
+    label: "Dancing Script",
     scriptScale: 0.92,
     vars: {
       "--ev-font-script": `var(--font-dancing), ${CURSIVE_FALLBACK}`,
@@ -79,7 +94,8 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── MODERNA — versal serifada espacada + sans limpa ────────────────────────
   moderna: {
     key: "moderna",
-    label: "Moderna",
+    fonteFator: 0.6,
+    label: "Marcellus",
     caps: true,
     scriptScale: 0.62,
     vars: {
@@ -93,7 +109,8 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── MINIMALISTA — so sans, quase tipografico ───────────────────────────────
   minimalista: {
     key: "minimalista",
-    label: "Minimalista",
+    fonteFator: 0.63,
+    label: "Jost",
     caps: true,
     scriptScale: 0.52,
     vars: {
@@ -107,7 +124,9 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── FESTIVA — cursiva cheia de energia + sans ──────────────────────────────
   festiva: {
     key: "festiva",
-    label: "Festiva",
+    fonteFator: 0.69,
+    capaFator: 0.72,
+    label: "Pacifico",
     scriptScale: 0.74,
     vars: {
       "--ev-font-script": `var(--font-pacifico), ${CURSIVE_FALLBACK}`,
@@ -120,7 +139,8 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── DELICADA — cursiva fina (Great Vibes) + serifada variável (Fraunces) ────
   delicada: {
     key: "delicada",
-    label: "Delicada",
+    capaFator: 0.85,
+    label: "Great Vibes · Fraunces",
     scriptScale: 0.95,
     vars: {
       "--ev-font-script": `var(--font-greatvibes), ${CURSIVE_FALLBACK}`,
@@ -133,7 +153,8 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── IMPERIAL — versal romana (Cinzel) + Garamond ───────────────────────────
   imperial: {
     key: "imperial",
-    label: "Imperial",
+    fonteFator: 0.58,
+    label: "Cinzel",
     caps: true,
     scriptScale: 0.62,
     vars: {
@@ -147,13 +168,116 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── ENCANTADA — cursiva (Great Vibes) + Playfair + sans moderna ────────────
   encantada: {
     key: "encantada",
-    label: "Encantada",
+    capaFator: 0.85,
+    label: "Great Vibes · Playfair",
     scriptScale: 0.95,
     vars: {
       "--ev-font-script": `var(--font-greatvibes), ${CURSIVE_FALLBACK}`,
       "--ev-font-display": `var(--font-playfair), ${SERIF_FALLBACK}`,
       "--ev-font-body": `var(--font-montserrat), ${SANS_FALLBACK}`,
       "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── GLAMOUR — cursiva fluida + serifada Didone de alto contraste ────────────
+  glamour: {
+    key: "glamour",
+    capaFator: 0.83,
+    label: "Allura",
+    scriptScale: 1,
+    vars: {
+      "--ev-font-script": `var(--font-allura), ${CURSIVE_FALLBACK}`,
+      "--ev-font-display": `var(--font-bodoni), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-montserrat), ${SANS_FALLBACK}`,
+      "--ev-font-util": `var(--font-montserrat), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── VINTAGE — cursiva romantica + Cormorant + Garamond ──────────────────────
+  vintage: {
+    key: "vintage",
+    fonteFator: 0.76,
+    capaFator: 0.8,
+    label: "Parisienne",
+    scriptScale: 0.92,
+    vars: {
+      "--ev-font-script": `var(--font-parisienne), ${CURSIVE_FALLBACK}`,
+      "--ev-font-display": `var(--font-cormorant), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-ebgaramond), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── SUAVE — cursiva fina monolinha + serifadas leves ────────────────────────
+  suave: {
+    key: "suave",
+    capaFator: 0.81,
+    label: "Sacramento",
+    scriptScale: 1,
+    vars: {
+      "--ev-font-script": `var(--font-sacramento), ${CURSIVE_FALLBACK}`,
+      "--ev-font-display": `var(--font-cormorant), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-lora), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── REALEZA — versal romana ornamentada (Cinzel Decorative) + Garamond ───────
+  realeza: {
+    key: "realeza",
+    fonteFator: 0.57,
+    label: "Cinzel Decorative",
+    caps: true,
+    scriptScale: 0.55,
+    vars: {
+      "--ev-font-script": `var(--font-cinzeldeco), ${SERIF_FALLBACK}`,
+      "--ev-font-display": `var(--font-cinzeldeco), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-ebgaramond), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-josefin), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── EDITORIAL — display serifada marcante (Yeseva One) + Lora ───────────────
+  editorial: {
+    key: "editorial",
+    fonteFator: 0.57,
+    capaFator: 0.66,
+    label: "Yeseva One",
+    scriptScale: 0.7,
+    vars: {
+      "--ev-font-script": `var(--font-yeseva), ${SERIF_FALLBACK}`,
+      "--ev-font-display": `var(--font-yeseva), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-lora), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-josefin), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── FINA — cursiva finissima (Tangerine) + Playfair ─────────────────────────
+  fina: {
+    key: "fina",
+    fonteFator: 0.86,
+    label: "Tangerine",
+    scriptScale: 1.2,
+    vars: {
+      "--ev-font-script": `var(--font-tangerine), ${CURSIVE_FALLBACK}`,
+      "--ev-font-display": `var(--font-playfair), ${SERIF_FALLBACK}`,
+      "--ev-font-body": `var(--font-ebgaramond), ${SERIF_FALLBACK}`,
+      "--ev-font-util": `var(--font-jost), ${SANS_FALLBACK}`,
+    },
+  },
+
+  // ── URBANA — versal sans geometrica (Josefin) + Poppins ─────────────────────
+  urbana: {
+    key: "urbana",
+    fonteFator: 0.58,
+    label: "Josefin Sans",
+    caps: true,
+    scriptScale: 0.6,
+    vars: {
+      "--ev-font-script": `var(--font-josefin), ${SANS_FALLBACK}`,
+      "--ev-font-display": `var(--font-josefin), ${SANS_FALLBACK}`,
+      "--ev-font-body": `var(--font-poppins), ${SANS_FALLBACK}`,
+      "--ev-font-util": `var(--font-poppins), ${SANS_FALLBACK}`,
     },
   },
 };
@@ -174,7 +298,12 @@ export function fonteDupla(key?: string | null): FonteDupla {
  * (mesmo padrao de `varsDoTema`).
  */
 export function varsDaFonte(key?: string | null): Record<string, string> {
-  return { ...fonteDupla(key).vars };
+  const d = fonteDupla(key);
+  return {
+    ...d.vars,
+    "--ev-capa-fator": String(d.capaFator ?? 1),
+    "--ev-fonte-fator": String(d.fonteFator ?? d.capaFator ?? 1),
+  };
 }
 
 /**
@@ -212,13 +341,13 @@ export type FonteHead = {
 export type FonteCorpo = { key: string; label: string; body: string; util: string };
 
 export const FONTE_HEADS: Record<string, FonteHead> = {
-  classica: { key: "classica", label: "Clássica", script: `var(--font-milton), ${CURSIVE_FALLBACK}`, display: `var(--font-vogue), ${SERIF_FALLBACK}`, scriptScale: 1, combina: ["cormorant", "ebgaramond", "jost"] },
-  romantica: { key: "romantica", label: "Romântica", script: `var(--font-dancing), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.92, combina: ["cormorant", "ebgaramond", "montserrat"] },
-  delicada: { key: "delicada", label: "Delicada", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-fraunces), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["ebgaramond", "cormorant", "montserrat"] },
-  imperial: { key: "imperial", label: "Imperial", script: `var(--font-cinzel), ${SERIF_FALLBACK}`, display: `var(--font-cinzel), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["ebgaramond", "montserrat", "cormorant"] },
-  festiva: { key: "festiva", label: "Festiva", script: `var(--font-pacifico), ${CURSIVE_FALLBACK}`, display: `var(--font-jost), ${SANS_FALLBACK}`, scriptScale: 0.74, combina: ["jost", "montserrat"] },
-  moderna: { key: "moderna", label: "Moderna", script: `var(--font-marcellus), ${SERIF_FALLBACK}`, display: `var(--font-marcellus), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["jost", "montserrat", "ebgaramond"] },
-  encantada: { key: "encantada", label: "Encantada", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["montserrat", "ebgaramond", "cormorant"] },
+  classica: { key: "classica", label: "Milton One", script: `var(--font-milton), ${CURSIVE_FALLBACK}`, display: `var(--font-vogue), ${SERIF_FALLBACK}`, scriptScale: 1, combina: ["cormorant", "ebgaramond", "jost"] },
+  romantica: { key: "romantica", label: "Dancing Script", script: `var(--font-dancing), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.92, combina: ["cormorant", "ebgaramond", "montserrat"] },
+  delicada: { key: "delicada", label: "Great Vibes · Fraunces", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-fraunces), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["ebgaramond", "cormorant", "montserrat"] },
+  imperial: { key: "imperial", label: "Cinzel", script: `var(--font-cinzel), ${SERIF_FALLBACK}`, display: `var(--font-cinzel), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["ebgaramond", "montserrat", "cormorant"] },
+  festiva: { key: "festiva", label: "Pacifico", script: `var(--font-pacifico), ${CURSIVE_FALLBACK}`, display: `var(--font-jost), ${SANS_FALLBACK}`, scriptScale: 0.74, combina: ["jost", "montserrat"] },
+  moderna: { key: "moderna", label: "Marcellus", script: `var(--font-marcellus), ${SERIF_FALLBACK}`, display: `var(--font-marcellus), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["jost", "montserrat", "ebgaramond"] },
+  encantada: { key: "encantada", label: "Great Vibes · Playfair", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["montserrat", "ebgaramond", "cormorant"] },
 };
 
 export const FONTE_CORPOS: Record<string, FonteCorpo> = {
@@ -246,14 +375,22 @@ export function varsDaFonteCombinada(
   if (customValido(custom ?? undefined)) {
     const h = FONTE_HEADS[custom!.head];
     const c = FONTE_CORPOS[custom!.corpo];
+    const dh = fonteDupla(custom!.head);
     return {
       "--ev-font-script": h.script,
       "--ev-font-display": h.display,
       "--ev-font-body": c.body,
       "--ev-font-util": c.util,
+      "--ev-capa-fator": String(dh.capaFator ?? 1),
+      "--ev-fonte-fator": String(dh.fonteFator ?? dh.capaFator ?? 1),
     };
   }
-  return { ...fonteDupla(key).vars };
+  const d = fonteDupla(key);
+  return {
+    ...d.vars,
+    "--ev-capa-fator": String(d.capaFator ?? 1),
+    "--ev-fonte-fator": String(d.fonteFator ?? d.capaFator ?? 1),
+  };
 }
 
 /** A tipografia (preset ou custom) é caixa-alta espaçada? (classe evt-fonte-caps). */
