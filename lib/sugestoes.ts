@@ -10,7 +10,7 @@
 import type { NichoEvento } from "@/lib/convite";
 
 export type ItemProgramacao = { hora: string; titulo: string };
-export type ItemPresente = { titulo: string; descricao: string; valor: string };
+export type ItemPresente = { titulo: string; descricao: string; valor: string; foto?: string };
 
 const PROGRAMACAO: Record<NichoEvento, ItemProgramacao[]> = {
   CASAMENTO: [
@@ -49,25 +49,38 @@ const PROGRAMACAO: Record<NichoEvento, ItemProgramacao[]> = {
 
 const PRESENTES: Record<NichoEvento, ItemPresente[]> = {
   CASAMENTO: [
-    { titulo: "Cota da lua de mel", descricao: "Ajude a realizar a viagem dos sonhos.", valor: "150,00" },
-    { titulo: "Cota da casa nova", descricao: "Um help para montar o novo lar.", valor: "200,00" },
-    { titulo: "Jantar romântico", descricao: "Um presente para os novos começos.", valor: "100,00" },
+    { titulo: "Cota da lua de mel", descricao: "Ajude a realizar a viagem dos sonhos.", valor: "150,00", foto: "/presentes-demo/viagem.jpg" },
+    { titulo: "Jantar romântico", descricao: "Um presente para os novos começos.", valor: "100,00", foto: "/presentes-demo/festa.jpg" },
+    { titulo: "Ensaio fotográfico", descricao: "Memórias do grande dia.", valor: "250,00", foto: "/presentes-demo/foto.jpg" },
+    { titulo: "Dia de spa a dois", descricao: "Um respiro depois da festa.", valor: "180,00", foto: "/presentes-demo/spa.jpg" },
   ],
   QUINZE_ANOS: [
-    { titulo: "Cota da festa", descricao: "Ajude a realizar essa noite especial.", valor: "100,00" },
-    { titulo: "Cota da viagem", descricao: "Uma lembrança para guardar para sempre.", valor: "150,00" },
+    { titulo: "Cota da viagem", descricao: "Uma lembrança para guardar para sempre.", valor: "150,00", foto: "/presentes-demo/viagem.jpg" },
+    { titulo: "Vestido de festa", descricao: "O vestido dos sonhos da debutante.", valor: "300,00", foto: "/presentes-demo/vestido.jpg" },
+    { titulo: "Kit maquiagem", descricao: "Para brilhar na noite e depois dela.", valor: "120,00", foto: "/presentes-demo/make.jpg" },
+    { titulo: "Ensaio fotográfico", descricao: "Fotos profissionais dos 15 anos.", valor: "250,00", foto: "/presentes-demo/foto.jpg" },
+    { titulo: "Dia de spa", descricao: "Um dia de princesa antes da festa.", valor: "180,00", foto: "/presentes-demo/spa.jpg" },
+    { titulo: "Cota da festa", descricao: "Ajude a realizar essa noite especial.", valor: "100,00", foto: "/presentes-demo/festa.jpg" },
+    { titulo: "Sapato dos sonhos", descricao: "Para a valsa e para a vida.", valor: "150,00", foto: "/presentes-demo/sapato.jpg" },
+    { titulo: "Fone de ouvido", descricao: "A trilha sonora da nova fase.", valor: "200,00", foto: "/presentes-demo/som.jpg" },
   ],
   SESSENTA_ANOS: [
-    { titulo: "Cota da comemoração", descricao: "Ajude a celebrar essa data especial.", valor: "100,00" },
-    { titulo: "Cota da viagem", descricao: "Um presente para uma nova aventura.", valor: "150,00" },
+    { titulo: "Cota da viagem", descricao: "Um presente para uma nova aventura.", valor: "150,00", foto: "/presentes-demo/viagem.jpg" },
+    { titulo: "Jantar especial", descricao: "Uma noite para celebrar a vida.", valor: "120,00", foto: "/presentes-demo/festa.jpg" },
+    { titulo: "Dia de spa", descricao: "Cuidar de quem sempre cuidou.", valor: "180,00", foto: "/presentes-demo/spa.jpg" },
+    { titulo: "Ensaio fotográfico", descricao: "Retratos para guardar.", valor: "250,00", foto: "/presentes-demo/foto.jpg" },
   ],
   BODAS: [
-    { titulo: "Cota da viagem", descricao: "Para renovar os votos em grande estilo.", valor: "150,00" },
-    { titulo: "Jantar a dois", descricao: "Um carinho para o casal.", valor: "100,00" },
+    { titulo: "Cota da viagem", descricao: "Para renovar os votos em grande estilo.", valor: "150,00", foto: "/presentes-demo/viagem.jpg" },
+    { titulo: "Jantar a dois", descricao: "Um carinho para o casal.", valor: "100,00", foto: "/presentes-demo/festa.jpg" },
+    { titulo: "Ensaio do casal", descricao: "Memórias de uma história linda.", valor: "250,00", foto: "/presentes-demo/foto.jpg" },
+    { titulo: "Dia de spa a dois", descricao: "Um presente para relaxar juntos.", valor: "180,00", foto: "/presentes-demo/spa.jpg" },
   ],
   ANIVERSARIO: [
-    { titulo: "Cota da festa", descricao: "Ajude a tornar a comemoração ainda melhor.", valor: "80,00" },
-    { titulo: "Cota da viagem", descricao: "Um presente para uma nova aventura.", valor: "120,00" },
+    { titulo: "Cota da festa", descricao: "Ajude a tornar a comemoração ainda melhor.", valor: "80,00", foto: "/presentes-demo/festa.jpg" },
+    { titulo: "Cota da viagem", descricao: "Um presente para uma nova aventura.", valor: "120,00", foto: "/presentes-demo/viagem.jpg" },
+    { titulo: "Ensaio fotográfico", descricao: "Fotos para marcar a data.", valor: "250,00", foto: "/presentes-demo/foto.jpg" },
+    { titulo: "Fone de ouvido", descricao: "Música boa o ano inteiro.", valor: "200,00", foto: "/presentes-demo/som.jpg" },
   ],
 };
 

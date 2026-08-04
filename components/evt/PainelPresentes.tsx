@@ -1,8 +1,8 @@
 "use client";
-// PainelPresentes — UM cartão único (foto + lista de presentes + Pix), clone
-// fiel do festa-15-maria-clara, data-driven. Quando recebe `presentear`, os itens
-// ficam CLICÁVEIS e abrem o fluxo de Pix via plataforma (taxa + cofre); sem ele,
-// mantém o comportamento antigo (Pix direto: copiar chave). Tokens `--ev-*`.
+// PainelPresentes — UM cartão único (foto + lista de presentes), data-driven.
+// Presentes em DINHEIRO passam SEMPRE pela plataforma: com `presentear`, os
+// itens ficam clicáveis e abrem o Pix da plataforma (o valor cai na CARTEIRA do
+// dono, que resgata no painel). A chave Pix do dono NUNCA aparece no site.
 import { useState } from "react";
 import Image from "next/image";
 import type { PresentearData, PresenteInterativo } from "@/lib/presentesTipos";
@@ -12,37 +12,15 @@ export function PainelPresentes({
   fotoUrl,
   fotoPos = "50% 50%",
   itens,
-  pixChave,
-  pixNome,
-  pixQrUrl,
   presentear,
 }: {
   fotoUrl?: string;
   fotoPos?: string;
   itens: { nome: string; detalhe?: string; valor?: string }[];
-  pixChave?: string;
-  pixNome?: string;
-  pixQrUrl?: string;
   presentear?: PresentearData;
 }) {
-  const [copied, setCopied] = useState(false);
   const [aberto, setAberto] = useState<PresenteInterativo | null>(null);
-  const temChave = !!pixChave && pixChave.trim().length > 0;
-  const temQr = !!pixQrUrl && pixQrUrl.trim().length > 0;
-  // Com fluxo via plataforma ligado, o Pix "direto" (copiar chave) some.
   const interativo = !!presentear && presentear.itens.length > 0;
-  const mostrarPixDireto = !interativo && (temChave || temQr);
-
-  async function copy() {
-    if (!temChave) return;
-    try {
-      await navigator.clipboard.writeText(pixChave!);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2200);
-    } catch {
-      /* clipboard indisponível */
-    }
-  }
 
   return (
     <div className="mx-auto max-w-[460px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--line)] bg-white shadow-[0_28px_60px_-44px_rgba(46,26,32,0.4)] md:max-w-[860px]">
@@ -65,7 +43,7 @@ export function PainelPresentes({
         {/* ── Conteúdo: lista + Pix ── */}
         <div className="flex flex-col p-[clamp(1.75rem,6vw,2.75rem)]">
           <p className="eyebrow text-evt-rosa-ink">Lista de presentes</p>
-          <h3 className="mt-2 font-evt-script text-[clamp(2.9rem,7.5vw,3.4rem)] leading-[1.1] text-evt-ink">
+          <h3 className="mt-2 font-evt-script text-[calc(clamp(2.9rem,7.5vw,3.4rem)*var(--ev-fonte-fator,1))] leading-[1.1] text-evt-ink">
             Se quiser me presentear
           </h3>
 
@@ -125,69 +103,13 @@ export function PainelPresentes({
                           Presentear
                         </button>
                       )
-                    ) : (
-                      (temChave || temQr) && (
-                        <a
-                          href="#presentear-pix"
-                          className="inline-flex min-h-[40px] flex-none items-center justify-center rounded-full bg-evt-framboesa px-5 font-evt-util text-[0.62rem] font-medium uppercase tracking-[0.2em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5"
-                        >
-                          Presentear
-                        </a>
-                      )
-                    )}
+                    ) : null}
                   </div>
                 </li>
               );
             })}
           </ul>
 
-          {/* ── Pix DIRETO (fallback do modelo antigo) — só sem fluxo via plataforma ── */}
-          {mostrarPixDireto && (
-            <div id="presentear-pix" className="mt-8 scroll-mt-24 border-t border-[var(--line)] pt-8 text-center">
-              <p className="eyebrow text-evt-rosa-ink">Ou, se preferir</p>
-              <p className="mt-2 font-evt-body text-[clamp(1.2rem,4.5vw,1.4rem)] italic text-evt-ink-soft">
-                um Pix, com todo o meu obrigada
-              </p>
-
-              {temQr && (
-                <div className="relative mx-auto mt-5 aspect-square w-[min(196px,64%)] overflow-hidden rounded-[12px] border border-[var(--line)] shadow-[0_16px_36px_-28px_rgba(46,26,32,0.5)]">
-                  <Image src={pixQrUrl!} alt="QR Code do Pix" fill sizes="196px" className="object-cover" />
-                </div>
-              )}
-
-              {temChave && (
-                <button
-                  type="button"
-                  onClick={copy}
-                  className="mt-6 inline-flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-evt-framboesa px-7 py-3 font-evt-util text-[0.7rem] font-medium uppercase tracking-[0.24em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evt-rosa-ink focus-visible:ring-offset-2"
-                  aria-live="polite"
-                >
-                  {copied ? (
-                    <>
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                      Copiado!
-                    </>
-                  ) : (
-                    "Copiar chave"
-                  )}
-                </button>
-              )}
-
-              {temQr && (
-                <p className="mt-4 font-evt-util text-[0.7rem] uppercase tracking-[0.2em] text-evt-ink-soft">
-                  Aponte a câmera do app do seu banco
-                </p>
-              )}
-
-              {pixNome && (
-                <p className="mt-3 font-evt-body text-[1.08rem] text-evt-ink-soft">
-                  Recebedor: <span data-live="pix-nome" className="text-evt-ink">{pixNome}</span>
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

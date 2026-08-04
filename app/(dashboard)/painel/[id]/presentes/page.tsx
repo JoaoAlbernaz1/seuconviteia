@@ -9,6 +9,7 @@ import {
   voltarDe,
 } from "../_carregar";
 import { podeVitrine } from "@/lib/plans";
+import { lerCarteira } from "@/lib/carteira";
 import { PresentesCliente } from "./PresentesCliente";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export default async function PresentesPage({
       pixNomeInicial={lerCustomStr(c, "pixNome") ?? ""}
       pixChaveInicial={lerCustomStr(c, "pixChave") ?? ""}
       pixQrUrlInicial={lerCustomStr(c, "pixQrUrl") ?? ""}
+      carteiraAtiva={lerCarteira(event.customization).ativa}
       presentesTextoInicial={lerCustomStr(c, "presentesTexto") ?? ""}
       giftsIniciais={event.gifts.map((g) => ({
         titulo: g.title,

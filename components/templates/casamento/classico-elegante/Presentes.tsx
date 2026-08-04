@@ -1,12 +1,12 @@
 // PRESENTES — Casamento · Clássico Elegante. Texto de abertura + lista de presentes
-// em cartas sofisticadas + foto opcional em moldura + Pix (PixCard). Corpo PRÓPRIO.
+// em cartas sofisticadas + foto opcional em moldura. Corpo PRÓPRIO; dinheiro
+// entra pela plataforma (carteira do dono) — sem chave Pix no site.
 // Gate por dados: cada bloco só aparece se houver conteúdo. Server component.
 import Image from "next/image";
 import { textosDoNicho } from "@/lib/textos";
 import type { PaginaTemplateProps } from "@/components/templates/registro";
 import { Reveal } from "@/components/evt/Reveal";
 import { Flourish } from "@/components/evt/icons";
-import { PixCard } from "@/components/evt/PixCard";
 import {
   CceEstilo,
   Medalhao,
@@ -21,7 +21,6 @@ export function PresentesCasamentoClassico({ evento, nicho }: PaginaTemplateProp
   const inicial = nome.trim().charAt(0).toUpperCase() || "❦";
   const intro = evento.presentesTexto ?? t.teaserPresentes;
   const temItens = evento.presentes.length > 0;
-  const temPix = !!evento.pixChave || !!evento.pixQrUrl;
 
   return (
     <main className={`bg-transparent ${CCE_PAD} pb-[clamp(5rem,10vw,8rem)] pt-32`}>
@@ -95,24 +94,8 @@ export function PresentesCasamentoClassico({ evento, nicho }: PaginaTemplateProp
           </div>
         )}
 
-        {/* ── Pix ── */}
-        {temPix && (
-          <div className="mt-16">
-            <Reveal className="flex flex-col items-center text-center">
-              <Divisor />
-              <p className="mt-5 eyebrow text-evt-rosa-ink">Um carinho pelo Pix</p>
-              <h2 className="mt-4 font-evt-script text-[clamp(2rem,6vw,2.8rem)] leading-tight text-evt-ink">
-                Se quiser nos presentear
-              </h2>
-            </Reveal>
-            <Reveal delay={140} className="mt-9">
-              <PixCard chave={evento.pixChave} nome={evento.pixNome} qrUrl={evento.pixQrUrl} />
-            </Reveal>
-          </div>
-        )}
-
         {/* ── Vazio elegante ── */}
-        {!temItens && !temPix && (
+        {!temItens && (
           <Reveal delay={140} className="mt-14 flex flex-col items-center gap-4 text-center">
             <Flourish className="h-4 w-28 text-evt-rosa" />
             <p className="max-w-[440px] font-evt-body text-[1.12rem] leading-relaxed text-evt-ink-soft">

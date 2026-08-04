@@ -1,12 +1,11 @@
 // PRESENTES — Aniversário Infantil Lúdico (página /presentes). Texto carinhoso +
-// lista divertida de presentes (cartões coloridos arredondados) + Pix (PixCard).
+// lista divertida de presentes (cartões coloridos arredondados).
 // Seções próprias (nada de _base/secoes). Server component; o Pix (copiar chave) é
-// interativo e vive no PixCard (client). Pix DIRETO — sem checkout/taxa.
+// Dinheiro entra pela plataforma (carteira do dono) — sem chave no site.
 import Image from "next/image";
 import { textosDoNicho } from "@/lib/textos";
 import type { PaginaTemplateProps } from "@/components/templates/registro";
 import { Reveal } from "@/components/evt/Reveal";
-import { PixCard } from "@/components/evt/PixCard";
 import {
   AIL_PAD,
   AIL_WRAP,
@@ -22,7 +21,6 @@ export function PresentesAniversarioInfantil({ evento, nicho }: PaginaTemplatePr
   const t = textosDoNicho(nicho);
   const intro = evento.presentesTexto?.trim() || t.teaserPresentes;
   const itens = evento.presentes;
-  const temPix = !!(evento.pixChave?.trim() || evento.pixQrUrl?.trim());
   const temFoto = !!evento.presentesFotoUrl?.trim();
 
   return (
@@ -86,23 +84,8 @@ export function PresentesAniversarioInfantil({ evento, nicho }: PaginaTemplatePr
         </section>
       )}
 
-      {/* ── Pix ── */}
-      {temPix && (
-        <section className={`relative ${AIL_PAD} ${AIL_RHYTHM}`}>
-          <div className={`relative ${AIL_WRAP} flex flex-col items-center gap-8`}>
-            <Reveal className="flex flex-col items-center gap-2 text-center">
-              <p className="eyebrow text-evt-rosa-ink">Ou, se preferir</p>
-              <h2 className="font-evt-script text-[clamp(2rem,6.5vw,3rem)] leading-[1.05] text-evt-ink">Um Pix de carinho</h2>
-            </Reveal>
-            <Reveal delay={120} className="w-full">
-              <PixCard chave={evento.pixChave} nome={evento.pixNome} qrUrl={evento.pixQrUrl} />
-            </Reveal>
-          </div>
-        </section>
-      )}
-
-      {/* ── Sem itens nem Pix → mensagem fofa ── */}
-      {itens.length === 0 && !temPix && (
+      {/* ── Sem itens → mensagem fofa ── */}
+      {itens.length === 0 && (
         <section className={`relative ${AIL_PAD} ${AIL_RHYTHM}`}>
           <Reveal className={`${AIL_WRAP} flex flex-col items-center gap-5 text-center`}>
             <span className="ail-pulse flex h-16 w-16 items-center justify-center rounded-full text-white" style={{ background: "linear-gradient(135deg, var(--ev-rose), var(--ev-framboesa))" }}>

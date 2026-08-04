@@ -12,7 +12,7 @@ function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="text-center">
       <p className="eyebrow text-evt-rosa-ink">{eyebrow}</p>
-      <h2 className="mt-3 font-evt-script leading-[1.04] text-[clamp(4.01rem,11.2vw,5.66rem)] text-evt-ink">
+      <h2 className="mt-3 font-evt-script leading-[1.04] text-[calc(clamp(4.01rem,11.2vw,5.66rem)*var(--ev-fonte-fator,1))] text-evt-ink">
         {title}
       </h2>
       <div className="mt-5 flex items-center justify-center" aria-hidden>
@@ -26,7 +26,7 @@ export function PresentesQuinzeGlamour({ evento, presentear, usarVitrine }: Pagi
   const itens = (evento.presentes ?? []).map((p) => ({ nome: p.titulo, detalhe: p.descricao, valor: p.valorLabel }));
   const texto =
     evento.presentesTexto ??
-    "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias — e a minha chave Pix também está aqui.";
+    "O maior presente é ter você comemorando comigo. Mas, se quiser deixar um carinho a mais, separei algumas ideias aqui embaixo.";
 
   // Vitrine (grade de cards, estilo Wedy) quando há o fluxo de presentear;
   // senão, o painel único antigo (fallback / compat).
@@ -53,9 +53,6 @@ export function PresentesQuinzeGlamour({ evento, presentear, usarVitrine }: Pagi
                 fotoUrl={evento.presentesFotoUrl}
                 fotoPos="50% 40%"
                 itens={itens}
-                pixChave={evento.pixChave}
-                pixNome={evento.pixNome}
-                pixQrUrl={evento.pixQrUrl}
                 presentear={presentear}
               />
             </Reveal>

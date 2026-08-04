@@ -1,11 +1,10 @@
 // PRESENTES — Aniversário Adulto Elegante. Corpo PRÓPRIO: intro editorial (+ foto
 // opcional) + lista de presentes moderna (linhas com índice, título, descrição e
-// valor em pílula) + Pix direto (PixCard compartilhado, copiar chave). Sem checkout.
-// Server component; PixCard (copiar) é o único client.
+// valor em pílula). Dinheiro entra pela plataforma (carteira do dono).
+// Server component.
 import Image from "next/image";
 import type { PaginaTemplateProps } from "@/components/templates/registro";
 import { Reveal } from "@/components/evt/Reveal";
-import { PixCard } from "@/components/evt/PixCard";
 import {
   AAE_PAD,
   AaeStyle,
@@ -19,9 +18,8 @@ export function PresentesAniversarioAdulto({ evento }: PaginaTemplateProps) {
   const nome = evento.primeiroNome;
   const intro =
     evento.presentesTexto ??
-    "O maior presente é ter você na festa. Mas, se quiser deixar um carinho a mais, reuni algumas ideias aqui — e a minha chave Pix também.";
+    "O maior presente é ter você na festa. Mas, se quiser deixar um carinho a mais, reuni algumas ideias aqui.";
   const temLista = evento.presentes.length > 0;
-  const temPix = !!(evento.pixChave || evento.pixQrUrl);
   const foto = evento.presentesFotoUrl;
 
   return (
@@ -105,25 +103,8 @@ export function PresentesAniversarioAdulto({ evento }: PaginaTemplateProps) {
         </section>
       )}
 
-      {/* ── Pix ── */}
-      {temPix && (
-        <section className={`bg-evt-blush-soft/40 ${AAE_PAD} py-[clamp(4rem,9vw,6.5rem)]`}>
-          <div className="mx-auto w-full max-w-[560px]">
-            <Reveal className="mb-9 flex flex-col items-center gap-3 text-center">
-              <Kicker center>Pix</Kicker>
-              <p className="max-w-[420px] font-evt-body text-[1.1rem] leading-relaxed text-evt-ink-soft">
-                Se preferir, é só copiar a chave abaixo — direto, sem taxas.
-              </p>
-            </Reveal>
-            <Reveal delay={100}>
-              <PixCard chave={evento.pixChave} nome={evento.pixNome} qrUrl={evento.pixQrUrl} />
-            </Reveal>
-          </div>
-        </section>
-      )}
-
-      {/* ── Vazio elegante (sem lista e sem Pix) ── */}
-      {!temLista && !temPix && (
+      {/* ── Vazio elegante (sem lista) ── */}
+      {!temLista && (
         <section className={`bg-transparent ${AAE_PAD} pb-[clamp(5rem,10vw,8rem)] pt-[clamp(1rem,3vw,2rem)]`}>
           <Reveal className="mx-auto flex max-w-[520px] flex-col items-center gap-4 text-center">
             <span className="h-px w-16 bg-evt-rosa-ink/40" aria-hidden />

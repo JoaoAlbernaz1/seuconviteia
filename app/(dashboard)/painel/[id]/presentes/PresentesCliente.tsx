@@ -62,6 +62,7 @@ export function PresentesCliente({
   pixNomeInicial,
   pixChaveInicial,
   pixQrUrlInicial,
+  carteiraAtiva,
   presentesTextoInicial,
   giftsIniciais,
 }: {
@@ -74,6 +75,7 @@ export function PresentesCliente({
   pixNomeInicial: string;
   pixChaveInicial: string;
   pixQrUrlInicial: string;
+  carteiraAtiva: boolean;
   presentesTextoInicial: string;
   giftsIniciais: {
     titulo: string;
@@ -84,9 +86,11 @@ export function PresentesCliente({
     valor: string;
   }[];
 }) {
-  const [pixNome, setPixNome] = useState(pixNomeInicial);
-  const [pixChave, setPixChave] = useState(pixChaveInicial);
-  const [pixQrUrl, setPixQrUrl] = useState(pixQrUrlInicial);
+  // Espelhos do form (o save espera os campos SEMPRE presentes); a edição da
+  // chave saiu daqui — o recebimento agora é pela CARTEIRA (tela Recebimentos).
+  const [pixNome] = useState(pixNomeInicial);
+  const [pixChave] = useState(pixChaveInicial);
+  const [pixQrUrl] = useState(pixQrUrlInicial);
   const [presentesTexto, setPresentesTexto] = useState(presentesTextoInicial);
   const [listaModelo, setListaModelo] = useState<ListaModelo>(
     listaModeloInicial === "vitrine" && podeVitrine ? "vitrine" : "painel",
@@ -100,7 +104,6 @@ export function PresentesCliente({
   const proxId = useRef(linhas.length);
   const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
   const [editandoBoas, setEditandoBoas] = useState(false);
-  const [pixAberto, setPixAberto] = useState(!pixChaveInicial);
   const [copiado, setCopiado] = useState(false);
   const listaRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +111,7 @@ export function PresentesCliente({
     salvarPresentes,
     {},
   );
-  const { enviando, erro, enviarUma } = useEnvio();
+  const { erro } = useEnvio();
 
   function atualizar(id: number, patch: Partial<Linha>) {
     setLinhas((xs) => xs.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -124,18 +127,54 @@ export function PresentesCliente({
     ]);
     setTimeout(() => listaRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
   }
+  /** Adiciona UM presente-modelo (card da grade) à lista, já preenchido. */
+  function adicionarModelo(p: { titulo: string; descricao: string; valor: string; foto?: string }) {
+    setLinhas((xs) => [
+      ...xs.filter((l) => l.titulo.trim() || l.valor.trim()),
+      {
+        id: proxId.current++,
+        titulo: p.titulo,
+        descricao: p.descricao,
+        valor: p.valor,
+        foto: p.foto ?? "",
+        modo: "FIXO" as const,
+        aberto: false,
+      },
+    ]);
+    setTimeout(() => listaRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
+  }
   function sugerirItens() {
     setLinhas(
       presentesSugeridos(tipo).map((p) => ({
         id: proxId.current++,
         titulo: p.titulo,
-        descricao: "",
+        descricao: p.descricao,
         valor: p.valor,
-        foto: "",
+        foto: p.foto ?? "",
         modo: "FIXO" as const,
         aberto: false,
       })),
     );
+  }
+  const [gerandoFoto, setGerandoFoto] = useState<number | null>(null);
+  /** Gera/escolhe uma foto pro presente a partir do TÍTULO (IA se configurada;
+      senão foto temática do catálogo — ver /api/gerar-foto). */
+  async function gerarFotoGift(id: number, titulo: string) {
+    if (!titulo.trim()) return;
+    setGerandoFoto(id);
+    try {
+      const r = await fetch("/api/gerar-foto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo }),
+      });
+      const data = (await r.json()) as { url?: string };
+      if (data.url) atualizar(id, { foto: data.url });
+    } catch {
+      /* segue sem a foto */
+    } finally {
+      setGerandoFoto(null);
+    }
   }
   async function subirFotoGift(id: number, file: File) {
     setSubindoFoto(id);
@@ -181,7 +220,7 @@ export function PresentesCliente({
         <div className="flex-1">
           <h1 className={TITULO}>Lista de presentes</h1>
           <p className={`mt-1 ${SUB}`}>
-            Convidados presenteiam por Pix — o dinheiro cai direto na sua conta.
+            Convidados presenteiam por Pix — o dinheiro cai na sua carteira e você resgata quando quiser.
           </p>
         </div>
         <a
@@ -282,87 +321,37 @@ export function PresentesCliente({
                 </button>
               </div>
 
-              {/* RECEBIMENTO (Pix) — expansível */}
-              <div className="rounded-[15px] border border-scv-line">
-                <button
-                  type="button"
-                  onClick={() => setPixAberto((v) => !v)}
-                  className="flex w-full items-center gap-3 p-3.5 text-left"
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-scv-lilac text-scv-violet">
-                    <i className="bi bi-cash-coin text-[16px]" aria-hidden />
+              {/* RECEBIMENTO — o dinheiro entra pela plataforma e cai na CARTEIRA */}
+              <div className="rounded-[15px] border border-scv-line p-3.5">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`grid size-9 shrink-0 place-items-center rounded-[11px] ${
+                      carteiraAtiva ? "bg-scv-teal/10 text-scv-teal" : "bg-scv-lilac text-scv-violet"
+                    }`}
+                  >
+                    <i className={`bi ${carteiraAtiva ? "bi-wallet2" : "bi-lock-fill"} text-[16px]`} aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold text-scv-ink">Onde o dinheiro cai</span>
+                    <span className="block text-[13px] font-semibold text-scv-ink">
+                      O dinheiro cai na sua carteira
+                    </span>
                     <span className="block truncate text-[12px] text-scv-muted">
-                      {pixChave ? `Pix: ${pixChave}` : "Adicione sua chave Pix"}
+                      {carteiraAtiva
+                        ? "Carteira ativa — resgate quando quiser."
+                        : "Ative a carteira para poder resgatar."}
                     </span>
                   </span>
-                  <i className={`bi bi-chevron-down text-scv-faint transition-transform ${pixAberto ? "rotate-180" : ""}`} aria-hidden />
-                </button>
-
-                {pixAberto && (
-                  <div className="flex flex-col gap-3 border-t border-scv-line p-3.5">
-                    <label className="block">
-                      <span className="mb-1 block text-[12px] font-semibold text-scv-ink">Nome de quem recebe</span>
-                      <input
-                        value={pixNome}
-                        onChange={(e) => setPixNome(e.target.value)}
-                        placeholder="Ex.: Maria Clara Souza"
-                        maxLength={140}
-                        className={`${INPUT} text-[13.5px]`}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[12px] font-semibold text-scv-ink">Chave Pix</span>
-                      <input
-                        value={pixChave}
-                        onChange={(e) => setPixChave(e.target.value)}
-                        placeholder="E-mail, telefone ou chave aleatória"
-                        maxLength={200}
-                        className={`${INPUT} text-[13.5px]`}
-                      />
-                    </label>
-
-                    {/* QR opcional */}
-                    <div className="flex items-center gap-3">
-                      {pixQrUrl ? (
-                        <div className="relative size-16 shrink-0 overflow-hidden rounded-[11px] bg-white ring-1 ring-scv-line">
-                          <Image src={pixQrUrl} alt="QR do Pix" fill unoptimized className="object-contain p-1" />
-                        </div>
-                      ) : (
-                        <EscolherFoto
-                          enviando={enviando}
-                          onFile={(files) => enviarUma(files[0], setPixQrUrl)}
-                          className="grid size-16 shrink-0 place-items-center rounded-[11px] border border-dashed border-scv-dash text-scv-faint transition hover:border-violeta hover:text-scv-violet"
-                        >
-                          <i className="bi bi-qr-code text-[19px]" aria-hidden />
-                        </EscolherFoto>
-                      )}
-                      <div className="min-w-0 text-[11.5px] leading-relaxed text-scv-muted">
-                        {pixQrUrl ? (
-                          <>
-                            QR Code adicionado.{" "}
-                            <button
-                              type="button"
-                              onClick={() => setPixQrUrl("")}
-                              className="font-semibold text-scv-faint transition hover:text-red-600"
-                            >
-                              Remover
-                            </button>
-                          </>
-                        ) : (
-                          "QR Code (opcional): o convidado aponta a câmera e nem digita a chave."
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="flex items-center gap-1.5 text-[11px] text-scv-faint">
-                      <i className="bi bi-shield-check" aria-hidden />
-                      Taxa de 5% por presente recebido. A chave fica só aqui, nunca no site.
-                    </p>
-                  </div>
-                )}
+                </div>
+                <a
+                  href={`/painel/${eventId}/cofre`}
+                  className="mt-3 block w-full rounded-[11px] border border-scv-line bg-scv-card px-4 py-2.5 text-center text-[13px] font-semibold !text-scv-ink transition-colors hover:border-scv-dash hover:bg-scv-field"
+                >
+                  {carteiraAtiva ? "Ver recebimentos" : "Ativar carteira"}
+                </a>
+                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-scv-faint">
+                  <i className="bi bi-shield-check" aria-hidden />
+                  Taxa de 5% por presente recebido. Sua chave Pix nunca aparece no site.
+                </p>
               </div>
 
               {/* MODELO da lista */}
@@ -419,6 +408,40 @@ export function PresentesCliente({
             >
               <i className="bi bi-stars" aria-hidden /> Sugerir lista
             </button>
+          </div>
+
+          {/* MODELOS de presente (estilo Wedy): cards com foto + valor; um
+              toque adiciona à lista já preenchido. Arte própria (sem stock). */}
+          <div className="mb-4">
+            <div className="mb-2 text-[12.5px] font-semibold text-scv-muted">
+              Modelos prontos — toque para adicionar
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+              {presentesSugeridos(tipo).map((p) => (
+                <button
+                  key={p.titulo}
+                  type="button"
+                  onClick={() => adicionarModelo(p)}
+                  className="group overflow-hidden rounded-[14px] border border-scv-line bg-scv-card text-left transition hover:border-violeta/50 hover:shadow-[0_14px_30px_-18px_rgba(109,40,217,0.35)]"
+                >
+                  <div className="relative aspect-[4/3] w-full overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.foto ?? "/presentes-demo/festa.jpg"}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                    />
+                    <span className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-white/90 text-scv-violet opacity-0 shadow transition-opacity group-hover:opacity-100">
+                      <i className="bi bi-plus-lg text-[13px]" aria-hidden />
+                    </span>
+                  </div>
+                  <div className="p-2.5">
+                    <div className="truncate text-[12.5px] font-semibold text-scv-ink">{p.titulo}</div>
+                    <div className="mt-0.5 text-[11.5px] font-semibold text-scv-violet">R$ {p.valor}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div ref={listaRef} className="flex flex-col gap-2.5">
@@ -510,6 +533,16 @@ export function PresentesCliente({
                         <i className="bi bi-image" aria-hidden />
                         {subindoFoto === l.id ? "Enviando…" : l.foto ? "Trocar foto" : "Adicionar foto"}
                       </EscolherFoto>
+                      <button
+                        type="button"
+                        onClick={() => gerarFotoGift(l.id, l.titulo)}
+                        disabled={gerandoFoto === l.id || !l.titulo.trim()}
+                        title="Cria uma imagem para este presente a partir do nome"
+                        className="inline-flex items-center gap-1.5 rounded-[10px] border border-scv-line bg-scv-soft px-3 py-1.5 text-[12px] font-semibold text-scv-violet transition hover:border-violeta disabled:opacity-50"
+                      >
+                        <i className="bi bi-stars" aria-hidden />
+                        {gerandoFoto === l.id ? "Gerando…" : "Gerar imagem"}
+                      </button>
                       {l.foto && (
                         <button
                           type="button"
