@@ -7,7 +7,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { carregarEventoDono, voltarDe } from "../_carregar";
 import { salvarChavePix, resgatar } from "@/lib/cofre";
+import { lerCarteira, mascararCpf } from "@/lib/carteira";
 import { saldoDoEvento } from "@/lib/pagamentos/contribuicao";
+import { AtivarCarteira } from "./AtivarCarteira";
 import { BTN_PRIMARIO, BTN_VOLTAR, CARD, INPUT, LABEL, SUB, TITULO } from "../../_ui/estilos";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,7 @@ export default async function CofrePage({
     payouts.map((p) => ({ amountCents: p.amountCents, status: p.status })),
   );
   const temChave = !!event.payoutPixKey;
+  const carteira = lerCarteira(event.customization);
 
   return (
     <div className="mx-auto w-full max-w-[1120px] scv-fade px-4 py-9 pb-24 sm:px-7">
@@ -106,69 +109,88 @@ export default async function CofrePage({
                 </div>
               </div>
 
-              {/* chave Pix */}
-              <div className="rounded-[15px] border border-scv-line p-3.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-scv-lilac text-scv-violet">
-                    <i className="bi bi-bank text-[16px]" aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold text-scv-ink">Onde você recebe</div>
-                    <div className="truncate text-[12px] text-scv-muted">
-                      {temChave ? event.payoutPixKey : "Cadastre sua chave Pix"}
+              {carteira.ativa ? (
+                <>
+                  {/* carteira ATIVA — titular + chave Pix editável */}
+                  <div className="rounded-[15px] border border-scv-line p-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-scv-teal/10 text-scv-teal">
+                        <i className="bi bi-wallet2 text-[16px]" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-semibold text-scv-ink">Carteira ativa</span>
+                          <i className="bi bi-patch-check-fill text-[13px] text-scv-teal" aria-hidden />
+                        </div>
+                        <div className="truncate text-[12px] text-scv-muted">
+                          {carteira.titular}
+                          {carteira.cpf ? ` · CPF ${mascararCpf(carteira.cpf)}` : ""}
+                        </div>
+                      </div>
                     </div>
+                    <form action={salvarChavePix} className="mt-3 flex flex-col gap-3">
+                      <input type="hidden" name="eventId" value={event.id} />
+                      <div>
+                        <label className={LABEL} htmlFor="pixKey">Chave Pix do resgate</label>
+                        <input
+                          id="pixKey"
+                          name="pixKey"
+                          defaultValue={event.payoutPixKey ?? ""}
+                          placeholder="CPF, e-mail, telefone ou chave aleatória"
+                          required
+                          maxLength={140}
+                          className={`${INPUT} text-[13.5px]`}
+                        />
+                      </div>
+                      <div>
+                        <label className={LABEL} htmlFor="pixName">Nome do recebedor (opcional)</label>
+                        <input
+                          id="pixName"
+                          name="pixName"
+                          defaultValue={event.payoutPixName ?? ""}
+                          placeholder="Como aparece na sua conta"
+                          maxLength={120}
+                          className={`${INPUT} text-[13.5px]`}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="self-start rounded-[11px] border border-scv-line bg-scv-card px-4 py-2 text-[13px] font-semibold text-scv-ink transition-colors hover:border-scv-dash hover:bg-scv-field"
+                      >
+                        Salvar chave
+                      </button>
+                    </form>
+                    <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-scv-faint">
+                      <i className="bi bi-shield-check" aria-hidden />
+                      A chave fica só aqui, nunca aparece no site do convite.
+                    </p>
                   </div>
-                </div>
-                <form action={salvarChavePix} className="mt-3 flex flex-col gap-3">
-                  <input type="hidden" name="eventId" value={event.id} />
-                  <div>
-                    <label className={LABEL} htmlFor="pixKey">Chave Pix</label>
-                    <input
-                      id="pixKey"
-                      name="pixKey"
-                      defaultValue={event.payoutPixKey ?? ""}
-                      placeholder="CPF, e-mail, telefone ou chave aleatória"
-                      required
-                      maxLength={140}
-                      className={`${INPUT} text-[13.5px]`}
-                    />
-                  </div>
-                  <div>
-                    <label className={LABEL} htmlFor="pixName">Nome do recebedor (opcional)</label>
-                    <input
-                      id="pixName"
-                      name="pixName"
-                      defaultValue={event.payoutPixName ?? ""}
-                      placeholder="Como aparece na sua conta"
-                      maxLength={120}
-                      className={`${INPUT} text-[13.5px]`}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="self-start rounded-[11px] border border-scv-line bg-scv-card px-4 py-2 text-[13px] font-semibold text-scv-ink transition-colors hover:border-scv-dash hover:bg-scv-field"
-                  >
-                    Salvar chave
-                  </button>
-                </form>
-                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-scv-faint">
-                  <i className="bi bi-shield-check" aria-hidden />
-                  A chave fica só aqui, nunca aparece no site do convite.
-                </p>
-              </div>
 
-              {/* resgate */}
-              <form action={resgatar}>
-                <input type="hidden" name="eventId" value={event.id} />
-                <button type="submit" disabled={saldo <= 0 || !temChave} className={`${BTN_PRIMARIO} w-full`}>
-                  {saldo > 0 ? `Resgatar ${fmt(saldo)}` : "Nada para resgatar"}
-                </button>
-                <p className="mt-2 text-center text-[11.5px] text-scv-faint">
-                  {temChave
-                    ? "O valor cai na sua chave Pix (transferência simulada por enquanto)."
-                    : "Cadastre uma chave Pix acima para poder resgatar."}
-                </p>
-              </form>
+                  {/* resgate */}
+                  <form action={resgatar}>
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <button type="submit" disabled={saldo <= 0 || !temChave} className={`${BTN_PRIMARIO} w-full`}>
+                      {saldo > 0 ? `Resgatar ${fmt(saldo)}` : "Nada para resgatar"}
+                    </button>
+                    <p className="mt-2 text-center text-[11.5px] text-scv-faint">
+                      O valor cai na sua chave Pix (transferência simulada por enquanto).
+                    </p>
+                  </form>
+                </>
+              ) : (
+                <>
+                  {/* carteira INATIVA — fluxo de ativação (modelo Wedy) */}
+                  <AtivarCarteira eventId={event.id} />
+                  <div>
+                    <button type="button" disabled className={`${BTN_PRIMARIO} w-full opacity-50`}>
+                      {saldo > 0 ? `Resgatar ${fmt(saldo)}` : "Nada para resgatar"}
+                    </button>
+                    <p className="mt-2 text-center text-[11.5px] text-scv-faint">
+                      Ative a carteira para liberar o resgate.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </aside>
