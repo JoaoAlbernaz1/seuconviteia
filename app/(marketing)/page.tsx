@@ -5,6 +5,7 @@ import { appUrl } from "@/lib/tenant";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { RevealOnScroll } from "@/components/marketing/RevealOnScroll";
 import { Contador } from "@/components/marketing/Contador";
+import { FitaParceiros } from "@/components/marketing/FitaParceiros";
 
 export const metadata: Metadata = {
   title: "seuconvite — seu evento merece um convite à altura",
@@ -270,6 +271,8 @@ export default function MarketingHome() {
             </div>
           </div>
         </div>
+
+        <FitaParceiros />
 
         {/* ───────────── COMO FUNCIONA ───────────── */}
         <section id="como" className="sec">
