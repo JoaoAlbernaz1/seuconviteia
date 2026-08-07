@@ -1,0 +1,10 @@
+Fotos dos depoimentos — StockSnap.io via Openverse, todas em licença CC0.
+
+cliente-1.png  "Business Woman"  — CC0 (StockSnap)
+cliente-2.png  "Business Man"    — CC0 (StockSnap)
+cliente-3.png  "Smiling Woman"   — CC0 (StockSnap)
+
+Obtidas em api.openverse.org com filtro license=cc0&source=stocksnap.
+ATENÇÃO: a licença cobre o uso da IMAGEM; não é autorização das pessoas
+retratadas para associá-las a um depoimento. Ao ter depoimentos reais,
+substituir estes arquivos (mesmos nomes) e os textos em app/(marketing)/page.tsx.

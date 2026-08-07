@@ -1,22 +1,18 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 type NavLink = { href: string; label: string };
 
-/** Marca seuconvite.ia — wordmark minúsculo com ".ia" em roxo. */
-function Brand({ onClick }: { onClick?: () => void }) {
-  return (
-    <a className="brand" href="#topo" aria-label="seuconvite.ia — início" onClick={onClick}>
-      seuconvite<span className="ia">.ia</span>
-    </a>
-  );
-}
-
 /**
- * Nav da landing (tema dark tech): pílula de vidro flutuante fixa no topo.
- * Mobile: hambúrguer que faz morph para "X" + overlay de tela cheia. Trava o
- * scroll enquanto aberto e fecha no Esc / ao navegar.
+ * Header da landing (port do design do João no Claude Design): barra sticky
+ * translúcida com o monograma + wordmark, links no centro e "Entrar" +
+ * botão gradiente. Mobile: hambúrguer que vira "X" + overlay de tela cheia.
+ *
+ * Animação: a barra escurece/ganha borda lilás quando sai do topo — detectado
+ * por IntersectionObserver num sentinela (sem listener de scroll, que causa
+ * reflow contínuo).
  */
 export function MarketingNav({
   links,
@@ -28,6 +24,15 @@ export function MarketingNav({
   cadastroHref: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const sentinela = document.getElementById("mkt-topo-sentinela");
+    if (!sentinela || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setScrolled(!e.isIntersecting), { threshold: 0 });
+    io.observe(sentinela);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -43,9 +48,14 @@ export function MarketingNav({
 
   return (
     <>
-      <div className="nav-wrap">
-        <nav className="nav reveal d1" aria-label="Principal">
-          <Brand onClick={() => setOpen(false)} />
+      <span id="mkt-topo-sentinela" aria-hidden style={{ position: "absolute", top: 0, height: 1, width: 1 }} />
+
+      <div className="nav-wrap" data-scrolled={scrolled ? "true" : "false"}>
+        <nav className="nav" aria-label="Principal">
+          <a className="brand" href="#topo" onClick={() => setOpen(false)}>
+            <Image src="/brand/monograma.png" alt="seuconvite" width={793} height={615} priority />
+            <span>seu<b>convite</b></span>
+          </a>
 
           <div className="nav-links">
             {links.map((l) => (
@@ -55,7 +65,7 @@ export function MarketingNav({
 
           <div className="nav-right">
             <a href={entrarHref} className="nav-enter">Entrar</a>
-            <a href={cadastroHref} className="btn nav-cta">Criar meu convite</a>
+            <a href="#precos" className="btn grad nav-cta">Ver planos</a>
             <button
               type="button"
               className="burger"
@@ -73,10 +83,10 @@ export function MarketingNav({
         {links.map((l) => (
           <a key={l.href} href={l.href} className="ml" onClick={() => setOpen(false)}>{l.label}</a>
         ))}
-        <a href={cadastroHref} className="btn primary block ma" onClick={() => setOpen(false)}>
-          Criar meu convite
+        <a href={cadastroHref} className="btn grad ma" onClick={() => setOpen(false)}>Ver planos</a>
+        <a href={entrarHref} className="ml" style={{ fontSize: 16, marginTop: 10 }} onClick={() => setOpen(false)}>
+          Entrar
         </a>
-        <a href={entrarHref} className="ml" style={{ fontSize: 16, marginTop: 8 }} onClick={() => setOpen(false)}>Entrar</a>
       </div>
     </>
   );

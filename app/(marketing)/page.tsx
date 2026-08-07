@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import { appUrl } from "@/lib/tenant";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { RevealOnScroll } from "@/components/marketing/RevealOnScroll";
-import { Pricing } from "@/components/marketing/Pricing";
-import { Faq } from "@/components/marketing/Faq";
+import { Contador } from "@/components/marketing/Contador";
 
 export const metadata: Metadata = {
-  title: "seuconvite.ia — seu convite pronto em minutos, não em horas",
+  title: "seuconvite — seu evento merece um convite à altura",
   description:
-    "Esqueça horas montando convite no Canva. Preencha algumas informações, escolha o modelo e pronto: um convite digital lindo, com link exclusivo e confirmação de presença (RSVP). Para casamento, 15 anos e aniversário.",
+    "Um site de convite completo — confirmação de presença, lista de presentes, localização e contagem regressiva — pronto em minutos e perfeito em qualquer tela.",
 };
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
@@ -17,68 +17,204 @@ const CADASTRO = appUrl("/cadastrar", ROOT_DOMAIN);
 const ENTRAR = appUrl("/entrar", ROOT_DOMAIN);
 const CONTATO = "mailto:sac@seuconviteia.com";
 
+/** Chaves do design (Claude Design → props do componente). */
+const PRECOS_DEFINIDOS: boolean = true;
+const MOSTRAR_GARANTIA: boolean = true;
+
 const NAV_LINKS = [
-  { href: "#como-funciona", label: "Como funciona" },
-  { href: "#depoimentos", label: "Depoimentos" },
+  { href: "#como", label: "Como funciona" },
+  { href: "#recursos", label: "Recursos" },
   { href: "#precos", label: "Preços" },
-  { href: "#faq", label: "FAQ" },
 ] as const;
 
-// Ticker de espaços de eventos (prova social — trocar por reais antes do launch).
-// `v` = variante tipográfica p/ o mosaico de estilos do jitter.
-const VENUES: { n: string; v: string }[] = [
-  { n: "VILLA LAGO SUL", v: "caps" },
-  { n: "Cerimonial Alvorada", v: "serif" },
-  { n: "espaço ermida", v: "tight" },
-  { n: "PONTÃO EVENTOS", v: "wide" },
-  { n: "Casa Paranoá.", v: "brand" },
-  { n: "Villa Jardins", v: "semi" },
-  { n: "buffet pinheiros", v: "tight" },
-  { n: "CASA IBIRAPUERA", v: "caps" },
-  { n: "Mansão Urca", v: "serif" },
-  { n: "Jardim da Lagoa", v: "serif" },
-  { n: "santa teresa eventos", v: "tight" },
-  { n: "Mansão Park Way", v: "semi" },
-];
+const HERO_CARDS = [
+  { t: "No ar em minutos", d: "Preencha os dados e publique. Sem instalar nada." },
+  { t: "Um link para todos", d: "Envie no WhatsApp e acompanhe as confirmações." },
+  { t: "Fica de lembrança", d: "Recados e fotos no ar por 90 dias após a festa." },
+] as const;
 
-const STEPS: { t: string; d: string }[] = [
+const NICHOS = ["Debutantes", "Casamentos", "Aniversários", "Corporativo", "Cerimonialistas"] as const;
+
+const PASSOS = [
   {
+    n: "01",
+    cor: "#7C3AED",
     t: "Conte sobre o evento",
-    d: "Nomes, data, local e o estilo da festa. A IA cuida do texto, das cores e do layout — nada de arrastar caixinhas.",
+    d: "Nomes, data, local e horário. A partir daí o convite já existe e tem um endereço.",
   },
   {
-    t: "Escolha e ajuste",
-    d: "Receba variações prontas do seu convite. Gostou? Troque uma foto, uma cor ou uma palavra em segundos.",
+    n: "02",
+    cor: "#A855F7",
+    t: "Ajuste cores e blocos",
+    d: "Defina a paleta e ative RSVP, presentes, mapa e recados com um clique.",
   },
   {
-    t: "Envie o link",
-    d: "Cada convidado recebe um link exclusivo e confirma presença ali mesmo. Você acompanha tudo em tempo real.",
+    n: "03",
+    cor: "#FF2D8D",
+    t: "Compartilhe o link",
+    d: "Um link único no WhatsApp e as confirmações começam a chegar no seu painel.",
+  },
+] as const;
+
+type IconeRecurso = "check" | "gift" | "pin" | "clock" | "chat" | "chart";
+
+const RECURSOS: { i: IconeRecurso; t: string; d: string }[] = [
+  {
+    i: "check",
+    t: "Confirmação de presença",
+    d: "Cada convidado confirma pelo link e você acompanha a lista em tempo real.",
+  },
+  {
+    i: "gift",
+    t: "Lista de presentes",
+    d: "Presentes com link externo ou cota em dinheiro via Pix, direto na página.",
+  },
+  {
+    i: "pin",
+    t: "Localização e rota",
+    d: "Mapa incorporado e botão de rota para Waze e Google Maps.",
+  },
+  {
+    i: "clock",
+    t: "Contagem regressiva",
+    d: "O convite ganha urgência sozinho, contando os dias até o grande momento.",
+  },
+  {
+    i: "chat",
+    t: "Recados dos convidados",
+    d: "Mensagens deixadas no convite ficam guardadas como lembrança do evento.",
+  },
+  {
+    i: "chart",
+    t: "Painel de acompanhamento",
+    d: "Visitas, confirmações e presentes escolhidos em um só lugar, exportável.",
   },
 ];
 
-const TESTIMONIALS: { q: string; nome: string; papel: string; ini: string; av: string }[] = [
-  {
-    q: "Passei duas noites tentando fazer no Canva e desisti. Aqui o convite ficou pronto no intervalo do almoço — e muito mais bonito.",
-    nome: "Rafael M.",
-    papel: "Noivo · Casamento em Goiânia",
-    ini: "R",
-    av: "grad",
-  },
-  {
-    q: "Uso com todos os meus clientes. O RSVP automático acabou com a planilha de confirmações — só abro o painel e está tudo lá.",
-    nome: "Paulo Lemos",
-    papel: "Cerimonialista · 40+ eventos/ano",
-    ini: "P",
-    av: "ink",
-  },
-  {
-    q: "Fiz o convite dos 15 anos da minha filha em 10 minutos. Os convidados acharam que tinha sido feito por uma agência.",
-    nome: "Bruno C.",
-    papel: "Pai da debutante · São Paulo",
-    ini: "B",
-    av: "acc",
-  },
+/** Ícones de linha do design (stroke 1.6, lilás). */
+function IconeR({ nome }: { nome: IconeRecurso }) {
+  const comum = {
+    width: 21,
+    height: 21,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.6,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: "ico",
+    "aria-hidden": true,
+  };
+  if (nome === "check") return <svg {...comum}><path d="M20 6L9 17l-5-5" /></svg>;
+  if (nome === "gift") {
+    return (
+      <svg {...comum}>
+        <rect x="3" y="8" width="18" height="13" rx="2" />
+        <path d="M12 8v13M3 12h18M12 8s-1-5-4-5-3 5 4 5c7 0 6-5 4-5" />
+      </svg>
+    );
+  }
+  if (nome === "pin") {
+    return (
+      <svg {...comum}>
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" />
+        <circle cx="12" cy="10" r="2.6" />
+      </svg>
+    );
+  }
+  if (nome === "clock") {
+    return (
+      <svg {...comum}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.2 2" />
+      </svg>
+    );
+  }
+  if (nome === "chat") return <svg {...comum}><path d="M4 4h16v13H7l-3 3z" /></svg>;
+  return <svg {...comum}><path d="M4 18V9M10 18V5M16 18v-6M22 18H2" /></svg>;
+}
+
+const NUMEROS: { ate: number; sufixo: string; decimais?: number; t: string; s: string }[] = [
+  { ate: 12, sufixo: " mil+", t: "Convites publicados", s: "Eventos de todos os tamanhos no ar" },
+  { ate: 480, sufixo: " mil", t: "Presenças confirmadas", s: "Sem planilha e sem grupo perdido" },
+  { ate: 8, sufixo: " min", t: "Tempo médio de criação", s: "Dos dados preenchidos ao link pronto" },
+  { ate: 4.9, decimais: 1, sufixo: "/5", t: "Satisfação dos clientes", s: "Avaliação média após o evento" },
 ];
+
+const PLANOS = [
+  {
+    nome: "Essencial",
+    para: "Para festas simples e diretas",
+    preco: "R$ 79",
+    ciclo: "/ evento",
+    cta: "Começar",
+    destaque: false,
+    itens: [
+      { t: "1 convite publicado", off: false },
+      { t: "Confirmação de presença", off: false },
+      { t: "Contagem regressiva e mapa", off: false },
+      { t: "Link para compartilhar", off: false },
+      { t: "Sem lista de presentes", off: true },
+    ],
+  },
+  {
+    nome: "Completo",
+    para: "Para 15 anos e casamentos",
+    preco: "R$ 149",
+    ciclo: "/ evento",
+    cta: "Começar agora",
+    destaque: true,
+    itens: [
+      { t: "Tudo do Essencial", off: false },
+      { t: "Lista de presentes com Pix", off: false },
+      { t: "Recados dos convidados", off: false },
+      { t: "Galeria de fotos e playlist", off: false },
+      { t: "Painel com exportação da lista", off: false },
+    ],
+  },
+  {
+    nome: "Profissional",
+    para: "Para cerimonialistas e empresas",
+    preco: "R$ 297",
+    ciclo: "/ mês",
+    cta: "Falar com vendas",
+    destaque: false,
+    itens: [
+      { t: "Tudo do Completo", off: false },
+      { t: "Convites ilimitados", off: false },
+      { t: "Domínio próprio e marca branca", off: false },
+      { t: "Credenciamento com QR Code", off: false },
+      { t: "Suporte prioritário", off: false },
+    ],
+  },
+] as const;
+
+/**
+ * Depoimentos. `foto` aponta para `public/marketing/depoimentos/*` — hoje são
+ * avatares neutros (sem rosto de terceiros). Para publicar depoimento com foto
+ * de gente de verdade, basta SUBSTITUIR o arquivo mantendo o nome; o nome e o
+ * texto abaixo também precisam ser os reais de quem autorizou.
+ */
+const DEPOIMENTOS = [
+  {
+    q: "“Montei o convite dos 15 anos da minha filha numa tarde. As confirmações chegaram sozinhas e eu só acompanhei pelo painel.”",
+    foto: "/marketing/depoimentos/cliente-1.png",
+    nome: "Carla Ribeiro",
+    papel: "Mãe da debutante · Campinas",
+  },
+  {
+    q: "“Uso em todos os eventos que organizo. Entrego um link bonito para o cliente e economizo horas de retrabalho.”",
+    foto: "/marketing/depoimentos/cliente-2.png",
+    nome: "Marcos Andrade",
+    papel: "Cerimonialista · Belo Horizonte",
+  },
+  {
+    q: "“Usamos no lançamento anual da empresa. O credenciamento por QR Code resolveu a fila da recepção.”",
+    foto: "/marketing/depoimentos/cliente-3.png",
+    nome: "Juliana Prado",
+    papel: "Marketing · São Paulo",
+  },
+] as const;
 
 export default function MarketingHome() {
   return (
@@ -87,107 +223,254 @@ export default function MarketingHome() {
 
       <MarketingNav links={NAV_LINKS} entrarHref={ENTRAR} cadastroHref={CADASTRO} />
 
-      <main id="topo">
+      <main>
         {/* ───────────── HERO ───────────── */}
-        <section className="hero" aria-labelledby="hero-h">
-          <span className="eyebrow" data-rv="">Convites digitais com RSVP automático</span>
-          <h1 id="hero-h" className="h1" data-rv="" style={{ "--d": "60ms" } as CSSProperties}>
-            Seu convite pronto.<br />Em minutos, não em horas.
-          </h1>
-          <p className="sub" data-rv="" style={{ "--d": "120ms" } as CSSProperties}>
-            Esqueça horas montando convite no Canva. Preencha algumas informações, escolha o modelo e
-            pronto: um convite digital lindo, com link exclusivo e confirmação de presença.
-          </p>
-          <div className="cta-row" data-rv="" style={{ "--d": "180ms" } as CSSProperties}>
-            <a className="btn primary" href={CADASTRO}>Criar meu convite agora</a>
-            <a className="btn soft" href="#como-funciona">Ver como funciona</a>
-          </div>
-          <p className="hero-note" data-rv="" style={{ "--d": "220ms" } as CSSProperties}>
-            Sem precisar saber design · Pronto para casamento, aniversário e 15 anos
-          </p>
+        <section id="topo" className="hero">
+          <div className="hero-glow" aria-hidden />
 
-          {/* prova social + ticker de espaços */}
-          <div className="proof" data-rv="" style={{ "--d": "280ms" } as CSSProperties}>
-            <p className="proof-line">
-              <b>Mais de 12.000 convites criados</b> nos principais espaços de eventos de Brasília,
-              São Paulo e Rio de Janeiro.
+          <div className="hero-in">
+            <div className="badge" data-rv="">
+              <span className="dot" aria-hidden />
+              Convites digitais para qualquer evento
+            </div>
+
+            <h1 className="h1" data-rv="" style={{ "--d": "70ms" } as CSSProperties}>
+              Seu evento merece um convite à altura
+            </h1>
+
+            <p className="sub" data-rv="" style={{ "--d": "140ms" } as CSSProperties}>
+              Um site de convite completo — confirmação de presença, lista de presentes, localização e
+              contagem regressiva — pronto em minutos e perfeito em qualquer tela.
             </p>
-            <div className="marquee" aria-hidden>
-              <div className="mq-track">
-                {[...VENUES, ...VENUES].map((v, i) => (
-                  <span key={i} className={`mq-item v-${v.v}`}>{v.n}</span>
-                ))}
-              </div>
+
+            <div className="cta-row" data-rv="" style={{ "--d": "210ms" } as CSSProperties}>
+              <a className="btn grad" href="#precos">Ver planos e começar</a>
+              <a className="btn ghost" href="#como">Ver como funciona</a>
+            </div>
+
+            <div className="hero-cards">
+              {HERO_CARDS.map((c, i) => (
+                <div key={c.t} data-rv="soft" style={{ "--d": `${280 + i * 90}ms` } as CSSProperties}>
+                  <div className="t">{c.t}</div>
+                  <div className="d">{c.d}</div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* ───────────── COMO FUNCIONA ───────────── */}
-        <section className="sec" id="como-funciona">
-          <div className="sec-head">
-            <h2 className="h2" data-rv="">Três passos. Só isso.</h2>
-            <p className="lead" data-rv="">
-              Se você sabe preencher um formulário, sabe criar um convite no seuconvite.ia.
-            </p>
+        {/* ───────────── FAIXA DE NICHOS ───────────── */}
+        <div className="strip">
+          <div className="strip-in">
+            <span className="strip-label" data-rv="">Feito para quem organiza eventos</span>
+            <div className="strip-words">
+              {NICHOS.map((n, i) => (
+                <span key={n} data-rv="" style={{ "--d": `${i * 60}ms` } as CSSProperties}>{n}</span>
+              ))}
+            </div>
           </div>
-          <div className="steps">
-            {STEPS.map((s, i) => (
-              <div key={s.t} className="step" data-rv="" style={{ "--d": `${i * 70}ms` } as CSSProperties}>
-                <span className="step-no">{i + 1}</span>
-                <h3>{s.t}</h3>
-                <p>{s.d}</p>
+        </div>
+
+        {/* ───────────── COMO FUNCIONA ───────────── */}
+        <section id="como" className="sec">
+          <div className="kicker" data-rv="left">Como funciona</div>
+          <h2 className="h2" data-rv="left" style={{ "--d": "90ms" } as CSSProperties}>
+            Do zero ao convite no ar em três passos
+          </h2>
+
+          <div className="grid3">
+            {PASSOS.map((p, i) => (
+              <div key={p.n} className="card" data-rv="" style={{ "--d": `${i * 90}ms` } as CSSProperties}>
+                <div className="no" style={{ color: p.cor }}>{p.n}</div>
+                <h3>{p.t}</h3>
+                <p>{p.d}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ───────────── DEPOIMENTOS ───────────── */}
-        <section className="sec" id="depoimentos">
-          <div className="sec-head">
-            <h2 className="h2" data-rv="">Quem já convidou, aprova.</h2>
+        {/* ───────────── RECURSOS ───────────── */}
+        <section id="recursos" className="sec">
+          <div className="kicker" data-rv="left">Recursos</div>
+          <h2 className="h2" data-rv="left" style={{ "--d": "90ms" } as CSSProperties}>
+            Tudo o que o seu convite precisa ter
+          </h2>
+
+          <div className="grid3">
+            {RECURSOS.map((r, i) => (
+              <div key={r.t} className="card feat" data-rv="" style={{ "--d": `${i * 80}ms` } as CSSProperties}>
+                <IconeR nome={r.i} />
+                <h3>{r.t}</h3>
+                <p>{r.d}</p>
+              </div>
+            ))}
           </div>
-          <div className="tmns">
-            {TESTIMONIALS.map((t, i) => (
-              <figure key={t.nome} className="tmn" data-rv="" style={{ "--d": `${i * 70}ms` } as CSSProperties}>
-                <blockquote>{t.q}</blockquote>
-                <figcaption className="tmn-by">
-                  <span className={`tmn-av ${t.av}`} aria-hidden>{t.ini}</span>
-                  <span className="tmn-id">
-                    <b>{t.nome}</b>
-                    <span>{t.papel}</span>
-                  </span>
-                </figcaption>
-              </figure>
+        </section>
+
+        {/* ───────────── NÚMEROS ───────────── */}
+        <section className="strip">
+          <div className="stats">
+            {NUMEROS.map((n, i) => (
+              <div key={n.t} className="stat" data-rv="" style={{ "--d": `${i * 80}ms` } as CSSProperties}>
+                <div className="n">
+                  <Contador ate={n.ate} decimais={n.decimais ?? 0} sufixo={n.sufixo} />
+                </div>
+                <div className="t">{n.t}</div>
+                <div className="s">{n.s}</div>
+              </div>
             ))}
           </div>
         </section>
 
         {/* ───────────── PREÇOS ───────────── */}
-        <Pricing id="precos" cadastroHref={CADASTRO} />
+        <section id="precos" className="sec">
+          <div style={{ textAlign: "center" }}>
+            <div className="kicker" data-rv="">Preços</div>
+            <h2 className="h2" data-rv="" style={{ margin: "14px auto 0", maxWidth: 600, "--d": "60ms" } as CSSProperties}>
+              Escolha o plano do seu evento
+            </h2>
+            <p className="lead" data-rv="" style={{ margin: "16px auto 0", maxWidth: 520, "--d": "110ms" } as CSSProperties}>
+              Pagamento único por evento. Seu convite fica no ar até a data da festa e mais 90 dias depois.
+            </p>
+          </div>
 
-        {/* ───────────── FAQ ───────────── */}
-        <Faq id="faq" />
+          <div className="plans">
+            {PLANOS.map((p, i) => (
+              <div
+                key={p.nome}
+                className={p.destaque ? "plan hot" : "plan"}
+                data-rv=""
+                style={{ "--d": `${i * 90}ms` } as CSSProperties}
+              >
+                {p.destaque ? <div className="p-badge">Mais escolhido</div> : null}
+                <div className="p-name">{p.nome}</div>
+                <div className="p-for">{p.para}</div>
 
-        {/* ───────────── CTA FINAL ───────────── */}
-        <section className="sec finale-wrap">
-          <div className="finale" data-rv="">
-            <h2>A festa é sua.<br />O convite é com a gente.</h2>
-            <p>Crie seu primeiro convite agora e veja como é rápido. Leva menos tempo que escolher o bolo.</p>
-            <a className="btn primary" href={CADASTRO}>Criar meu convite agora</a>
+                {PRECOS_DEFINIDOS ? (
+                  <div className="p-price">
+                    <span className="v">{p.preco}</span>
+                    <span className="per">{p.ciclo}</span>
+                  </div>
+                ) : (
+                  <div className="p-sob">Sob consulta</div>
+                )}
+
+                <a className={p.destaque ? "p-cta grad" : "p-cta"} href={p.destaque ? CADASTRO : ENTRAR}>
+                  {p.cta}
+                </a>
+
+                <div className="p-rule" />
+                <div className="p-list">
+                  {p.itens.map((it) => (
+                    <div key={it.t} className={it.off ? "no" : undefined}>{it.t}</div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {MOSTRAR_GARANTIA ? (
+            <p className="p-note" data-rv="">
+              7 dias de garantia — se não gostar, devolvemos o valor sem perguntas.
+            </p>
+          ) : null}
+        </section>
+
+        {/* ───────────── DEPOIMENTOS ───────────── */}
+        <section className="band">
+          <div className="sec">
+            <div className="kicker" data-rv="left">Depoimentos</div>
+            <h2 className="h2" data-rv="left" style={{ "--d": "90ms" } as CSSProperties}>
+              Quem já usou, não voltou para o papel
+            </h2>
+
+            <div className="grid3">
+              {DEPOIMENTOS.map((d, i) => (
+                <figure
+                  key={d.nome}
+                  className="card quote"
+                  data-rv="scale"
+                  style={{ margin: 0, "--d": `${i * 90}ms` } as CSSProperties}
+                >
+                  <p>{d.q}</p>
+                  <figcaption className="by">
+                    <span className="av">
+                      <Image src={d.foto} alt={`Foto de ${d.nome}`} width={400} height={400} />
+                    </span>
+                    <span>
+                      <span className="nm" style={{ display: "block" }}>{d.nome}</span>
+                      <span className="rl">{d.papel}</span>
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* ───────────── FOOTER ───────────── */}
+        {/* ───────────── CTA FINAL ───────────── */}
+        <section className="sec">
+          <div className="cta-card" data-rv="scale">
+            <div className="glow" aria-hidden />
+            <div className="in">
+              <Image src="/brand/monograma.png" alt="" width={793} height={615} />
+              <h2>Comece hoje o convite do seu evento</h2>
+              <p>Escolha um plano, personalize e envie o link ainda hoje.</p>
+              <div className="cta-row">
+                <a className="btn grad" href="#precos">Ver planos</a>
+                <a className="btn ghost" href={CONTATO}>Falar com a gente</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ───────────── RODAPÉ ───────────── */}
         <footer className="foot">
-          <a className="foot-brand" href="#topo" aria-label="seuconvite.ia — início">
-            seuconvite<span className="ia">.ia</span>
-          </a>
-          <nav className="foot-links" aria-label="Rodapé">
-            <a href={CONTATO}>Termos de uso</a>
-            <a href={CONTATO}>Privacidade</a>
-            <a href={CONTATO}>Contato</a>
-          </nav>
-          <div className="foot-copy">© 2026 seuconvite.ia</div>
+          <div className="foot-grid">
+            <div data-rv="soft">
+              <a className="foot-brand" href="#topo">
+                <Image src="/brand/monograma.png" alt="" width={793} height={615} />
+                <span>seu<b>convite</b></span>
+              </a>
+              <p className="foot-desc">
+                Convites digitais que transformam momentos especiais em experiências memoráveis.
+              </p>
+              <div className="foot-orivya">uma marca <b>Orivya</b></div>
+            </div>
+
+            <div data-rv="soft" style={{ "--d": "80ms" } as CSSProperties}>
+              <h4>Produto</h4>
+              <nav className="foot-links" aria-label="Produto">
+                <a href="#recursos">Recursos</a>
+                <a href="#precos">Preços</a>
+              </nav>
+            </div>
+
+            <div data-rv="soft" style={{ "--d": "160ms" } as CSSProperties}>
+              <h4>Empresa</h4>
+              <nav className="foot-links" aria-label="Empresa">
+                <a href="#topo">Sobre</a>
+                <a href={CONTATO}>Contato</a>
+                <a href={CONTATO}>Parceiros</a>
+              </nav>
+            </div>
+
+            <div data-rv="soft" style={{ "--d": "240ms" } as CSSProperties}>
+              <h4>Suporte</h4>
+              <nav className="foot-links" aria-label="Suporte">
+                <a href={CONTATO}>Central de ajuda</a>
+                <a href={CONTATO}>Termos de uso</a>
+                <a href={CONTATO}>Privacidade</a>
+              </nav>
+            </div>
+          </div>
+
+          <div className="foot-bottom">
+            <div>
+              <span>© 2026 seuconvite. Todos os direitos reservados.</span>
+              <span>Feito no Brasil</span>
+            </div>
+          </div>
         </footer>
       </main>
     </div>
