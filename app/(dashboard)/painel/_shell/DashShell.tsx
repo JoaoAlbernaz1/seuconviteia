@@ -13,10 +13,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { sair } from "../../actions";
 import { Ic, IC } from "./Ic";
+import { abasDoPainel, hrefDoConvite } from "@/lib/navPainel";
 
 type NavItem = { label: string; d: string; href: string; match: (p: string) => boolean };
 
-export type ConviteResumo = { id: string; title: string; noAr: boolean };
+export type ConviteResumo = {
+  id: string;
+  title: string;
+  noAr: boolean;
+  /** Confirmacao de presenca ATIVA neste convite (plano ∩ liga/desliga). */
+  rsvp: boolean;
+  /** Lista de presentes ATIVA neste convite. */
+  presentes: boolean;
+};
 
 function iniciais(nome: string): string {
   return (
@@ -56,6 +65,13 @@ export function DashShell({
   const ativo =
     convites.find((c) => c.id === (urlId ?? selId)) ?? convites[0] ?? null;
   const fid = ativo?.id ?? null;
+  // Abas de convite: somem pra quem ainda nao criou nenhum, e seguem o que
+  // esta ativo no convite selecionado (ver lib/navPainel).
+  const abas = abasDoPainel({
+    temConvite: !!ativo,
+    rsvp: !!ativo?.rsvp,
+    presentes: !!ativo?.presentes,
+  });
 
   /** Troca o convite ativo; numa tela de convite, vai à MESMA tela do outro. */
   function trocarConvite(id: string) {
@@ -81,31 +97,42 @@ export function DashShell({
           match: (p) =>
             p.startsWith("/painel/convites") ||
             p.startsWith("/painel/criar") ||
-            p.startsWith("/painel/novo") ||
             (!!fid &&
               p.startsWith(`/painel/${fid}`) &&
               !p.includes("/convidados") &&
               !p.includes("/presentes") &&
               !p.includes("/cofre")),
         },
-        {
-          label: "Convidados",
-          d: IC.users,
-          href: fid ? `/painel/${fid}/convidados` : "/painel/novo",
-          match: (p) => p.includes("/convidados"),
-        },
-        {
-          label: "Presentes",
-          d: IC.gift,
-          href: fid ? `/painel/${fid}/presentes` : "/painel/novo",
-          match: (p) => p.includes("/presentes"),
-        },
-        {
-          label: "Recebimentos",
-          d: IC.card,
-          href: fid ? `/painel/${fid}/cofre` : "/painel/novo",
-          match: (p) => p.includes("/cofre"),
-        },
+        ...(abas.convidados
+          ? [
+              {
+                label: "Convidados",
+                d: IC.users,
+                href: hrefDoConvite(fid, "convidados"),
+                match: (p: string) => p.includes("/convidados"),
+              },
+            ]
+          : []),
+        ...(abas.presentes
+          ? [
+              {
+                label: "Presentes",
+                d: IC.gift,
+                href: hrefDoConvite(fid, "presentes"),
+                match: (p: string) => p.includes("/presentes"),
+              },
+            ]
+          : []),
+        ...(abas.recebimentos
+          ? [
+              {
+                label: "Recebimentos",
+                d: IC.card,
+                href: hrefDoConvite(fid, "cofre"),
+                match: (p: string) => p.includes("/cofre"),
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -271,7 +298,7 @@ export function DashShell({
                       );
                     })}
                     <Link
-                      href="/painel/novo"
+                      href="/painel/criar"
                       onClick={() => setSelAberto(false)}
                       className="mt-0.5 flex items-center gap-2.5 rounded-lg border-t border-[#ececf0] px-3 py-2.5 text-[13px] font-medium !text-[#6e6e76] transition-colors hover:bg-[#f4f4f6]"
                     >
@@ -284,13 +311,8 @@ export function DashShell({
             </div>
           )}
 
-          <div className="hidden items-center gap-2.5 rounded-xl border border-[#ececf0] bg-[#f4f4f6] px-3.5 py-[9px] sm:flex sm:w-[300px] lg:w-[340px]">
-            <Ic d={IC.search} size={15} stroke="#A6A6AE" width={2} />
-            <input
-              placeholder="Buscar no seu convite..."
-              className="min-w-0 flex-1 border-none bg-transparent text-[13.5px] text-[#17171b]"
-            />
-          </div>
+          {/* A barra de busca saiu daqui (pedido do João, 14/08/2026): era um
+              campo decorativo, sem nenhuma busca por trás. */}
 
           <div className="flex-1" />
 
