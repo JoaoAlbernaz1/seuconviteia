@@ -36,6 +36,8 @@ export function PaginaRecados({
 }) {
   const nome = evento.primeiroNome;
   const lista = preview ? DEMO_RECADOS : recados ?? [];
+  // Copy da pagina: o que o cliente escreveu no editor, ou o default do nicho.
+  const copy = evento.secoes.recados;
 
   return (
     <main
@@ -44,11 +46,16 @@ export function PaginaRecados({
     >
       <div className="mx-auto max-w-[680px]">
         <Reveal>
-          <SectionHeading eyebrow="Mural de recados" title="Deixe seu carinho" />
+          <SectionHeading
+            eyebrow={copy.eyebrow}
+            title={copy.titulo}
+            liveEyebrow="recados-eyebrow"
+            liveTitle="recados-titulo"
+          />
         </Reveal>
         <Reveal delay={120}>
-          <p className="mx-auto mt-6 max-w-md text-center font-evt-body text-lg text-evt-ink-soft">
-            Escreva um recado de carinho para {nome}. Ela vai amar ler cada palavra.
+          <p data-live="recados-convite" className="mx-auto mt-6 max-w-md text-center font-evt-body text-lg text-evt-ink-soft">
+            {copy.convite.replaceAll("{nome}", nome)}
           </p>
         </Reveal>
 
@@ -62,8 +69,8 @@ export function PaginaRecados({
         {lista.length > 0 ? (
           <>
             <Reveal>
-              <p className="text-center font-evt-script text-[calc(clamp(2rem,6vw,2.8rem)*var(--ev-fonte-fator,1))] text-evt-ink">
-                Recados de quem ama
+              <p data-live="recados-mural" className="text-center font-evt-script text-[calc(clamp(2rem,6vw,2.8rem)*var(--ev-fonte-fator,1))] text-evt-ink">
+                {copy.muralTitulo}
               </p>
               <div className="mt-6 flex justify-center" aria-hidden>
                 <span className="hairline-rosa w-20" />

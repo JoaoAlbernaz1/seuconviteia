@@ -34,6 +34,11 @@ const rascunhoSchema = z
     time: z.string().max(5),
     mensagem: z.string().max(2200),
     aberturaTitulo: z.string().max(140),
+    /** Copy da pagina /recados (so o que o cliente mudou). */
+    recadosEyebrow: z.string().max(60),
+    recadosTitulo: z.string().max(80),
+    recadosConvite: z.string().max(220),
+    recadosMural: z.string().max(80),
     presentesTexto: z.string().max(600),
     listaModelo: z.enum(["painel", "vitrine"]),
     pixNome: z.string().max(140),
@@ -67,6 +72,8 @@ const rascunhoSchema = z
     idade: z.coerce.number().int().min(1).max(120),
     monograma: z.boolean(),
     animacoes: z.boolean(),
+    /** Letra em negrito no convite inteiro. */
+    negrito: z.boolean(),
     logoUrl: urlish,
     /** Multiplicador do tamanho do lockup da capa (0.9 / 1 / 1.15). */
     capaEscala: z.coerce.number().min(0.5).max(2),
@@ -180,6 +187,7 @@ export function rascunhoDoEvento(event: {
     idade: typeof c.idade === "number" ? c.idade : undefined,
     monograma: typeof c.monograma === "boolean" ? c.monograma : undefined,
     animacoes: typeof c.animacoes === "boolean" ? c.animacoes : undefined,
+    negrito: typeof c.negrito === "boolean" ? c.negrito : undefined,
     logoUrl: s("logoUrl"),
   };
 }
@@ -225,6 +233,19 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
       : undefined;
 
   const aberturaTitulo = texto(r.aberturaTitulo);
+  // `secoes` so leva o que o cliente escreveu — o resto cai no default do nicho.
+  const recados = semUndefined({
+    eyebrow: texto(r.recadosEyebrow),
+    titulo: texto(r.recadosTitulo),
+    convite: texto(r.recadosConvite),
+    muralTitulo: texto(r.recadosMural),
+  });
+  const secoesCru = semUndefined({
+    abertura: aberturaTitulo ? { titulo: aberturaTitulo } : undefined,
+    recados: Object.keys(recados).length ? recados : undefined,
+  });
+  const secoes = Object.keys(secoesCru).length ? secoesCru : undefined;
+
   const customization = semUndefined({
     tema: texto(r.tema),
     temaCor: texto(r.temaCor),
@@ -235,7 +256,7 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
         : undefined,
     template: texto(r.template),
     recursos,
-    secoes: aberturaTitulo ? { abertura: { titulo: aberturaTitulo } } : undefined,
+    secoes: secoes,
     mensagem: texto(r.mensagem),
     presentesTexto: texto(r.presentesTexto),
     pixNome: texto(r.pixNome),
@@ -252,6 +273,7 @@ export function eventoDoRascunho(r: RascunhoPreview): EventoParaConteudo {
     idade: r.idade,
     monograma: r.monograma,
     animacoes: r.animacoes,
+    negrito: r.negrito,
     logoUrl: texto(r.logoUrl),
     capaEscala: r.capaEscala,
     capaOverlay: r.capaOverlay,

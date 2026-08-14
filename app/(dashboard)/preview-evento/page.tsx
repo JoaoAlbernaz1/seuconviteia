@@ -16,7 +16,7 @@ import { lerEventoFesta } from "@/lib/eventoFesta";
 import { preencherFotosDemo } from "@/lib/demoFotos";
 import { ocasiaoDoNicho } from "@/lib/templates";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey, lerTemaCor } from "@/lib/temas";
-import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada } from "@/lib/fontes";
+import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoPermite, podeVitrine } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
@@ -77,6 +77,9 @@ export default async function PreviewEventoPage({
   const fonteKey = lerFonteKey(sintetico.customization);
   const fontesCustom = lerFontesCustom(sintetico.customization);
   const fonteCaps = fonteCapsCombinada(fonteKey, fontesCustom) ? " evt-fonte-caps" : "";
+  const negrito = evento.negrito
+    ? ` evt-negrito${fonteTemNegritoNoNome(fonteKey, fontesCustom) ? " evt-negrito-nome" : ""}`
+    : "";
 
   const recursos = recursosDoSite(prof.plan, sintetico.customization);
   const whiteLabel = planoPermite(prof.plan, "whiteLabel");
@@ -184,7 +187,7 @@ export default async function PreviewEventoPage({
 
   return (
     <div
-      className={`evt${fonteCaps}${evento.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none [&_header_a]:pointer-events-auto [&_header_button]:pointer-events-auto`}
+      className={`evt${fonteCaps}${negrito}${evento.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none [&_header_a]:pointer-events-auto [&_header_button]:pointer-events-auto`}
       style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom) }}
     >
       <SiteAtmosphere fotoUrl={evento.fotoUrl} particleColors={particleColors} />

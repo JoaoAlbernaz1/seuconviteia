@@ -26,6 +26,12 @@ export type TextosEvento = {
   teaserPresentes: string;
   teaserGaleria: string;
   teaserRecados: string;
+  /** Pagina /recados: chapeu, titulo, convite do formulario e titulo do mural.
+      Em `recadosConvite`, `{nome}` e trocado pelo primeiro nome do evento. */
+  recadosEyebrow: string;
+  recadosTitulo: string;
+  recadosConvite: string;
+  recadosMural: string;
 };
 
 const TEXTOS: Record<NichoEvento, TextosEvento> = {
@@ -43,6 +49,10 @@ const TEXTOS: Record<NichoEvento, TextosEvento> = {
     teaserGaleria:
       "Um cantinho com as fotos que contam um pouco dessa história.",
     teaserRecados: "Escreva uma mensagem carinhosa — vou amar ler cada palavra.",
+    recadosEyebrow: "Mural de recados",
+    recadosTitulo: "Deixe seu carinho",
+    recadosConvite: "Escreva um recado de carinho para {nome}. Ela vai amar ler cada palavra.",
+    recadosMural: "Recados de quem ama",
   },
 
   CASAMENTO: {
@@ -59,6 +69,10 @@ const TEXTOS: Record<NichoEvento, TextosEvento> = {
     teaserGaleria:
       "Um cantinho com as fotos que contam um pouco da nossa história.",
     teaserRecados: "Deixe uma mensagem para os noivos — vamos amar ler cada palavra.",
+    recadosEyebrow: "Mural de recados",
+    recadosTitulo: "Deixe seu carinho",
+    recadosConvite: "Escreva um recado de carinho para {nome}. Eles vão amar ler cada palavra.",
+    recadosMural: "Recados de quem ama",
   },
 
   BODAS: {
@@ -75,6 +89,10 @@ const TEXTOS: Record<NichoEvento, TextosEvento> = {
     teaserGaleria:
       "Um cantinho com as fotos que contam um pouco da nossa história.",
     teaserRecados: "Deixe uma mensagem para o casal — vamos amar ler cada palavra.",
+    recadosEyebrow: "Mural de recados",
+    recadosTitulo: "Deixe seu carinho",
+    recadosConvite: "Escreva um recado de carinho para {nome}. Eles vão amar ler cada palavra.",
+    recadosMural: "Recados de quem ama",
   },
 
   SESSENTA_ANOS: {
@@ -91,6 +109,10 @@ const TEXTOS: Record<NichoEvento, TextosEvento> = {
     teaserGaleria:
       "Um cantinho com as fotos que contam um pouco dessa história.",
     teaserRecados: "Deixe uma mensagem carinhosa — vou amar ler cada palavra.",
+    recadosEyebrow: "Mural de recados",
+    recadosTitulo: "Deixe seu carinho",
+    recadosConvite: "Escreva um recado de carinho para {nome}. Vai ser lindo ler cada palavra.",
+    recadosMural: "Recados de quem ama",
   },
 
   ANIVERSARIO: {
@@ -106,6 +128,10 @@ const TEXTOS: Record<NichoEvento, TextosEvento> = {
     teaserGaleria:
       "Um cantinho com as fotos que contam um pouco dessa história.",
     teaserRecados: "Deixe uma mensagem carinhosa — vou amar ler cada palavra.",
+    recadosEyebrow: "Mural de recados",
+    recadosTitulo: "Deixe seu carinho",
+    recadosConvite: "Escreva um recado de carinho para {nome}. Vai ser lindo ler cada palavra.",
+    recadosMural: "Recados de quem ama",
   },
 };
 

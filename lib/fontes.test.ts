@@ -3,9 +3,47 @@ import {
   FONTES,
   FONTE_PADRAO,
   fonteDupla,
+  fonteTemNegritoNoNome,
   lerFonteKey,
   varsDaFonte,
 } from "./fontes";
+
+describe("fonteTemNegritoNoNome", () => {
+  it("manuscritas de peso unico NAO tem negrito no nome da capa", () => {
+    // Great Vibes, Pacifico, Allura, Parisienne, Sacramento e Marcellus so
+    // existem em 400 no Google (ver app/evt-fonts.ts) — nada a engrossar.
+    expect(fonteTemNegritoNoNome("delicada")).toBe(false);
+    expect(fonteTemNegritoNoNome("festiva")).toBe(false);
+    expect(fonteTemNegritoNoNome("glamour")).toBe(false);
+    expect(fonteTemNegritoNoNome("moderna")).toBe(false);
+  });
+
+  it("duplas cuja script carrega peso forte TEM negrito no nome", () => {
+    // Dancing Script (500/600), Cinzel (600), Cinzel Decorative (700),
+    // Tangerine (700), Jost e Josefin (600).
+    expect(fonteTemNegritoNoNome("romantica")).toBe(true);
+    expect(fonteTemNegritoNoNome("imperial")).toBe(true);
+    expect(fonteTemNegritoNoNome("realeza")).toBe(true);
+    expect(fonteTemNegritoNoNome("fina")).toBe(true);
+    expect(fonteTemNegritoNoNome("urbana")).toBe(true);
+  });
+
+  it("chave desconhecida cai no default (classica)", () => {
+    expect(fonteTemNegritoNoNome("nao-existe")).toBe(fonteTemNegritoNoNome("classica"));
+    expect(fonteTemNegritoNoNome(null)).toBe(fonteTemNegritoNoNome("classica"));
+  });
+
+  it("combinacao custom (Premium) segue a cabeca escolhida", () => {
+    expect(fonteTemNegritoNoNome(null, { head: "romantica", corpo: "cormorant" })).toBe(true);
+    expect(fonteTemNegritoNoNome(null, { head: "delicada", corpo: "cormorant" })).toBe(false);
+  });
+
+  it("toda dupla declara a resposta (nenhuma fica no escuro)", () => {
+    for (const key of Object.keys(FONTES)) {
+      expect(typeof fonteTemNegritoNoNome(key)).toBe("boolean");
+    }
+  });
+});
 
 describe("FONTES", () => {
   it("tem o catalogo completo de duplas (15), comecando pelas do brief", () => {

@@ -2,6 +2,45 @@ import { describe, expect, it } from "vitest";
 import { lerSecoes } from "./secoes";
 import { textosDoNicho } from "./textos";
 
+describe("lerSecoes — secao de recados", () => {
+  it("sem override cai nos textos padrao do nicho", () => {
+    const s = lerSecoes(undefined, "QUINZE_ANOS");
+    const t = textosDoNicho("QUINZE_ANOS");
+    expect(s.recados.eyebrow).toBe(t.recadosEyebrow);
+    expect(s.recados.titulo).toBe(t.recadosTitulo);
+    expect(s.recados.convite).toBe(t.recadosConvite);
+    expect(s.recados.muralTitulo).toBe(t.recadosMural);
+  });
+
+  it("override do cliente vence, o resto continua no default", () => {
+    const s = lerSecoes({ secoes: { recados: { titulo: "Mande um beijo" } } }, "QUINZE_ANOS");
+    expect(s.recados.titulo).toBe("Mande um beijo");
+    expect(s.recados.eyebrow).toBe(textosDoNicho("QUINZE_ANOS").recadosEyebrow);
+  });
+
+  it("texto em branco cai no default (nao deixa a secao sem titulo)", () => {
+    const s = lerSecoes({ secoes: { recados: { titulo: "   ", convite: "" } } }, "QUINZE_ANOS");
+    const t = textosDoNicho("QUINZE_ANOS");
+    expect(s.recados.titulo).toBe(t.recadosTitulo);
+    expect(s.recados.convite).toBe(t.recadosConvite);
+  });
+
+  it("JSON malformado nao quebra", () => {
+    const s = lerSecoes({ secoes: { recados: "nada disso" } }, "QUINZE_ANOS");
+    expect(s.recados.titulo).toBe(textosDoNicho("QUINZE_ANOS").recadosTitulo);
+  });
+
+  it("cada nicho tem a sua copy de recados preenchida", () => {
+    for (const nicho of ["QUINZE_ANOS", "CASAMENTO", "BODAS", "SESSENTA_ANOS", "ANIVERSARIO"]) {
+      const s = lerSecoes(undefined, nicho);
+      expect(s.recados.eyebrow.length).toBeGreaterThan(0);
+      expect(s.recados.titulo.length).toBeGreaterThan(0);
+      expect(s.recados.convite).toContain("{nome}");
+      expect(s.recados.muralTitulo.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("lerSecoes — copy das secoes (cliente -> default do nicho)", () => {
   it("sem customization: cai para os defaults do nicho", () => {
     const s = lerSecoes(undefined, "QUINZE_ANOS");
@@ -9,6 +48,12 @@ describe("lerSecoes — copy das secoes (cliente -> default do nicho)", () => {
     expect(s).toEqual({
       abertura: { eyebrow: "O convite", titulo: t.conviteTitulo },
       assinaturaLead: t.assinaturaPrefixo,
+      recados: {
+        eyebrow: t.recadosEyebrow,
+        titulo: t.recadosTitulo,
+        convite: t.recadosConvite,
+        muralTitulo: t.recadosMural,
+      },
     });
   });
 
@@ -31,9 +76,16 @@ describe("lerSecoes — copy das secoes (cliente -> default do nicho)", () => {
       { secoes: { abertura: { eyebrow: "Nosso convite", titulo: "Bora?" }, assinaturaLead: "Beijos," } },
       "QUINZE_ANOS",
     );
+    const t = textosDoNicho("QUINZE_ANOS");
     expect(s).toEqual({
       abertura: { eyebrow: "Nosso convite", titulo: "Bora?" },
       assinaturaLead: "Beijos,",
+      recados: {
+        eyebrow: t.recadosEyebrow,
+        titulo: t.recadosTitulo,
+        convite: t.recadosConvite,
+        muralTitulo: t.recadosMural,
+      },
     });
   });
 

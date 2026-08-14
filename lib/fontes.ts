@@ -56,6 +56,14 @@ export type FonteDupla = {
    * capa. Ausente = herda `capaFator`.
    */
   fonteFator?: number;
+  /**
+   * A fonte do slot SCRIPT (o nome na capa) tem peso forte publicado? So as
+   * duplas marcadas aqui engrossam o nome quando a opcao "Letra em negrito" do
+   * editor esta ligada — nas demais o Google so publica 400 e sintetizar peso
+   * deixa o traco sujo (ver `app/evt-fonts.ts` para os pesos carregados).
+   * Os outros slots (display/body/util) sempre tem 600 e nao dependem disto.
+   */
+  negritoNoNome?: boolean;
 };
 
 const CURSIVE_FALLBACK = '"Pinyon Script", cursive';
@@ -79,6 +87,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── ROMANTICA — cursiva fluida + serifada editorial ────────────────────────
   romantica: {
     key: "romantica",
+    negritoNoNome: true,
     fonteFator: 0.8,
     capaFator: 0.88,
     label: "Dancing Script",
@@ -109,6 +118,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── MINIMALISTA — so sans, quase tipografico ───────────────────────────────
   minimalista: {
     key: "minimalista",
+    negritoNoNome: true,
     fonteFator: 0.63,
     label: "Jost",
     caps: true,
@@ -153,6 +163,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── IMPERIAL — versal romana (Cinzel) + Garamond ───────────────────────────
   imperial: {
     key: "imperial",
+    negritoNoNome: true,
     fonteFator: 0.58,
     label: "Cinzel",
     caps: true,
@@ -225,6 +236,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── REALEZA — versal romana ornamentada (Cinzel Decorative) + Garamond ───────
   realeza: {
     key: "realeza",
+    negritoNoNome: true,
     fonteFator: 0.57,
     label: "Cinzel Decorative",
     caps: true,
@@ -255,6 +267,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── FINA — cursiva finissima (Tangerine) + Playfair ─────────────────────────
   fina: {
     key: "fina",
+    negritoNoNome: true,
     fonteFator: 0.86,
     label: "Tangerine",
     scriptScale: 1.2,
@@ -269,6 +282,7 @@ export const FONTES: Record<string, FonteDupla> = {
   // ── URBANA — versal sans geometrica (Josefin) + Poppins ─────────────────────
   urbana: {
     key: "urbana",
+    negritoNoNome: true,
     fonteFator: 0.58,
     label: "Josefin Sans",
     caps: true,
@@ -333,6 +347,8 @@ export type FonteHead = {
   display: string;
   caps?: boolean;
   scriptScale: number;
+  /** Mesma regra de `FonteDupla.negritoNoNome` — a script tem peso forte? */
+  negritoNoNome?: boolean;
   /** Chaves de `FONTE_CORPOS` recomendadas para esta cabeça. */
   combina: string[];
 };
@@ -342,9 +358,9 @@ export type FonteCorpo = { key: string; label: string; body: string; util: strin
 
 export const FONTE_HEADS: Record<string, FonteHead> = {
   classica: { key: "classica", label: "Milton One", script: `var(--font-milton), ${CURSIVE_FALLBACK}`, display: `var(--font-vogue), ${SERIF_FALLBACK}`, scriptScale: 1, combina: ["cormorant", "ebgaramond", "jost"] },
-  romantica: { key: "romantica", label: "Dancing Script", script: `var(--font-dancing), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.92, combina: ["cormorant", "ebgaramond", "montserrat"] },
+  romantica: { key: "romantica", negritoNoNome: true, label: "Dancing Script", script: `var(--font-dancing), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.92, combina: ["cormorant", "ebgaramond", "montserrat"] },
   delicada: { key: "delicada", label: "Great Vibes · Fraunces", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-fraunces), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["ebgaramond", "cormorant", "montserrat"] },
-  imperial: { key: "imperial", label: "Cinzel", script: `var(--font-cinzel), ${SERIF_FALLBACK}`, display: `var(--font-cinzel), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["ebgaramond", "montserrat", "cormorant"] },
+  imperial: { key: "imperial", negritoNoNome: true, label: "Cinzel", script: `var(--font-cinzel), ${SERIF_FALLBACK}`, display: `var(--font-cinzel), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["ebgaramond", "montserrat", "cormorant"] },
   festiva: { key: "festiva", label: "Pacifico", script: `var(--font-pacifico), ${CURSIVE_FALLBACK}`, display: `var(--font-jost), ${SANS_FALLBACK}`, scriptScale: 0.74, combina: ["jost", "montserrat"] },
   moderna: { key: "moderna", label: "Marcellus", script: `var(--font-marcellus), ${SERIF_FALLBACK}`, display: `var(--font-marcellus), ${SERIF_FALLBACK}`, caps: true, scriptScale: 0.62, combina: ["jost", "montserrat", "ebgaramond"] },
   encantada: { key: "encantada", label: "Great Vibes · Playfair", script: `var(--font-greatvibes), ${CURSIVE_FALLBACK}`, display: `var(--font-playfair), ${SERIF_FALLBACK}`, scriptScale: 0.95, combina: ["montserrat", "ebgaramond", "cormorant"] },
@@ -397,6 +413,16 @@ export function varsDaFonteCombinada(
 export function fonteCapsCombinada(key?: string | null, custom?: FontesCustom | null): boolean {
   if (customValido(custom ?? undefined)) return !!FONTE_HEADS[custom!.head].caps;
   return !!fonteDupla(key).caps;
+}
+
+/**
+ * A letra do NOME na capa aceita negrito? (classe `evt-negrito-nome`). Falso nas
+ * manuscritas de peso único — nelas a opção "Letra em negrito" continua valendo
+ * para títulos e textos, e o editor avisa que o nome não engrossa.
+ */
+export function fonteTemNegritoNoNome(key?: string | null, custom?: FontesCustom | null): boolean {
+  if (customValido(custom ?? undefined)) return !!FONTE_HEADS[custom!.head].negritoNoNome;
+  return !!fonteDupla(key).negritoNoNome;
 }
 
 /** Escala da script (preset ou custom) — para o tamanho dos cards do editor. */

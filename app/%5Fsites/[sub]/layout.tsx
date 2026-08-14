@@ -11,7 +11,7 @@ import { carregarEventoFesta } from "@/lib/eventoFesta";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
-import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada } from "@/lib/fontes";
+import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoPermite } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
@@ -49,6 +49,11 @@ export default async function EventSiteLayout({
   const fonteKey = lerFonteKey(event.customization);
   const fontesCustom = lerFontesCustom(event.customization);
   const fonteCaps = fonteCapsCombinada(fonteKey, fontesCustom) ? " evt-fonte-caps" : "";
+  // "Letra em negrito": engrossa titulos/corpo/utilitarios; o NOME da capa so
+  // acompanha nas letras que tem peso forte publicado (ver lib/fontes.ts).
+  const negrito = dados.negrito
+    ? ` evt-negrito${fonteTemNegritoNoNome(fonteKey, fontesCustom) ? " evt-negrito-nome" : ""}`
+    : "";
 
   // Recursos ATIVOS = plano permite ∩ toggle do evento (lib/recursos). A nav
   // filtra os links; o rodape/white-label continua so por plano.
@@ -60,7 +65,7 @@ export default async function EventSiteLayout({
 
   return (
     <div
-      className={`evt${fonteCaps}${dados.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
+      className={`evt${fonteCaps}${negrito}${dados.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
       style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom) }}
     >
       <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />

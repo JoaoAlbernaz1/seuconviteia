@@ -76,6 +76,8 @@ export type EventoFesta = {
   monograma: boolean;
   /** Animações de entrada ao carregar a página (default: true). */
   animacoes: boolean;
+  /** Letra em negrito no convite inteiro (default: false). */
+  negrito: boolean;
   /** Preset de cor do site (chave de `lib/temas.ts`), ou "custom". */
   tema: string;
   /** Cor personalizada (hex) quando `tema === "custom"`. */
@@ -115,6 +117,8 @@ const extrasSchema = z
     monograma: z.boolean(),
     /** Animações de entrada do site ao carregar (default: ligadas). */
     animacoes: z.boolean(),
+    /** Letra em negrito (default: desligado). */
+    negrito: z.boolean(),
     conviteIntro: z.string(),
     assinatura: z.string(),
     cidade: z.string(),
@@ -237,6 +241,7 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     logoUrl: texto(extras.logoUrl),
     monograma: extras.monograma ?? true,
     animacoes: extras.animacoes ?? true,
+    negrito: extras.negrito ?? false,
     tema: texto(extras.tema) ?? TEMA_PADRAO,
     temaCor: texto(extras.temaCor),
     capaEscala: extras.capaEscala ?? 1,

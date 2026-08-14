@@ -640,6 +640,23 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0) sc
 .mkt .p-cta:not(.grad):hover { background-color: rgba(255, 255, 255, 0.06); }
 .mkt .p-cta:focus-visible { outline: 2px solid var(--lilac); outline-offset: 3px; }
 .mkt .p-rule { height: 1px; background: var(--line); margin: 26px 0; }
+
+/* Taxa: aparece UMA vez, no rodape do card (pedido do Joao, 12/08/2026).
+   `margin-top: auto` empurra pro fim, entao os tres cards fecham na mesma
+   linha mesmo com listas de alturas diferentes. */
+.mkt .p-taxa {
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lilac);
+}
+.mkt .plan.hot .p-taxa { color: #fff; }
+
+/* Cards do mesmo tamanho: o card e uma coluna que estica, e a linha "para quem"
+   reserva duas linhas pra que preco, botao e regua fiquem alinhados nos tres. */
+.mkt .plan { display: flex; flex-direction: column; }
+.mkt .p-for { min-height: 2.9em; }
 .mkt .plan.hot .p-rule { background: rgba(255, 255, 255, 0.1); }
 .mkt .p-list { display: flex; flex-direction: column; gap: 11px; font-size: 14.5px; color: var(--muted); }
 .mkt .plan.hot .p-list { color: var(--ink-2); }
@@ -807,6 +824,20 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0) sc
 .evt.evt-fonte-caps .font-evt-script {
   text-transform: uppercase;
   letter-spacing: 0.12em;
+}
+
+/* ── "Letra em negrito" (opcao do editor) ──────────────────────────────────────
+   Engrossa titulos, corpo e utilitarios — todos os slots tem 600 carregado em
+   `app/evt-fonts.ts`. O NOME da capa (slot script) so engrossa nas duplas
+   marcadas com `negritoNoNome` em `lib/fontes.ts`: nas manuscritas de peso unico
+   o navegador teria de sintetizar o peso, e o traco fica sujo. */
+.evt.evt-negrito .font-evt-display,
+.evt.evt-negrito .font-evt-body,
+.evt.evt-negrito .font-evt-util {
+  font-weight: 600;
+}
+.evt.evt-negrito.evt-negrito-nome .font-evt-script {
+  font-weight: 600;
 }
 
 /* ── CTA "Confirmar presenca" — botao hero com efeitos (pedido do Joao) ────── */

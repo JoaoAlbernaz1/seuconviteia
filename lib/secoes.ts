@@ -26,6 +26,17 @@ export type SecoesConvite = {
   };
   /** Linha script acima da assinatura (ex.: "Com carinho,"). */
   assinaturaLead: string;
+  /** Pagina /recados: cabecalho, convite do formulario e titulo do mural. */
+  recados: {
+    /** Sobre-titulo pequeno (ex.: "Mural de recados"). */
+    eyebrow: string;
+    /** Titulo da pagina (ex.: "Deixe seu carinho"). */
+    titulo: string;
+    /** Linha que convida a escrever; `{nome}` vira o primeiro nome do evento. */
+    convite: string;
+    /** Titulo script acima do mural (ex.: "Recados de quem ama"). */
+    muralTitulo: string;
+  };
 };
 
 /** Rotulo fixo da secao de abertura quando nao ha override. */
@@ -45,6 +56,14 @@ const secoesSchema = z
       })
       .partial(),
     assinaturaLead: z.string(),
+    recados: z
+      .object({
+        eyebrow: z.string(),
+        titulo: z.string(),
+        convite: z.string(),
+        muralTitulo: z.string(),
+      })
+      .partial(),
   })
   .partial();
 
@@ -80,5 +99,11 @@ export function lerSecoes(
       titulo: texto(s.abertura?.titulo) ?? t.conviteTitulo,
     },
     assinaturaLead: texto(s.assinaturaLead) ?? t.assinaturaPrefixo,
+    recados: {
+      eyebrow: texto(s.recados?.eyebrow) ?? t.recadosEyebrow,
+      titulo: texto(s.recados?.titulo) ?? t.recadosTitulo,
+      convite: texto(s.recados?.convite) ?? t.recadosConvite,
+      muralTitulo: texto(s.recados?.muralTitulo) ?? t.recadosMural,
+    },
   };
 }

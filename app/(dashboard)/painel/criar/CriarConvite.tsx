@@ -23,6 +23,11 @@ import { PreviewSite } from "../_ui/PreviewSite";
 import { SeletorFontes } from "../_ui/SeletorFontes";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
+import { fonteTemNegritoNoNome } from "@/lib/fontes";
+import { moverItem } from "@/lib/presentesOrdem";
+import { paginaDaPrevia } from "@/lib/previaPagina";
+import { deveResalvar } from "@/lib/autosave";
+import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 
@@ -54,11 +59,55 @@ function giftParaPresente(g: GiftRow) {
   };
 }
 
+/**
+ * Lista de presentes que vai pro site: as linhas do editor + (quando ligada) a
+ * "Contribuição com valor livre". Sem valor, a gravação classifica o item como
+ * `LIVRE` (ver `criar/acoes.ts`), e o modal do convidado abre o campo de valor.
+ */
+function presentesDoEditor(S: State) {
+  if (!S.gifts) return [];
+  const linhas = S.giftList.filter((g) => g.n.trim()).map(giftParaPresente);
+  if (!S.free || !S.freeTitulo.trim()) return linhas;
+  return [
+    ...linhas,
+    {
+      titulo: S.freeTitulo.trim(),
+      descricao: S.freeValores.trim(),
+      valor: "",
+      tipo: "PIX" as const,
+      modo: "FIXO" as const,
+      cotas: undefined,
+      foto: undefined,
+    },
+  ];
+}
+
 /** Junta nomes em pt-BR — MESMA regra do adapter (lib/eventoFesta). */
 function juntarNomes(nomes: string[]): string {
   const ns = nomes.map((n) => n.trim()).filter(Boolean);
   if (ns.length <= 1) return ns[0] ?? "";
   return `${ns.slice(0, -1).join(", ")} e ${ns[ns.length - 1]}`;
+}
+
+// Copy padrao da pagina /recados (espelha `lib/textos.ts` para QUINZE_ANOS). O
+// editor so manda o texto quando ele DIFERE daqui — assim o `customization` fica
+// limpo e o site segue o default do nicho.
+const REC_PADRAO = {
+  eyebrow: "Mural de recados",
+  titulo: "Deixe seu carinho",
+  convite: "Escreva um recado de carinho para {nome}. Ela vai amar ler cada palavra.",
+  mural: "Recados de quem ama",
+} as const;
+
+/** Texto do editor -> rascunho: `undefined` quando e igual ao padrao ou vazio. */
+function seMudou(valor: string, padrao: string): string | undefined {
+  const v = valor.trim();
+  return v && v !== padrao ? v : undefined;
+}
+
+/** Primeiro nome do convite — o site usa `primeiroNome` na copy dos recados. */
+function primeiroNome(nome: string): string {
+  return nome.trim().split(/\s+/)[0] ?? "";
 }
 
 /** "aaaa-mm-dd" (valor do <input type="date">) -> "dd/mm/aaaa". */
@@ -102,15 +151,6 @@ function horarioLive(hhmm: string): string {
   return m[2] === "00" ? `${m[1]}h` : `${m[1]}h${m[2]}`;
 }
 
-/** Página do site que a prévia mostra em cada passo do editor (6 passos). */
-function paginaDoPasso(step: number, foco?: string): string {
-  // Confirmação (passo 3): as mensagens pós-confirmação mostram a página /obrigada.
-  if (step === 3) return foco === "obrigada-sim" || foco === "obrigada-nao" ? "obrigada" : "confirmar";
-  if (step === 4) return "presentes";
-  if (step === 5) return foco === "recados" ? "recados" : "galeria"; // Galeria e recados
-  if (step === 2) return "evento"; // Conteúdo (carta/assinatura/data e local/traje/botão)
-  return "inicio"; // Capa, Revisar
-}
 
 // Passo 3 (Conteúdo) tem accordions (accDefs, na ordem abaixo). Cada um aponta
 // para a seção do site que a prévia deve rolar até e destacar.
@@ -172,6 +212,7 @@ function montarRascunho(S: State) {
     tema: S.tema,
     temaCor: S.tema === "custom" ? S.corCustom : undefined,
     fontes: S.fonte,
+    negrito: S.negrito,
     template: "quinze-anos-glamour-rose",
     title: S.nome,
     fotoUrl: S.capaFoto || undefined,
@@ -191,15 +232,17 @@ function montarRascunho(S: State) {
     time: S.hIni,
     mensagem: S.abTx,
     aberturaTitulo: S.abT,
+    recadosEyebrow: S.rec ? seMudou(S.recEyebrow, REC_PADRAO.eyebrow) : undefined,
+    recadosTitulo: S.rec ? seMudou(S.recTitulo, REC_PADRAO.titulo) : undefined,
+    recadosConvite: S.rec ? seMudou(S.recConvite, REC_PADRAO.convite) : undefined,
+    recadosMural: S.rec ? seMudou(S.recMural, REC_PADRAO.mural) : undefined,
     local: S.local,
     endereco,
     traje: S.trajeOn ? S.traje : "",
     pixNome: S.gifts ? S.pixNome : undefined,
     pixChave: S.gifts ? S.pixChave : undefined,
     presentesTexto: S.gifts ? S.presentesTexto || undefined : undefined,
-    presentes: S.gifts
-      ? S.giftList.filter((g) => g.n.trim()).map(giftParaPresente)
-      : [],
+    presentes: presentesDoEditor(S),
     rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
     listaModelo: S.listaModelo,
     programacao: S.programacao.filter((p) => p.hora.trim() || p.titulo.trim()),
@@ -208,6 +251,7 @@ function montarRascunho(S: State) {
       !S.gifts ? "presentes" : null,
       !S.gal ? "galeria" : null,
       !S.rec ? "recados" : null,
+      !S.prog ? "programacao" : null,
     ].filter(Boolean) as string[],
   };
 }
@@ -235,6 +279,10 @@ function liveMapa(S: State): Record<string, string> {
     traje: S.trajeOn ? S.traje : "",
     "pix-nome": S.gifts ? S.pixNome : "",
     "pix-chave": S.gifts ? S.pixChave : "",
+    "recados-eyebrow": S.recEyebrow,
+    "recados-titulo": S.recTitulo,
+    "recados-convite": S.recConvite.replaceAll("{nome}", primeiroNome(S.nome)),
+    "recados-mural": S.recMural,
     "obrigada-msg-sim": S.rsvpMsgSim,
     "obrigada-msg-nao": S.rsvpMsgNao,
   };
@@ -256,7 +304,7 @@ function liveMapa(S: State): Record<string, string> {
 // Ver PreviewSite.
 function estruturalDoEditor(S: State): string {
   return JSON.stringify([
-    S.nome, S.idade, S.tema, S.tema === "custom" ? S.corCustom : "", S.fonte,
+    S.nome, S.idade, S.tema, S.tema === "custom" ? S.corCustom : "", S.fonte, S.negrito,
     S.capaFoto, S.capaDoisFotos ? S.capaFotoDesktop : "", S.capaDoisFotos,
     S.monograma, S.monogramaFoto, S.szT, S.overlay, S.animacoes,
     S.abTx,
@@ -266,8 +314,9 @@ function estruturalDoEditor(S: State): string {
     S.gifts, S.free, S.listaModelo,
     S.gifts ? S.giftList.map((g) => `${g.n}${g.v}${g.desc}${g.foto ?? ""}${g.modo ?? ""}${g.cotas ?? ""}`).join("") : "",
     S.gifts ? S.pixNome : "", S.gifts ? S.pixChave : "", S.gifts ? S.presentesTexto : "",
+    S.gifts && S.free ? `${S.freeTitulo}|${S.freeValores}` : "",
     S.programacao.map((p) => `${p.hora}|${p.titulo}`).join("~"),
-    S.gal, S.rec,
+    S.gal, S.rec, S.prog,
     // Só o liga/desliga GERAL da confirmação fica no reload (some/adiciona a
     // página inteira). As OPÇÕES do RSVP (acompanhantes/telefone/e-mail/restrição/
     // recado/cor/data) vão AO VIVO por postMessage pro formulário — instantâneas,
@@ -321,15 +370,17 @@ type State = {
   capaFoto: string; capaFotoDesktop: string; capaDoisFotos: boolean;
   idade: string; monograma: boolean; monogramaFoto: string;
   capaT: string; capaS: string; capaD: string;
-  tema: string; corCustom: string; fonte: string; corFocou: boolean;
+  tema: string; corCustom: string; fonte: string; corFocou: boolean; negrito: boolean;
   szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
   paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; btnAcima: string; rodapeTx: string;
   rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
   rsvpDataLimite: string; rsvpCorBotao: string; rsvpMsgSim: string; rsvpMsgNao: string;
   gifts: boolean; free: boolean; giftList: GiftRow[]; pixNome: string; pixChave: string; presentesTexto: string;
-  programacao: ItemProgramacao[];
+  freeTitulo: string; freeValores: string;
+  programacao: ItemProgramacao[]; prog: boolean;
   gal: boolean; rec: boolean; recSt: string[];
+  recEyebrow: string; recTitulo: string; recConvite: string; recMural: string;
   listaModelo: "painel" | "vitrine";
   animacoes: boolean;
   published: boolean; copied: boolean; pvMode: "celular" | "desktop";
@@ -343,7 +394,7 @@ const INICIAL: State = {
   capaFoto: "", capaFotoDesktop: "", capaDoisFotos: false,
   idade: "15", monograma: true, monogramaFoto: "",
   capaT: "Teste", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
-  tema: "rose", corCustom: "#CE578B", fonte: "classica", corFocou: false,
+  tema: "rose", corCustom: "#CE578B", fonte: "classica", corFocou: false, negrito: false,
   szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: false,
   acc: 0, abT: "Vem comemorar comigo!",
   abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
@@ -356,8 +407,11 @@ const INICIAL: State = {
   gifts: true, free: true, listaModelo: "painel",
   giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
   pixNome: "", pixChave: "", presentesTexto: "",
-  programacao: programacaoSugerida("QUINZE_ANOS"),
+  freeTitulo: "Contribua com o valor que desejar", freeValores: "R$ 50 · R$ 100 · R$ 200",
+  programacao: programacaoSugerida("QUINZE_ANOS"), prog: true,
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
+  recEyebrow: REC_PADRAO.eyebrow, recTitulo: REC_PADRAO.titulo,
+  recConvite: REC_PADRAO.convite, recMural: REC_PADRAO.mural,
   animacoes: false,
   published: false, copied: false, pvMode: "celular",
 };
@@ -497,6 +551,9 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   const [eventId, setEventId] = useState<string | null>(null);
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
+  // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
+  // cliente so via "Nao foi possivel salvar" e nao sabia o que fazer.
+  const [salvarErro, setSalvarErro] = useState("");
   const [gravando, iniciarGravacao] = useTransition();
   const [cepLoading, setCepLoading] = useState(false);
   const [capaEnviando, setCapaEnviando] = useState(false);
@@ -659,6 +716,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     monograma: S.monograma,
     logoUrl: S.monogramaFoto || undefined,
     animacoes: S.animacoes,
+    negrito: S.negrito,
     tema: S.tema,
     temaCor: S.tema === "custom" ? S.corCustom : undefined,
     fontes: S.fonte,
@@ -679,12 +737,14 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     slug: S.slug,
     mensagem: S.abTx,
     aberturaTitulo: S.abT,
+    recadosEyebrow: S.rec ? seMudou(S.recEyebrow, REC_PADRAO.eyebrow) : undefined,
+    recadosTitulo: S.rec ? seMudou(S.recTitulo, REC_PADRAO.titulo) : undefined,
+    recadosConvite: S.rec ? seMudou(S.recConvite, REC_PADRAO.convite) : undefined,
+    recadosMural: S.rec ? seMudou(S.recMural, REC_PADRAO.mural) : undefined,
     pixNome: S.gifts ? S.pixNome : undefined,
     pixChave: S.gifts ? S.pixChave : undefined,
     presentesTexto: S.gifts ? S.presentesTexto || undefined : undefined,
-    presentes: S.gifts
-      ? S.giftList.filter((g) => g.n.trim()).map(giftParaPresente)
-      : [],
+    presentes: presentesDoEditor(S),
     listaModelo: S.listaModelo,
     programacao: S.programacao.filter((p) => p.hora.trim() || p.titulo.trim()),
     recursosOff: [
@@ -692,6 +752,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       !S.gifts ? "presentes" : null,
       !S.gal ? "galeria" : null,
       !S.rec ? "recados" : null,
+      !S.prog ? "programacao" : null,
     ].filter(Boolean) as string[],
     pais: S.paisOn ? { pai: S.pai, mae: S.mae } : undefined,
     rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
@@ -736,22 +797,32 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       if (savingRef.current) return;
       savingRef.current = true;
       const snapshot = dadosStr;
+      let salvouOk = false;
       setS((s) => ({ ...s, sv: "salvando" }));
       try {
         const r = await criarConvite({ ...montarPayload(), id: eventId ?? undefined }, false);
         if (r.ok) {
+          salvouOk = true;
+          setSalvarErro("");
           setEventId(r.id);
           lastSavedRef.current = snapshot;
           setS((s) => ({ ...s, sv: "salvo" }));
         } else {
+          setSalvarErro(r.error || "Não consegui salvar agora.");
           setS((s) => ({ ...s, sv: "erro" }));
         }
       } catch {
+        setSalvarErro("Sem conexão com o servidor.");
         setS((s) => ({ ...s, sv: "erro" }));
       } finally {
         savingRef.current = false;
-        // mudou durante o save? salva de novo o que ficou pra trás.
-        if (dadosRef.current !== lastSavedRef.current) void salvarRef.current();
+        // Mudou durante o save? Salva de novo o que ficou pra trás — MAS só se o
+        // save deu certo. Falhou (sessão expirada, validação), o conteúdo atual
+        // fica diferente do último salvo pra sempre, e re-tentar aqui vira laço
+        // infinito de POSTs (86 mil numa sessão do João, 11/08). Ver lib/autosave.
+        if (deveResalvar(salvouOk, dadosRef.current, lastSavedRef.current)) {
+          void salvarRef.current();
+        }
       }
     };
   });
@@ -830,8 +901,13 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       name: "Programação da festa",
       tag: "· opcional",
       kind: "programacao",
-      st: S.programacao.some((p) => p.hora.trim() || p.titulo.trim()) ? "Preenchida" : "Vazia",
-      ok: S.programacao.some((p) => p.hora.trim() || p.titulo.trim()),
+      // Desligada vence o "preenchida": o que o resumo mostra é o que o convidado vê.
+      st: !S.prog
+        ? "Oculta"
+        : S.programacao.some((p) => p.hora.trim() || p.titulo.trim())
+          ? "Preenchida"
+          : "Vazia",
+      ok: S.prog && S.programacao.some((p) => p.hora.trim() || p.titulo.trim()),
     },
     { name: "Botão principal", tag: "", kind: "botao", st: "Configurado", ok: true },
     { name: "Rodapé", tag: "", kind: "rodape", st: "Preenchido", ok: true },
@@ -856,7 +932,11 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   };
 
   const svText =
-    S.sv === "salvo" ? "Alterações salvas" : S.sv === "erro" ? "Não foi possível salvar" : "Salvando…";
+    S.sv === "salvo"
+      ? "Alterações salvas"
+      : S.sv === "erro"
+        ? salvarErro || "Não foi possível salvar"
+        : "Salvando…";
   const svColor = S.sv === "salvo" ? "#34A177" : S.sv === "erro" ? "#E11D48" : V;
 
 
@@ -1135,6 +1215,20 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                   <SeletorFontes nome={S.nome} value={S.fonte} onChange={(k) => upd({ fonte: k })} />
                 </div>
                 <div className="my-5 h-px bg-[#F0F0F3]" />
+                {/* Letra em negrito: engrossa títulos/corpo do convite inteiro. O NOME
+                    da capa só acompanha nas letras com peso forte publicado — nas
+                    manuscritas o aviso conta isso em vez de fingir que aplicou. */}
+                <div data-foco="livre" className="flex items-center justify-between gap-3 rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
+                  <div>
+                    <div className="text-[13px] font-semibold">Letra em negrito</div>
+                    <div className="text-[12px] text-[#6e6e76]">
+                      Deixa os títulos e os textos do convite com o traço mais forte.
+                      {!fonteTemNegritoNoNome(S.fonte) && " Esta letra não tem negrito no nome da capa."}
+                    </div>
+                  </div>
+                  <Toggle on={S.negrito} onClick={() => upd({ negrito: !S.negrito })} />
+                </div>
+                <div className="my-5 h-px bg-[#F0F0F3]" />
                 <div className="flex items-center justify-between rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-4 py-3">
                   <div>
                     <div className="text-[13px] font-semibold">Escurecer a foto da capa</div>
@@ -1280,6 +1374,15 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                           )}
                           {a.kind === "programacao" && (
                             <div className="flex flex-col gap-3">
+                              {/* Liga/desliga da seção inteira — mesmo padrão da Galeria e do
+                                  Mural de recados (passo 5). Desligado, a seção some da prévia
+                                  e do site publicado (viaja em `recursosOff`). */}
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-[13px] font-semibold">Mostrar a programação no convite</span>
+                                <Toggle on={S.prog} onClick={() => upd({ prog: !S.prog })} />
+                              </div>
+                              {S.prog && (
+                                <>
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-[12.5px] text-[#6e6e76]">
                                   A festa hora a hora — aparece na página do evento. Deixe vazio pra esconder.
@@ -1345,6 +1448,8 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                               >
                                 + Adicionar momento
                               </button>
+                                </>
+                              )}
                             </div>
                           )}
                           {a.kind === "botao" && (
@@ -1523,13 +1628,18 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 <div className={cardCls}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[18px] font-bold tracking-[-0.02em]">Configure sua lista de presentes</div>
-                      <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Adicione presentes, organize contribuições e informe o recebimento.</div>
+                      <div className="text-[18px] font-bold tracking-[-0.02em]">Presentes e Pix</div>
+                      <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Sua lista de presentes e onde o dinheiro cai.</div>
                     </div>
                     <Toggle on={S.gifts} onClick={() => upd({ gifts: !S.gifts })} size="lg" />
                   </div>
-                  {S.gifts && (
-                    <div className="mt-5 flex flex-col gap-4">
+                </div>
+                {S.gifts && (
+                  <>
+                    {/* ── Caixa 1: como a lista aparece pro convidado ── */}
+                    <div className={cardCls}>
+                      <div className="mb-4 text-[15.5px] font-bold">Como a lista aparece</div>
+                      <div className="flex flex-col gap-4">
                       <div>
                         <Label>Modelo da lista</Label>
                         <div className="mt-1 grid grid-cols-2 gap-2">
@@ -1563,7 +1673,13 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                         <Label>Texto de apresentação</Label>
                         <input value={S.presentesTexto} onChange={inp("presentesTexto")} placeholder="Escolha um presente e ajude a tornar essa noite ainda mais especial" style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                       </div>
+                      </div>
+                    </div>
 
+                    {/* ── Caixa 2: os presentes em si (ordem = ordem no site) ── */}
+                    <div className={cardCls}>
+                      <div className="mb-4 text-[15.5px] font-bold">Seus presentes</div>
+                      <div className="flex flex-col gap-4">
                       {/* Adicionar rápido — 1 toque adiciona um presente pronto (fácil). */}
                       <div>
                         <div className="mb-2 text-[12.5px] font-semibold text-[#3F3F46]">Adicionar rápido <span className="font-normal text-[#A6A6AE]">— toque para incluir</span></div>
@@ -1606,6 +1722,29 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                           <div key={i} className="rounded-2xl border border-[#ECECF0] bg-white p-3 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
                             <div className="flex items-center gap-2.5">
                               <span className="grid size-6 flex-none place-items-center rounded-full bg-[#F3EFFE] text-[11px] font-bold text-[#7C3AED]">{i + 1}</span>
+                              {/* Ordem da lista = ordem que o convidado vê no site. */}
+                              <div className="flex flex-none flex-col">
+                                <button
+                                  type="button"
+                                  aria-label="Subir presente"
+                                  title="Subir"
+                                  disabled={i === 0}
+                                  onClick={() => upd({ giftList: moverItem(S.giftList, i, i - 1) })}
+                                  className="cursor-pointer px-1 text-[10px] leading-none text-[#A6A6AE] hover:text-[#7C3AED] disabled:cursor-default disabled:opacity-25"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Descer presente"
+                                  title="Descer"
+                                  disabled={i === S.giftList.length - 1}
+                                  onClick={() => upd({ giftList: moverItem(S.giftList, i, i + 1) })}
+                                  className="mt-0.5 cursor-pointer px-1 text-[10px] leading-none text-[#A6A6AE] hover:text-[#7C3AED] disabled:cursor-default disabled:opacity-25"
+                                >
+                                  ▼
+                                </button>
+                              </div>
                               <input
                                 value={g.n}
                                 onChange={(e) => setRow({ n: e.target.value })}
@@ -1720,7 +1859,14 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                           + Adicionar presente em branco
                         </button>
                       </div>
-                      <div className="rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
+                      </div>
+                    </div>
+
+                    {/* ── Caixa 3: dinheiro (valor livre + recebimento) ── */}
+                    <div className={cardCls}>
+                      <div className="text-[15.5px] font-bold">Dinheiro</div>
+                      <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os presentes em dinheiro entram pela plataforma e ficam na sua carteira.</div>
+                      <div className="mb-4 rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
                         <div className="mb-2 flex items-center justify-between">
                           <div className="text-[13.5px] font-bold">Contribuição com valor livre</div>
                           <Toggle on={S.free} onClick={() => upd({ free: !S.free })} />
@@ -1729,22 +1875,15 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                               <Label>Título</Label>
-                              <input defaultValue="Contribua com o valor que desejar" style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                              <input value={S.freeTitulo} onChange={inp("freeTitulo")} maxLength={140} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
                             </div>
                             <div>
                               <Label opt>Valores sugeridos</Label>
-                              <input defaultValue="R$ 50 · R$ 100 · R$ 200" style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                              <input value={S.freeValores} onChange={inp("freeValores")} maxLength={140} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
                             </div>
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
-                {S.gifts && (
-                  <div className={cardCls}>
-                    <div className="text-[15.5px] font-bold">Onde cai o dinheiro</div>
-                    <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os presentes em dinheiro entram pela plataforma e ficam na sua carteira.</div>
                     <div className="flex items-center gap-3.5 rounded-[13px] border border-[#ECECF0] bg-[#F8F7FB] px-4 py-3.5">
                       <span className="grid size-11 flex-none place-items-center rounded-[13px] bg-[#EDE9FE] text-[#7C3AED]">
                         <Ic d={IC.card} size={19} stroke="#7C3AED" width={2} />
@@ -1752,11 +1891,12 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                       <div className="min-w-0 flex-1">
                         <div className="text-[13.5px] font-semibold">O convidado paga pelo site — o valor cai na sua carteira</div>
                         <div className="mt-0.5 text-[12.5px] leading-snug text-[#6e6e76]">
-                          Depois de publicar, ative a carteira em <span className="font-semibold text-[#17171b]">Recebimentos</span> e resgate por Pix quando quiser. Taxa de 5% por presente.
+                          Depois de publicar, ative a carteira em <span className="font-semibold text-[#17171b]">Recebimentos</span> e resgate por Pix quando quiser. Taxa de {taxaLabel(plano)} por presente.
                         </div>
                       </div>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </>
             )}
@@ -1796,6 +1936,27 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                   </div>
                   {S.rec && (
                     <>
+                      {/* Textos da página /recados — vão AO VIVO pra prévia (data-live). */}
+                      <div className="mb-4 mt-3 flex flex-col gap-3 rounded-[13px] border border-[#ECECF0] bg-[#FAFAFC] p-3.5">
+                        <div className="text-[13px] font-semibold">Textos da página</div>
+                        <div>
+                          <Label>Chapéu</Label>
+                          <input value={S.recEyebrow} onChange={inp("recEyebrow")} maxLength={60} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div>
+                          <Label>Título</Label>
+                          <input value={S.recTitulo} onChange={inp("recTitulo")} maxLength={80} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                        <div>
+                          <Label>Convite</Label>
+                          <input value={S.recConvite} onChange={inp("recConvite")} maxLength={220} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                          <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Escreva <span className="font-semibold">{"{nome}"}</span> onde quiser que apareça o nome do convite.</div>
+                        </div>
+                        <div>
+                          <Label>Título do mural</Label>
+                          <input value={S.recMural} onChange={inp("recMural")} maxLength={80} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                        </div>
+                      </div>
                       <div className="mb-3.5 text-[12.5px] text-[#6e6e76]">Os recados passam pela sua aprovação antes de aparecer no convite.</div>
                       {RECADOS.map((r, i) => {
                         const st = S.recSt[i];
@@ -1877,7 +2038,12 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 rascunhoJson={JSON.stringify(montarRascunho(S))}
                 estruturalJson={estruturalDoEditor(S)}
                 liveRsvpConfig={S.rsvp ? rsvpConfigDe(S) : null}
-                pagina={paginaDoPasso(S.step, S.foco)}
+                pagina={paginaDaPrevia(S.step, S.foco, {
+                  rsvp: S.rsvp,
+                  presentes: S.gifts,
+                  galeria: S.gal,
+                  recados: S.rec,
+                })}
                 foco={S.foco}
                 live={liveMapa(S)}
                 host={hostPublico}

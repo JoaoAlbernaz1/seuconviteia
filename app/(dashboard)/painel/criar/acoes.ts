@@ -44,6 +44,29 @@ const giftSchema = z.object({
   foto: z.string().trim().max(2000).optional(),
 });
 
+/**
+ * `customization.secoes` — so a copy que o cliente MUDOU (o resto cai no default
+ * do nicho em `lib/textos.ts`). Vazio -> `undefined`, pra nao sujar o JSON.
+ */
+function montarSecoes(d: {
+  aberturaTitulo?: string;
+  recadosEyebrow?: string;
+  recadosTitulo?: string;
+  recadosConvite?: string;
+  recadosMural?: string;
+}) {
+  const recados: Record<string, string> = {};
+  if (d.recadosEyebrow?.trim()) recados.eyebrow = d.recadosEyebrow.trim();
+  if (d.recadosTitulo?.trim()) recados.titulo = d.recadosTitulo.trim();
+  if (d.recadosConvite?.trim()) recados.convite = d.recadosConvite.trim();
+  if (d.recadosMural?.trim()) recados.muralTitulo = d.recadosMural.trim();
+
+  const out: Record<string, unknown> = {};
+  if (d.aberturaTitulo?.trim()) out.abertura = { titulo: d.aberturaTitulo.trim() };
+  if (Object.keys(recados).length) out.recados = recados;
+  return Object.keys(out).length ? out : undefined;
+}
+
 const RECURSO_KEYS = [
   "rsvp",
   "presentes",
@@ -78,6 +101,7 @@ const payloadSchema = z.object({
   logoUrl: z.string().trim().max(400).optional(),
   /** Animações de entrada do site ao carregar. */
   animacoes: z.boolean().optional(),
+  negrito: z.boolean().optional(),
   /** Preset de cor do site (chave de lib/temas, ou "custom"; validado no server). */
   tema: z.string().trim().max(20).optional(),
   /** Cor personalizada (hex) quando tema === "custom". */
@@ -100,6 +124,10 @@ const payloadSchema = z.object({
   rodapeMsg: z.string().trim().max(240).optional(),
   mensagem: z.string().trim().max(2200).optional(),
   aberturaTitulo: z.string().trim().max(140).optional(),
+  recadosEyebrow: z.string().trim().max(60).optional(),
+  recadosTitulo: z.string().trim().max(80).optional(),
+  recadosConvite: z.string().trim().max(220).optional(),
+  recadosMural: z.string().trim().max(80).optional(),
   pixNome: z.string().trim().max(140).optional(),
   pixChave: z.string().trim().max(200).optional(),
   presentesTexto: z.string().trim().max(600).optional(),
@@ -264,6 +292,7 @@ export async function criarConvite(
     idade: d.idade,
     monograma: d.monograma,
     animacoes: d.animacoes,
+    negrito: d.negrito,
     logoUrl: txt(d.logoUrl),
     capaEscala: d.capaEscala,
     capaOverlay: d.capaOverlay,
@@ -272,7 +301,7 @@ export async function criarConvite(
     ctaLead: txt(d.ctaLead),
     rodapeMsg: txt(d.rodapeMsg),
     mensagem: txt(d.mensagem),
-    secoes: txt(d.aberturaTitulo) ? { abertura: { titulo: txt(d.aberturaTitulo) } } : undefined,
+    secoes: montarSecoes(d),
     local: txt(d.local),
     endereco: enderecoFull,
     mapsUrl,
