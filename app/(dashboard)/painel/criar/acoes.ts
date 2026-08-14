@@ -27,10 +27,23 @@ import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
 import { limiteEventos, podeVitrine, rotuloPlano } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
 import { protocoloDe } from "@/lib/tenant";
+import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
+import type { EventEditorDocument } from "@/lib/event-editor/document";
+import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
 
 export type CriarConviteResult =
   | { ok: true; id: string; subdomain: string; host: string; url: string }
   | { ok: false; error: string };
+
+export type SalvarDocumentoResult =
+  | { ok: true; id: string; version: number; savedAt: string; host: string; url: string }
+  | { ok: false; kind: "conflict"; currentVersion: number; error: string }
+  | { ok: false; kind: "validation" | "auth" | "not_found" | "limit" | "server"; error: string };
+
+export type PublicarDocumentoResult =
+  | { ok: true; id: string; publishedVersion: number; publishedAt: string; host: string; url: string }
+  | { ok: false; kind: "conflict"; currentVersion: number; error: string }
+  | { ok: false; kind: "validation" | "auth" | "not_found" | "server"; error: string };
 
 const giftSchema = z.object({
   titulo: z.string().trim().min(1).max(140),
@@ -413,4 +426,177 @@ export async function criarConvite(
   revalidatePath("/painel");
   const { host, url } = enderecoPublico(subdomain);
   return { ok: true, id: eventId, subdomain, host, url };
+}
+
+const salvarDocumentoSchema = z.object({
+  id: z.string().max(40).optional(),
+  expectedVersion: z.number().int().min(0),
+  document: EventEditorDocumentSchema,
+});
+
+const publicarDocumentoSchema = z.object({
+  id: z.string().max(40),
+  expectedDraftVersion: z.number().int().min(0),
+});
+
+function dataDoDocumento(document: EventEditorDocument): Date {
+  const candidate = new Date(`${document.schedule.date}T${document.schedule.time || "20:00"}:00-03:00`);
+  return document.schedule.date && !Number.isNaN(candidate.getTime())
+    ? candidate
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+}
+
+function jsonDoDocumento(document: EventEditorDocument): Prisma.InputJsonValue {
+  return document as unknown as Prisma.InputJsonValue;
+}
+
+async function sincronizarPresentesDoDocumento(eventId: string, document: EventEditorDocument): Promise<void> {
+  const contributions = await prisma.giftContribution.count({ where: { eventId } });
+  if (contributions > 0) return;
+
+  const current = await prisma.giftItem.findMany({ where: { eventId }, select: { id: true } });
+  const currentIds = new Set(current.map((gift) => gift.id));
+  const incomingIds = new Set(document.gifts.items.map((gift) => gift.id).filter(Boolean));
+
+  for (const gift of document.gifts.items) {
+    const cents = brlParaCents(gift.value) ?? 0;
+    const pricingMode = gift.pricingMode === "COTAS" && gift.quotas && cents > 0 ? "COTAS" : cents > 0 ? "FIXO" : "LIVRE";
+    const data = {
+      title: gift.title,
+      description: gift.description || null,
+      imageUrl: gift.imageUrl || null,
+      priceCents: cents,
+      mode: "PIX" as const,
+      pricingMode: pricingMode as "FIXO" | "COTAS" | "LIVRE",
+      quotaCount: pricingMode === "COTAS" ? gift.quotas ?? null : null,
+    };
+    if (gift.id && currentIds.has(gift.id)) {
+      await prisma.giftItem.update({ where: { id: gift.id }, data });
+    } else {
+      await prisma.giftItem.create({ data: { ...(gift.id ? { id: gift.id } : {}), eventId, ...data } });
+    }
+  }
+
+  const removed = current.filter((gift) => !incomingIds.has(gift.id)).map((gift) => gift.id);
+  if (removed.length) await prisma.giftItem.deleteMany({ where: { eventId, id: { in: removed } } });
+}
+
+/**
+ * Salva exclusivamente o documento canônico. A condição `draftVersion =
+ * expectedVersion` torna a atualização atômica: duas abas não podem vencer com a
+ * mesma versão. O retorno nunca substitui o documento local do cliente.
+ */
+export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocumentoResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, kind: "auth", error: "Sua sessão expirou. Entre de novo." };
+  const parsed = salvarDocumentoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, kind: "validation", error: parsed.error.issues[0]?.message ?? "Documento inválido." };
+
+  const { id, expectedVersion, document } = parsed.data;
+  const professionalId = session.user.id;
+  const professional = await prisma.professional.findUnique({ where: { id: professionalId }, select: { plan: true } });
+  if (!professional) return { ok: false, kind: "auth", error: "Conta não encontrada." };
+
+  const eventDate = dataDoDocumento(document);
+  const expiresAt = calcularExpiracao(eventDate);
+  const customization = documentToLegacyCustomization(document) as Prisma.InputJsonValue;
+  const savedAt = new Date();
+
+  if (!id) {
+    if (expectedVersion !== 0) return { ok: false, kind: "conflict", currentVersion: 0, error: "O rascunho mudou. Recarregue antes de salvar." };
+    const limit = limiteEventos(professional.plan);
+    if (limit !== null) {
+      const count = await prisma.event.count({ where: { professionalId } });
+      if (count >= limit) return { ok: false, kind: "limit", error: `O plano ${rotuloPlano(professional.plan)} inclui até ${limit} convite(s).` };
+    }
+    const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
+      Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
+    );
+    const event = await prisma.event.create({
+      data: {
+        professionalId,
+        type: "QUINZE_ANOS",
+        templateId: null,
+        title: document.basic.name || "Convite sem título",
+        subdomain,
+        eventDate,
+        expiresAt,
+        status: "DRAFT",
+        plan: professional.plan,
+        customization,
+        draftData: jsonDoDocumento(document),
+        draftVersion: 1,
+        schemaVersion: document.schemaVersion,
+      },
+    });
+    await sincronizarPresentesDoDocumento(event.id, document);
+    const address = enderecoPublico(event.subdomain);
+    return { ok: true, id: event.id, version: 1, savedAt: savedAt.toISOString(), ...address };
+  }
+
+  const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true } });
+  if (!owned) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
+  if (owned.draftVersion !== expectedVersion) {
+    return { ok: false, kind: "conflict", currentVersion: owned.draftVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
+  }
+
+  const updated = await prisma.event.updateMany({
+    where: { id, professionalId, draftVersion: expectedVersion },
+    data: {
+      title: document.basic.name || "Convite sem título",
+      eventDate,
+      expiresAt,
+      customization,
+      draftData: jsonDoDocumento(document),
+      draftVersion: { increment: 1 },
+      schemaVersion: document.schemaVersion,
+    },
+  });
+  if (updated.count !== 1) {
+    const current = await prisma.event.findFirst({ where: { id, professionalId }, select: { draftVersion: true } });
+    return { ok: false, kind: "conflict", currentVersion: current?.draftVersion ?? expectedVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
+  }
+  await sincronizarPresentesDoDocumento(id, document);
+  revalidatePath("/painel");
+  const address = enderecoPublico(owned.subdomain);
+  return { ok: true, id, version: expectedVersion + 1, savedAt: savedAt.toISOString(), ...address };
+}
+
+/** Publica um snapshot imutável do rascunho que possui a versão esperada. */
+export async function publicarDocumentoConvite(input: unknown): Promise<PublicarDocumentoResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, kind: "auth", error: "Sua sessão expirou. Entre de novo." };
+  const parsed = publicarDocumentoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, kind: "validation", error: parsed.error.issues[0]?.message ?? "Publicação inválida." };
+  const { id, expectedDraftVersion } = parsed.data;
+  const professionalId = session.user.id;
+  const event = await prisma.event.findFirst({
+    where: { id, professionalId },
+    select: { id: true, subdomain: true, draftData: true, draftVersion: true },
+  });
+  if (!event) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
+  if (event.draftVersion !== expectedDraftVersion) {
+    return { ok: false, kind: "conflict", currentVersion: event.draftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
+  }
+  const document = EventEditorDocumentSchema.safeParse(event.draftData);
+  if (!document.success) return { ok: false, kind: "validation", error: "O rascunho precisa ser revisado antes de publicar." };
+
+  const publishedAt = new Date();
+  const updated = await prisma.event.updateMany({
+    where: { id, professionalId, draftVersion: expectedDraftVersion },
+    data: {
+      status: "PUBLISHED",
+      publishedData: jsonDoDocumento(document.data),
+      publishedVersion: expectedDraftVersion,
+      publishedAt,
+      schemaVersion: document.data.schemaVersion,
+    },
+  });
+  if (updated.count !== 1) {
+    const current = await prisma.event.findFirst({ where: { id, professionalId }, select: { draftVersion: true } });
+    return { ok: false, kind: "conflict", currentVersion: current?.draftVersion ?? expectedDraftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
+  }
+  revalidatePath("/painel");
+  const address = enderecoPublico(event.subdomain);
+  return { ok: true, id, publishedVersion: expectedDraftVersion, publishedAt: publishedAt.toISOString(), ...address };
 }

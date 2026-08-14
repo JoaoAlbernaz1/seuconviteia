@@ -104,6 +104,14 @@ model Event {
   // o gating de recursos (rsvp/recados/galeria/white-label/dominio) deriva daqui.
   plan           Plan        @default(BASICO)
   customization  Json?
+  // Documento canônico do editor (Fase 1). Campos legados acima permanecem
+  // durante o rollout para convites existentes e rollback seguro.
+  draftData       Json?
+  draftVersion    Int         @default(0)
+  publishedData   Json?
+  publishedVersion Int        @default(0)
+  schemaVersion   Int         @default(1)
+  publishedAt     DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

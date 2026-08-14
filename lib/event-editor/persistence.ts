@@ -16,3 +16,33 @@ export function applyDocumentPatch<T>(current: T, patch: DeepPartial<T> | undefi
 }
 
 export type EventDocumentPatch = DeepPartial<EventEditorDocument>;
+
+type VersionedSaveInput = {
+  currentDocument: EventEditorDocument;
+  currentVersion: number;
+  expectedVersion: number;
+  incomingDocument: EventEditorDocument;
+};
+
+export type VersionedSaveResult =
+  | { ok: true; document: EventEditorDocument; version: number }
+  | { ok: false; reason: "conflict"; currentVersion: number };
+
+export function applyVersionedSave(input: VersionedSaveInput): VersionedSaveResult {
+  if (input.expectedVersion !== input.currentVersion) {
+    return { ok: false, reason: "conflict", currentVersion: input.currentVersion };
+  }
+  return {
+    ok: true,
+    document: structuredClone(input.incomingDocument),
+    version: input.currentVersion + 1,
+  };
+}
+
+export function createPublishedSnapshot(document: EventEditorDocument, draftVersion: number, publishedAt: Date) {
+  return {
+    publishedDocument: structuredClone(document),
+    publishedVersion: draftVersion,
+    publishedAt: new Date(publishedAt),
+  };
+}
