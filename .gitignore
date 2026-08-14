@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cópia antiga do próprio projeto, largada aqui dentro (1,1 GB). Não versionar.
+/seuconviteia/

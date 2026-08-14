@@ -42,6 +42,13 @@ Chrome resolve `*.localhost` sem `/etc/hosts`. Com `NEXT_PUBLIC_ROOT_DOMAIN=loca
 
 - **Turbopack serve CSS VELHO as vezes** (classe nova nao aparece no compilado):
   `rm -rf .next` + reiniciar o dev. Nao perca tempo debugando o CSS antes disso.
+  **`rm -rf .next` sozinho NAO basta** — o cache do Turbopack tambem vive em
+  `node_modules/.cache` e sobrevive. Aconteceu em 12/08/2026: classe nova em
+  `globals.css`, arquivo correto, servidor reiniciado, e o chunk continuava sem
+  a regra. O que resolve:
+  `lsof -ti:3000 | xargs kill -9 && rm -rf .next node_modules/.cache && pnpm dev`.
+  Pra confirmar rapido se e cache: `curl` a URL do `<link rel=stylesheet>` da
+  pagina e `grep` a classe nova — se nao estiver la, e cache, nao e o seletor.
 - **Zumbi na :3000**: se o dev subir na :3001, tem um `next dev` antigo vivo —
   `lsof -ti :3000 | xargs kill` antes de rodar de novo.
 - **Screenshot headless ENGANA**: o iframe do mapa demora ~6s pra pintar e os
