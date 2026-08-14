@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
@@ -29,6 +30,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.59.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20",
