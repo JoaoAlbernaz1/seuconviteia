@@ -6,7 +6,7 @@
 // layout aninhado; o RsvpConvite traz seu proprio fundo (foto clara) + particulas.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { RsvpConvite } from "@/components/evt/RsvpConvite";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";

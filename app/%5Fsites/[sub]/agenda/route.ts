@@ -3,7 +3,8 @@
 // ambos do rewrite de tenant; o nome `.ics` vem do Content-Disposition).
 // O middleware reescreve `<sub>.seuconviteia.com/agenda` -> `/_sites/<sub>/agenda`.
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta, lerEventoFesta } from "@/lib/eventoFesta";
+import { lerEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@
 // (preview = site de verdade). Aqui fica so o carregar/gate do tenant.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { PaginaEvento } from "@/components/evt/paginas/PaginaEvento";

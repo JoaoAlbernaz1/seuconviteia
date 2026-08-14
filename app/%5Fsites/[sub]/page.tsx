@@ -6,7 +6,7 @@
 // gate do tenant. O chrome (atmosfera/nav/rodape) e o tema ficam no layout.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { PaginaInicio } from "@/components/evt/paginas/PaginaInicio";

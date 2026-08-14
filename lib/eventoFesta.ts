@@ -10,9 +10,7 @@
  * PURO: recebe um shape estrutural (o payload do Prisma satisfaz). A query em si
  * fica em `carregarEventoFesta` (cacheada por request).
  */
-import { cache } from "react";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import {
   lerConteudo,
   type EventoParaConteudo,
@@ -254,14 +252,3 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     secoes: lerSecoes(event.customization, event.type),
   };
 }
-
-/**
- * Carrega o Event do subdominio (+ relacoes usadas pela home). Cacheado por
- * request (React `cache`) para o layout e a page compartilharem a mesma query.
- */
-export const carregarEventoFesta = cache(async (sub: string) => {
-  return prisma.event.findUnique({
-    where: { subdomain: sub },
-    include: { professional: true, template: true, gifts: { orderBy: { id: "asc" } }, photos: true },
-  });
-});

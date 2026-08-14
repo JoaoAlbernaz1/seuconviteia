@@ -4,7 +4,7 @@
 // aviso "as fotos chegam em breve". O chrome/tema ficam no layout aninhado.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 
 import { PaginaGaleria } from "@/components/evt/paginas/PaginaGaleria";

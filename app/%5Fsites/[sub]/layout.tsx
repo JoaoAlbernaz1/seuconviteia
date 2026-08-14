@@ -7,7 +7,7 @@ import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { SiteAtmosphere } from "@/components/evt/SiteAtmosphere";
 import { SiteNav } from "@/components/evt/SiteNav";
 import { SiteFooter } from "@/components/evt/SiteFooter";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
@@ -15,6 +15,7 @@ import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada,
 import { coresParticulas } from "@/lib/cor";
 import { planoPermite } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
+import { publishedEditorDocument } from "@/lib/event-editor/public-document";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -62,6 +63,8 @@ export default async function EventSiteLayout({
   // Só a marca EXPLÍCITA do profissional (não vaza o nome interno da conta): sem
   // brandName, o rodapé white-label fica sem crédito (como o site real da festa).
   const brandName = event.professional?.brandName ?? undefined;
+  const publishedDocument = publishedEditorDocument(event);
+  const footerEnabled = publishedDocument?.footer.enabled ?? true;
 
   return (
     <div
@@ -71,13 +74,15 @@ export default async function EventSiteLayout({
       <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />
       <SiteNav nome={dados.primeiroNome} logoUrl={dados.logoUrl} monograma={dados.monograma} recursos={recursos} />
       {children}
-      <SiteFooter
-        nome={dados.primeiroNome}
-        linhaInfo={dados.footerInfo}
-        mensagem={dados.rodapeMsg}
-        whiteLabel={whiteLabel}
-        brandName={brandName}
-      />
+      {footerEnabled && (
+        <SiteFooter
+          nome={dados.primeiroNome}
+          linhaInfo={dados.footerInfo}
+          mensagem={dados.rodapeMsg}
+          whiteLabel={whiteLabel}
+          brandName={brandName}
+        />
+      )}
     </div>
   );
 }

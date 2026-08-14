@@ -4,7 +4,7 @@
 // Pix do customization). Pix DIRETO (copiar chave) — sem checkout/taxa.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { prisma } from "@/lib/db";

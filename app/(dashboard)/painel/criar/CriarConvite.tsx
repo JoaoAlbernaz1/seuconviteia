@@ -17,9 +17,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
-import { criarConvite } from "./acoes";
+import { publicarDocumentoConvite, salvarDocumentoConvite } from "./acoes";
 import { podeVitrine, type Plan } from "@/lib/plans";
-import { PreviewSite } from "../_ui/PreviewSite";
+import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import { SeletorFontes } from "../_ui/SeletorFontes";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
@@ -30,11 +30,7 @@ import { deveResalvar } from "@/lib/autosave";
 import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
-
-// Passo 2: o controle "Tamanho dos textos" (Pequeno/Médio/Grande) vira este
-// multiplicador do lockup da capa — mexe no nome e na idade JUNTOS (uniforme),
-// mantendo o responsivo. Índice = valor do <Seg>.
-const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
+import { createDefaultEventDocument, type EventEditorDocument } from "@/lib/event-editor/document";
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
@@ -44,44 +40,7 @@ const BTN_LABELS = ["Confirmar presença", "Ver localização", "Ver presentes"]
 /** Como cobrar o presente: valor único (FIXO) ou dividido em cotas (COTAS). */
 type GiftModo = "FIXO" | "COTAS";
 /** Linha da lista de presentes no editor: nome + descrição + valor + foto + cobrança (Pix). */
-type GiftRow = { n: string; desc: string; v: string; foto?: string; modo?: GiftModo; cotas?: number };
-/** Mapeia uma linha do editor para o item `presentes` do payload/rascunho (sempre Pix). */
-function giftParaPresente(g: GiftRow) {
-  const modo: GiftModo = g.modo ?? "FIXO";
-  return {
-    titulo: g.n,
-    descricao: g.desc,
-    valor: g.v,
-    tipo: "PIX" as const,
-    modo,
-    cotas: modo === "COTAS" ? g.cotas ?? undefined : undefined,
-    foto: g.foto?.trim() || undefined,
-  };
-}
-
-/**
- * Lista de presentes que vai pro site: as linhas do editor + (quando ligada) a
- * "Contribuição com valor livre". Sem valor, a gravação classifica o item como
- * `LIVRE` (ver `criar/acoes.ts`), e o modal do convidado abre o campo de valor.
- */
-function presentesDoEditor(S: State) {
-  if (!S.gifts) return [];
-  const linhas = S.giftList.filter((g) => g.n.trim()).map(giftParaPresente);
-  if (!S.free || !S.freeTitulo.trim()) return linhas;
-  return [
-    ...linhas,
-    {
-      titulo: S.freeTitulo.trim(),
-      descricao: S.freeValores.trim(),
-      valor: "",
-      tipo: "PIX" as const,
-      modo: "FIXO" as const,
-      cotas: undefined,
-      foto: undefined,
-    },
-  ];
-}
-
+type GiftRow = { id: string; n: string; desc: string; v: string; foto?: string; modo?: GiftModo; cotas?: number };
 /** Junta nomes em pt-BR — MESMA regra do adapter (lib/eventoFesta). */
 function juntarNomes(nomes: string[]): string {
   const ns = nomes.map((n) => n.trim()).filter(Boolean);
@@ -99,17 +58,6 @@ const REC_PADRAO = {
   mural: "Recados de quem ama",
 } as const;
 
-/** Texto do editor -> rascunho: `undefined` quando e igual ao padrao ou vazio. */
-function seMudou(valor: string, padrao: string): string | undefined {
-  const v = valor.trim();
-  return v && v !== padrao ? v : undefined;
-}
-
-/** Primeiro nome do convite — o site usa `primeiroNome` na copy dos recados. */
-function primeiroNome(nome: string): string {
-  return nome.trim().split(/\s+/)[0] ?? "";
-}
-
 /** "aaaa-mm-dd" (valor do <input type="date">) -> "dd/mm/aaaa". */
 function isoParaDDMM(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -125,30 +73,6 @@ function ddmmParaISO(s: string): string {
   if (!m) return "";
   const [, d, mo, y] = m;
   return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
-}
-
-// Rótulo de data IGUAL ao do site ("Sábado, 29 de agosto"), pra prévia ao vivo bater
-// com o que o reload renderiza (mesmo formatador; fuso -03:00 fixo — ver skill evt).
-const fmtDataLive = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "America/Sao_Paulo",
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-/** "dd/mm/aaaa" (+ "HH:MM") -> "Sábado, 29 de agosto"; "" se a data ainda não é válida. */
-function dataLabelLive(ddmm: string, hIni: string): string {
-  const iso = ddmmParaISO(ddmm);
-  if (!iso) return "";
-  const dt = new Date(`${iso}T${hIni || "20:00"}:00-03:00`);
-  if (Number.isNaN(dt.getTime())) return "";
-  const s = fmtDataLive.format(dt);
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-/** "20:00" -> "20h"; "20:30" -> "20h30"; "" se inválido. */
-function horarioLive(hhmm: string): string {
-  const m = (hhmm || "").match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return "";
-  return m[2] === "00" ? `${m[1]}h` : `${m[1]}h${m[2]}`;
 }
 
 
@@ -182,147 +106,65 @@ function focoDoPasso(step: number, acc: number): string {
  * rosé, mesmos componentes) reagindo ao que o usuário edita. Foto/álbum ficam
  * vazios de propósito — o preview povoa com fotos de exemplo (U5 liga o upload).
  */
-// Config do formulário de confirmação (RSVP) a partir do passo 5. Índices de
-// rsvpOpts: 0 permitir acompanhantes · 1 pedir nomes · 2 telefone · 3 e-mail ·
-// 4 restrição · 5 recado. corBotao só quando "Personalizar cores".
-function rsvpConfigDe(S: State) {
-  const permitir = S.rsvpOpts[0];
-  return {
-    permitirAcompanhantes: permitir,
-    pedirNomeAcompanhantes: S.rsvpOpts[1],
-    maxAcompanhantes: permitir ? Math.max(0, Math.min(20, Number(S.maxComp) || 0)) : 0,
-    pedirTelefone: S.rsvpOpts[2],
-    pedirEmail: S.rsvpOpts[3],
-    pedirRestricao: S.rsvpOpts[4],
-    permitirRecado: S.rsvpOpts[5],
-    corBotao: S.theme === 1 && /^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao) ? S.rsvpCorBotao : undefined,
-    dataLimite: S.rsvpDataLimite || undefined,
-    msgConfirma: S.rsvpMsgSim.trim() || undefined,
-    msgRecusa: S.rsvpMsgNao.trim() || undefined,
-  };
-}
-
-function montarRascunho(S: State) {
-  const endereco = [S.endereco, S.cidade, S.uf]
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .join(", ");
-  return {
-    type: "QUINZE_ANOS",
-    tema: S.tema,
-    temaCor: S.tema === "custom" ? S.corCustom : undefined,
-    fontes: S.fonte,
-    negrito: S.negrito,
-    template: "quinze-anos-glamour-rose",
-    title: S.nome,
-    fotoUrl: S.capaFoto || undefined,
-    fotoDesktopUrl: S.capaDoisFotos ? S.capaFotoDesktop || undefined : undefined,
-    idade: S.idade ? Number(S.idade) : undefined,
-    monograma: S.monograma,
-    logoUrl: S.monogramaFoto || undefined,
-    animacoes: S.animacoes,
-    capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
-    capaOverlay: S.overlay,
-    pais: S.paisOn ? { pai: S.pai, mae: S.mae } : undefined,
-    ctaLabel: S.btnTx || undefined,
-    ctaHref: BTN_HREFS[S.btnDest] ?? "/confirmar",
-    ctaLead: S.btnAcima || undefined,
-    rodapeMsg: S.rodapeTx || undefined,
-    date: ddmmParaISO(S.data),
-    time: S.hIni,
-    mensagem: S.abTx,
-    aberturaTitulo: S.abT,
-    recadosEyebrow: S.rec ? seMudou(S.recEyebrow, REC_PADRAO.eyebrow) : undefined,
-    recadosTitulo: S.rec ? seMudou(S.recTitulo, REC_PADRAO.titulo) : undefined,
-    recadosConvite: S.rec ? seMudou(S.recConvite, REC_PADRAO.convite) : undefined,
-    recadosMural: S.rec ? seMudou(S.recMural, REC_PADRAO.mural) : undefined,
-    local: S.local,
-    endereco,
-    traje: S.trajeOn ? S.traje : "",
-    pixNome: S.gifts ? S.pixNome : undefined,
-    pixChave: S.gifts ? S.pixChave : undefined,
-    presentesTexto: S.gifts ? S.presentesTexto || undefined : undefined,
-    presentes: presentesDoEditor(S),
-    rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
-    listaModelo: S.listaModelo,
-    programacao: S.programacao.filter((p) => p.hora.trim() || p.titulo.trim()),
-    recursosOff: [
-      !S.rsvp ? "rsvp" : null,
-      !S.gifts ? "presentes" : null,
-      !S.gal ? "galeria" : null,
-      !S.rec ? "recados" : null,
-      !S.prog ? "programacao" : null,
-    ].filter(Boolean) as string[],
-  };
-}
-
-/**
- * Mapa de patch AO VIVO da prévia (por tecla, sem recarregar): chave = `data-live`
- * no template, valor = texto. Chave AUSENTE = não mexe naquele elemento (por isso
- * data/horário só entram quando já são válidos — evita "apagar" a prévia digitando).
- */
-function liveMapa(S: State): Record<string, string> {
-  const m: Record<string, string> = {
-    nome: S.nome,
-    idade: S.idade,
-    "carta-titulo": S.abT,
-    "carta-msg": S.abTx,
-    // Assinatura = "pai, mãe e a debutante" (ou só a debutante) — MESMA regra do
-    // adapter, pra a caixa "Pais e família" refletir os nomes ao vivo.
-    assinatura:
-      S.paisOn && (S.pai.trim() || S.mae.trim())
-        ? juntarNomes([S.pai, S.mae, S.nome])
-        : S.nome,
-    "rodape-msg": S.rodapeTx.trim() || "Feito com carinho.",
-    local: S.local,
-    endereco: [S.endereco, S.cidade, S.uf].map((x) => x.trim()).filter(Boolean).join(", "),
-    traje: S.trajeOn ? S.traje : "",
-    "pix-nome": S.gifts ? S.pixNome : "",
-    "pix-chave": S.gifts ? S.pixChave : "",
-    "recados-eyebrow": S.recEyebrow,
-    "recados-titulo": S.recTitulo,
-    "recados-convite": S.recConvite.replaceAll("{nome}", primeiroNome(S.nome)),
-    "recados-mural": S.recMural,
-    "obrigada-msg-sim": S.rsvpMsgSim,
-    "obrigada-msg-nao": S.rsvpMsgNao,
-  };
-  const d = dataLabelLive(S.data, S.hIni);
-  if (d) m.data = d;
-  const h = horarioLive(S.hIni);
-  if (h) m.horario = h;
-  if (S.btnTx.trim()) m["cta-label"] = S.btnTx;
-  if (S.btnAcima.trim()) m["cta-lead"] = S.btnAcima;
-  return m;
-}
-
-// Assinatura do que EXIGE recarregar a prévia (muda → recarrega o iframe). De
-// FORA ficam os textos que já refletem AO VIVO via [data-live]: o TÍTULO da carta,
-// o rodapé, endereço/local/cidade/UF, o traje e as mensagens de confirmação —
-// mexer neles NÃO recarrega (não "pula" nem re-rola).
-// A MENSAGEM da carta (abTx) fica no reload: é `data-live-multi` (multi-parágrafo),
-// que o patch ao vivo não atualiza de forma confiável — reload garante que aparece.
-// Ver PreviewSite.
-function estruturalDoEditor(S: State): string {
-  return JSON.stringify([
-    S.nome, S.idade, S.tema, S.tema === "custom" ? S.corCustom : "", S.fonte, S.negrito,
-    S.capaFoto, S.capaDoisFotos ? S.capaFotoDesktop : "", S.capaDoisFotos,
-    S.monograma, S.monogramaFoto, S.szT, S.overlay, S.animacoes,
-    S.abTx,
-    S.paisOn, S.pai, S.mae,
-    S.btnDest, S.btnTx, S.btnAcima,
-    S.data, S.hIni,
-    S.gifts, S.free, S.listaModelo,
-    S.gifts ? S.giftList.map((g) => `${g.n}${g.v}${g.desc}${g.foto ?? ""}${g.modo ?? ""}${g.cotas ?? ""}`).join("") : "",
-    S.gifts ? S.pixNome : "", S.gifts ? S.pixChave : "", S.gifts ? S.presentesTexto : "",
-    S.gifts && S.free ? `${S.freeTitulo}|${S.freeValores}` : "",
-    S.programacao.map((p) => `${p.hora}|${p.titulo}`).join("~"),
-    S.gal, S.rec, S.prog,
-    // Só o liga/desliga GERAL da confirmação fica no reload (some/adiciona a
-    // página inteira). As OPÇÕES do RSVP (acompanhantes/telefone/e-mail/restrição/
-    // recado/cor/data) vão AO VIVO por postMessage pro formulário — instantâneas,
-    // sem recarregar. Ver `liveRsvpConfig` no PreviewSite + RsvpConvite.
-    S.rsvp,
-  ]);
+/** Converte a UI legada no documento canônico consumido pelo renderer e pelo
+ * autosave versionado. Não existe estado de preview separado. */
+function documentoDoEditor(S: State): EventEditorDocument {
+  return createDefaultEventDocument({
+    basic: { name: S.nome, slug: S.slug, eventType: "QUINZE_ANOS" },
+    template: { id: "quinze-anos-glamour-rose", version: 1 },
+    cover: {
+      mobileImageUrl: S.capaFoto,
+      desktopImage: { enabled: S.capaDoisFotos, url: S.capaFotoDesktop },
+      age: S.idade,
+      monogram: { enabled: S.monograma, imageUrl: S.monogramaFoto },
+    },
+    content: {
+      opening: { title: S.abT, text: S.abTx },
+      parents: { enabled: S.paisOn, father: S.pai, mother: S.mae },
+      dressCode: { enabled: S.trajeOn, text: S.traje },
+      cta: { label: S.btnTx, href: BTN_HREFS[S.btnDest] ?? "/confirmar", lead: S.btnAcima },
+    },
+    schedule: {
+      date: ddmmParaISO(S.data),
+      time: S.hIni,
+      program: { enabled: S.prog, items: S.programacao.map((item) => ({ time: item.hora, title: item.titulo })) },
+    },
+    location: { enabled: true, venue: S.local, address: S.endereco, city: S.cidade, state: S.uf, zipCode: S.cep },
+    rsvp: {
+      enabled: S.rsvp,
+      companionsEnabled: S.rsvpOpts[0],
+      requestCompanionNames: S.rsvpOpts[1],
+      maxCompanions: Math.max(0, Math.min(20, Number(S.maxComp) || 0)),
+      requestPhone: S.rsvpOpts[2],
+      requestEmail: S.rsvpOpts[3],
+      requestDietaryRestrictions: S.rsvpOpts[4],
+      allowMessage: S.rsvpOpts[5],
+      deadline: S.rsvpDataLimite,
+      buttonColor: /^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao) ? S.rsvpCorBotao : "#CE578B",
+      confirmationMessage: S.rsvpMsgSim,
+      declineMessage: S.rsvpMsgNao,
+    },
+    gifts: {
+      enabled: S.gifts,
+      listModel: S.listaModelo,
+      introduction: S.presentesTexto,
+      items: S.giftList.map((gift) => ({ id: gift.id, title: gift.n, description: gift.desc, value: gift.v, imageUrl: gift.foto ?? "", pricingMode: gift.modo ?? "FIXO", quotas: gift.cotas })),
+      freeContribution: { enabled: S.free, title: S.freeTitulo, suggestedValues: S.freeValores },
+    },
+    pix: { enabled: S.pixOn, name: S.pixNome, key: S.pixChave },
+    gallery: { enabled: S.gal, imageUrls: [] },
+    messages: { enabled: S.rec, eyebrow: S.recEyebrow, title: S.recTitulo, invitation: S.recConvite, wallTitle: S.recMural },
+    footer: { enabled: S.rodapeOn, text: S.rodapeTx },
+    appearance: {
+      theme: S.tema,
+      customColor: /^#[0-9a-fA-F]{6}$/.test(S.corCustom) ? S.corCustom : "#CE578B",
+      font: S.fonte,
+      titleSize: (["small", "medium", "large"] as const)[S.szT] ?? "medium",
+      bold: S.negrito,
+      overlay: S.overlay,
+      animations: S.animacoes,
+    },
+  });
 }
 
 const V = "#7C3AED";
@@ -369,14 +211,13 @@ type State = {
   cep: string; local: string; endereco: string; cidade: string; uf: string; traje: string; slug: string;
   capaFoto: string; capaFotoDesktop: string; capaDoisFotos: boolean;
   idade: string; monograma: boolean; monogramaFoto: string;
-  capaT: string; capaS: string; capaD: string;
-  tema: string; corCustom: string; fonte: string; corFocou: boolean; negrito: boolean;
-  szT: number; szS: number; szD: number; corTxt: number; corDet: number; overlay: boolean;
+  tema: string; corCustom: string; fonte: string; negrito: boolean;
+  szT: number; overlay: boolean;
   acc: number; abT: string; abTx: string;
-  paisOn: boolean; paisTx: string; trajeOn: boolean; btnTx: string; btnDest: number; btnAcima: string; rodapeTx: string;
-  rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number; corBtn: number;
+  paisOn: boolean; trajeOn: boolean; btnTx: string; btnDest: number; btnAcima: string; rodapeOn: boolean; rodapeTx: string;
+  rsvp: boolean; maxComp: string; rsvpOpts: boolean[]; theme: number;
   rsvpDataLimite: string; rsvpCorBotao: string; rsvpMsgSim: string; rsvpMsgNao: string;
-  gifts: boolean; free: boolean; giftList: GiftRow[]; pixNome: string; pixChave: string; presentesTexto: string;
+  gifts: boolean; free: boolean; giftList: GiftRow[]; pixOn: boolean; pixNome: string; pixChave: string; presentesTexto: string;
   freeTitulo: string; freeValores: string;
   programacao: ItemProgramacao[]; prog: boolean;
   gal: boolean; rec: boolean; recSt: string[];
@@ -393,20 +234,19 @@ const INICIAL: State = {
   traje: "Esporte fino", slug: "teste",
   capaFoto: "", capaFotoDesktop: "", capaDoisFotos: false,
   idade: "15", monograma: true, monogramaFoto: "",
-  capaT: "Teste", capaS: "15 anos", capaD: "Uma noite para celebrar sonhos e momentos inesquecíveis.",
-  tema: "rose", corCustom: "#CE578B", fonte: "classica", corFocou: false, negrito: false,
-  szT: 1, szS: 1, szD: 1, corTxt: 0, corDet: 0, overlay: false,
+  tema: "rose", corCustom: "#CE578B", fonte: "classica", negrito: false,
+  szT: 1, overlay: false,
   acc: 0, abT: "Vem comemorar comigo!",
   abTx: "Estou muito feliz e quero compartilhar esse momento especial com as pessoas que eu amo. Conto com você!",
-  paisOn: true, paisTx: "Com a alegria dos meus pais, convido você para celebrar este momento comigo.",
+  paisOn: true,
   trajeOn: true, btnTx: "Confirmar presença", btnDest: 0, btnAcima: "",
-  rodapeTx: "Obrigada por fazer parte da minha história.",
-  rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0, corBtn: 0,
+  rodapeOn: true, rodapeTx: "Obrigada por fazer parte da minha história.",
+  rsvp: true, maxComp: "2", rsvpOpts: [true, true, false, false, true, true], theme: 0,
   rsvpDataLimite: "10/11/2026", rsvpCorBotao: "#CE578B",
   rsvpMsgSim: MSG_CONFIRMA_PADRAO, rsvpMsgNao: MSG_RECUSA_PADRAO,
   gifts: true, free: true, listaModelo: "painel",
-  giftList: GIFTS.map((g) => ({ n: g.n, desc: g.desc, v: g.v })),
-  pixNome: "", pixChave: "", presentesTexto: "",
+  giftList: GIFTS.map((g, index) => ({ id: `gift-demo-${index + 1}`, n: g.n, desc: g.desc, v: g.v })),
+  pixOn: true, pixNome: "", pixChave: "", presentesTexto: "",
   freeTitulo: "Contribua com o valor que desejar", freeValores: "R$ 50 · R$ 100 · R$ 200",
   programacao: programacaoSugerida("QUINZE_ANOS"), prog: true,
   gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
@@ -415,6 +255,94 @@ const INICIAL: State = {
   animacoes: false,
   published: false, copied: false, pvMode: "celular",
 };
+
+type EditorUiState = Pick<State,
+  "step" | "sv" | "showErr" | "foco" | "acc" | "theme" | "recSt" | "published" | "copied" | "pvMode"
+>;
+
+function uiDoEstado(state: State): EditorUiState {
+  return {
+    step: state.step,
+    sv: state.sv,
+    showErr: state.showErr,
+    foco: state.foco,
+    acc: state.acc,
+    theme: state.theme,
+    recSt: state.recSt,
+    published: state.published,
+    copied: state.copied,
+    pvMode: state.pvMode,
+  };
+}
+
+/** View de compatibilidade da UI monolítica. É derivada do documento; nunca é
+ * armazenada como uma segunda cópia editável. */
+function estadoDoDocumento(document: EventEditorDocument, ui: EditorUiState): State {
+  const size = document.appearance.titleSize === "small" ? 0 : document.appearance.titleSize === "large" ? 2 : 1;
+  const buttonIndex = Math.max(0, BTN_HREFS.indexOf(document.content.cta.href));
+  return {
+    ...ui,
+    nome: document.basic.name,
+    data: isoParaDDMM(document.schedule.date),
+    hIni: document.schedule.time,
+    pai: document.content.parents.father,
+    mae: document.content.parents.mother,
+    cep: document.location.zipCode,
+    local: document.location.venue,
+    endereco: document.location.address,
+    cidade: document.location.city,
+    uf: document.location.state,
+    traje: document.content.dressCode.text,
+    slug: document.basic.slug,
+    capaFoto: document.cover.mobileImageUrl,
+    capaFotoDesktop: document.cover.desktopImage.url,
+    capaDoisFotos: document.cover.desktopImage.enabled,
+    idade: document.cover.age,
+    monograma: document.cover.monogram.enabled,
+    monogramaFoto: document.cover.monogram.imageUrl,
+    tema: document.appearance.theme,
+    corCustom: document.appearance.customColor,
+    fonte: document.appearance.font,
+    negrito: document.appearance.bold,
+    szT: size,
+    overlay: document.appearance.overlay,
+    abT: document.content.opening.title,
+    abTx: document.content.opening.text,
+    paisOn: document.content.parents.enabled,
+    trajeOn: document.content.dressCode.enabled,
+    btnTx: document.content.cta.label,
+    btnDest: buttonIndex,
+    btnAcima: document.content.cta.lead,
+    rodapeOn: document.footer.enabled,
+    rodapeTx: document.footer.text,
+    rsvp: document.rsvp.enabled,
+    maxComp: String(document.rsvp.maxCompanions),
+    rsvpOpts: [document.rsvp.companionsEnabled, document.rsvp.requestCompanionNames, document.rsvp.requestPhone, document.rsvp.requestEmail, document.rsvp.requestDietaryRestrictions, document.rsvp.allowMessage],
+    rsvpDataLimite: document.rsvp.deadline,
+    rsvpCorBotao: document.rsvp.buttonColor,
+    rsvpMsgSim: document.rsvp.confirmationMessage,
+    rsvpMsgNao: document.rsvp.declineMessage,
+    gifts: document.gifts.enabled,
+    free: document.gifts.freeContribution.enabled,
+    giftList: document.gifts.items.map((gift) => ({ id: gift.id, n: gift.title, desc: gift.description, v: gift.value, foto: gift.imageUrl || undefined, modo: gift.pricingMode, cotas: gift.quotas })),
+    pixOn: document.pix.enabled,
+    pixNome: document.pix.name,
+    pixChave: document.pix.key,
+    presentesTexto: document.gifts.introduction,
+    freeTitulo: document.gifts.freeContribution.title,
+    freeValores: document.gifts.freeContribution.suggestedValues,
+    programacao: document.schedule.program.items.map((item) => ({ hora: item.time, titulo: item.title })),
+    prog: document.schedule.program.enabled,
+    gal: document.gallery.enabled,
+    rec: document.messages.enabled,
+    recEyebrow: document.messages.eyebrow,
+    recTitulo: document.messages.title,
+    recConvite: document.messages.invitation,
+    recMural: document.messages.wallTitle,
+    listaModelo: document.gifts.listModel,
+    animacoes: document.appearance.animations,
+  };
+}
 
 const inputCls = "w-full rounded-[11px] border bg-white px-3 py-2.5 text-[14px] text-[#17171B]";
 const cardCls = "rounded-[18px] border border-[#ECECF0] bg-white p-6 shadow-[0_2px_10px_rgba(23,23,27,0.04)]";
@@ -545,10 +473,22 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
 
 export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   const router = useRouter();
-  const [S, setS] = useState<State>(INICIAL);
+  const [editor, setEditor] = useState(() => ({
+    document: documentoDoEditor(INICIAL),
+    ui: uiDoEstado(INICIAL),
+  }));
+  const S = estadoDoDocumento(editor.document, editor.ui);
+  const setS = (updater: State | ((current: State) => State)) => {
+    setEditor((previous) => {
+      const current = estadoDoDocumento(previous.document, previous.ui);
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { document: documentoDoEditor(next), ui: uiDoEstado(next) };
+    });
+  };
   // Persistencia: id do convite ja gravado (idempotente), link publico apos
   // publicar, erro da gravacao e estado "gravando".
   const [eventId, setEventId] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState(0);
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
   // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
@@ -565,11 +505,13 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   // Busca de prévia do link de loja (presente tipo LINK).
   const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cepRequestRef = useRef<AbortController | null>(null);
   // AUTOSAVE (rascunho): refs pra salvar sem fechar sobre estado velho.
   const salvarRef = useRef<() => Promise<void>>(async () => {});
   const dadosRef = useRef("");
   const lastSavedRef = useRef<string | null>(null);
   const savingRef = useRef(false);
+  const versionRef = useRef(0);
   const primeiroRender = useRef(true);
   // Resume: restaura o rascunho do localStorage ao reabrir; só persiste depois
   // que o usuário muda algo (não guarda o demo intocado).
@@ -654,18 +596,31 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     const mask = digits.replace(/(\d{5})(\d)/, "$1-$2");
     upd({ cep: mask });
     if (digits.length !== 8) return;
+    cepRequestRef.current?.abort();
+    const controller = new AbortController();
+    cepRequestRef.current = controller;
+    const fieldsAtRequest = { endereco: S.endereco, cidade: S.cidade, uf: S.uf };
     setCepLoading(true);
     try {
-      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: controller.signal });
       const d = await r.json();
-      if (!d.erro) {
+      if (!d.erro && cepRequestRef.current === controller) {
         const rua = [d.logradouro, d.bairro].filter(Boolean).join(", ");
-        upd({ cep: mask, endereco: rua || S.endereco, cidade: d.localidade || S.cidade, uf: d.uf || S.uf });
+        setS((current) => ({
+          ...current,
+          cep: mask,
+          endereco: current.endereco === fieldsAtRequest.endereco ? rua || current.endereco : current.endereco,
+          cidade: current.cidade === fieldsAtRequest.cidade ? d.localidade || current.cidade : current.cidade,
+          uf: current.uf === fieldsAtRequest.uf ? d.uf || current.uf : current.uf,
+        }));
       }
     } catch {
       /* offline / CEP inválido — segue com preenchimento manual */
     } finally {
-      setCepLoading(false);
+      if (cepRequestRef.current === controller) {
+        cepRequestRef.current = null;
+        setCepLoading(false);
+      }
     }
   };
 
@@ -705,60 +660,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     copyTimer.current = setTimeout(() => setS((s) => ({ ...s, copied: false })), 1500);
   };
 
-  // Estado do editor -> payload da server action (so o que o template consome
-  // hoje; capa/estilo detalhados e RSVP dinamico ligam nas proximas fatias).
-  const montarPayload = () => ({
-    id: eventId ?? undefined,
-    title: S.nome,
-    fotoUrl: S.capaFoto || undefined,
-    fotoDesktopUrl: S.capaDoisFotos ? S.capaFotoDesktop || undefined : undefined,
-    idade: S.idade ? Number(S.idade) : undefined,
-    monograma: S.monograma,
-    logoUrl: S.monogramaFoto || undefined,
-    animacoes: S.animacoes,
-    negrito: S.negrito,
-    tema: S.tema,
-    temaCor: S.tema === "custom" ? S.corCustom : undefined,
-    fontes: S.fonte,
-    capaEscala: ESCALAS_CAPA[S.szT] ?? 1,
-    capaOverlay: S.overlay,
-    ctaLabel: S.btnTx || undefined,
-    ctaHref: BTN_HREFS[S.btnDest] ?? "/confirmar",
-    ctaLead: S.btnAcima || undefined,
-    rodapeMsg: S.rodapeTx || undefined,
-    date: ddmmParaISO(S.data),
-    time: S.hIni,
-    local: S.local,
-    endereco: [S.endereco, S.cidade, S.uf]
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .join(", "),
-    traje: S.trajeOn ? S.traje : undefined,
-    slug: S.slug,
-    mensagem: S.abTx,
-    aberturaTitulo: S.abT,
-    recadosEyebrow: S.rec ? seMudou(S.recEyebrow, REC_PADRAO.eyebrow) : undefined,
-    recadosTitulo: S.rec ? seMudou(S.recTitulo, REC_PADRAO.titulo) : undefined,
-    recadosConvite: S.rec ? seMudou(S.recConvite, REC_PADRAO.convite) : undefined,
-    recadosMural: S.rec ? seMudou(S.recMural, REC_PADRAO.mural) : undefined,
-    pixNome: S.gifts ? S.pixNome : undefined,
-    pixChave: S.gifts ? S.pixChave : undefined,
-    presentesTexto: S.gifts ? S.presentesTexto || undefined : undefined,
-    presentes: presentesDoEditor(S),
-    listaModelo: S.listaModelo,
-    programacao: S.programacao.filter((p) => p.hora.trim() || p.titulo.trim()),
-    recursosOff: [
-      !S.rsvp ? "rsvp" : null,
-      !S.gifts ? "presentes" : null,
-      !S.gal ? "galeria" : null,
-      !S.rec ? "recados" : null,
-      !S.prog ? "programacao" : null,
-    ].filter(Boolean) as string[],
-    pais: S.paisOn ? { pai: S.pai, mae: S.mae } : undefined,
-    rsvpConfig: S.rsvp ? rsvpConfigDe(S) : undefined,
-  });
-
-  // Grava no banco: rascunho (publicar=false) ou publica (site no ar).
+  // Salva o documento canônico e, ao publicar, cria um snapshot imutável.
   const enviar = (publicar: boolean) => {
     // Antes de publicar, o link precisa estar válido — está no passo final.
     if (publicar && !slugOk) {
@@ -767,14 +669,27 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     }
     setErroPub(null);
     iniciarGravacao(async () => {
-      const r = await criarConvite(montarPayload(), publicar);
-      if (!r.ok) {
-        setErroPub(r.error);
+      const saved = await salvarDocumentoConvite({
+        id: eventId ?? undefined,
+        expectedVersion: versionRef.current,
+        document: editor.document,
+      });
+      if (!saved.ok) {
+        setErroPub(saved.error);
+        if (saved.kind === "conflict") setS((state) => ({ ...state, sv: "erro" }));
         return;
       }
-      setEventId(r.id);
+      versionRef.current = saved.version;
+      setDraftVersion(saved.version);
+      setEventId(saved.id);
+      lastSavedRef.current = dadosRef.current;
       if (publicar) {
-        setPubInfo({ host: r.host, url: r.url });
+        const published = await publicarDocumentoConvite({ id: saved.id, expectedDraftVersion: saved.version });
+        if (!published.ok) {
+          setErroPub(published.error);
+          return;
+        }
+        setPubInfo({ host: published.host, url: published.url });
         setS((s) => ({ ...s, published: true }));
         try {
           localStorage.removeItem(RASCUNHO_KEY);
@@ -787,7 +702,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
 
   // ── AUTOSAVE do rascunho ──────────────────────────────────────────────────
   // "Impressão digital" do conteúdo: muda a cada alteração real do convite.
-  const dadosStr = JSON.stringify(montarRascunho(S));
+  const dadosStr = JSON.stringify(editor.document);
 
   // A função de salvar mora num ref e é reescrita a cada render, então ela sempre
   // enxerga o estado MAIS NOVO (sem "stale closure"). Salva como rascunho (false).
@@ -800,11 +715,17 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       let salvouOk = false;
       setS((s) => ({ ...s, sv: "salvando" }));
       try {
-        const r = await criarConvite({ ...montarPayload(), id: eventId ?? undefined }, false);
+        const r = await salvarDocumentoConvite({
+          id: eventId ?? undefined,
+          expectedVersion: versionRef.current,
+          document: editor.document,
+        });
         if (r.ok) {
           salvouOk = true;
           setSalvarErro("");
           setEventId(r.id);
+          versionRef.current = r.version;
+          setDraftVersion(r.version);
           lastSavedRef.current = snapshot;
           setS((s) => ({ ...s, sv: "salvo" }));
         } else {
@@ -836,7 +757,6 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       return;
     }
     if (!restauradoRef.current) return; // espera restaurar o rascunho do navegador
-    if (S.published) return; // depois de publicar não fica salvando por cima
     if (!req(S.nome)) return; // só persiste quando já há nome (garante slug bom)
     if (dadosStr === lastSavedRef.current) return;
     setS((s) => (s.sv === "salvando" ? s : { ...s, sv: "salvando" }));
@@ -865,9 +785,26 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     try {
       const raw = localStorage.getItem(RASCUNHO_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { S?: Partial<State>; eventId?: string | null };
-        if (saved?.S) setS((s) => ({ ...s, ...saved.S, sv: "salvo", showErr: false }));
+        const saved = JSON.parse(raw) as {
+          document?: EventEditorDocument;
+          ui?: Partial<EditorUiState>;
+          S?: Partial<State>;
+          eventId?: string | null;
+          draftVersion?: number;
+        };
+        if (saved.document) {
+          setEditor((current) => ({
+            document: saved.document!,
+            ui: { ...current.ui, ...saved.ui, sv: "salvo", showErr: false },
+          }));
+        } else if (saved?.S) {
+          setS((state) => ({ ...state, ...saved.S, sv: "salvo", showErr: false }));
+        }
         if (saved?.eventId) setEventId(saved.eventId);
+        if (typeof saved?.draftVersion === "number") {
+          versionRef.current = saved.draftVersion;
+          setDraftVersion(saved.draftVersion);
+        }
       }
     } catch {}
     restauradoRef.current = true;
@@ -879,10 +816,10 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     if (!restauradoRef.current) return;
     if (dadosStr === dadosInicialRef.current) return;
     try {
-      localStorage.setItem(RASCUNHO_KEY, JSON.stringify({ S, eventId }));
+      localStorage.setItem(RASCUNHO_KEY, JSON.stringify({ document: editor.document, ui: editor.ui, eventId, draftVersion }));
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dadosStr, S.step, eventId]);
+  }, [dadosStr, S.step, eventId, draftVersion]);
 
   const rsvpFieldNames: string[] = [];
   if (S.rsvpOpts[0]) rsvpFieldNames.push(`Quantos acompanhantes? (até ${S.maxComp})`);
@@ -1202,8 +1139,8 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 <div data-foco="livre-textos">
                   <div className="mb-1 text-[13.5px] font-bold">Paleta de cores</div>
                   <div className="mb-3 text-[12px] text-[#6e6e76]">Muda a cor do convite inteiro. Escolha uma das mais usadas ou qualquer cor.</div>
-                  <Paletas value={S.tema} onChange={(k) => upd({ tema: k, corFocou: true })} />
-                  <CorPersonalizada ativo={S.tema === "custom"} cor={S.corCustom} onPick={(hex) => upd({ tema: "custom", corCustom: hex, corFocou: true })} />
+                  <Paletas value={S.tema} onChange={(k) => upd({ tema: k })} />
+                  <CorPersonalizada ativo={S.tema === "custom"} cor={S.corCustom} onPick={(hex) => upd({ tema: "custom", corCustom: hex })} />
                 </div>
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 {/* Letras do convite — mesmo seletor visual da tela "Trocar o estilo".
@@ -1478,18 +1415,29 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                           )}
                           {a.kind === "rodape" && (
                             <div className="flex flex-col gap-3">
-                              <div>
-                                <Label>Frase de despedida</Label>
-                                <input value={S.rodapeTx} onChange={inp("rodapeTx")} placeholder="Feito com carinho." style={{ borderColor: "#E4E4EA" }} className={inputCls} />
-                                <div className="mt-1 text-[11.5px] text-[#A6A6AE]">O fecho do site, logo abaixo do seu nome e da data.</div>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-[13.5px] font-bold">Mostrar rodapé</div>
+                                  <div className="mt-0.5 text-[12px] text-[#A6A6AE]">Exibe o fecho do convite abaixo do conteúdo.</div>
+                                </div>
+                                <Toggle on={S.rodapeOn} onClick={() => upd({ rodapeOn: !S.rodapeOn })} />
                               </div>
-                              <div className="text-[12px] text-[#A6A6AE]">
-                                O nome (<b>{S.nome || "—"}</b>) e a data aparecem automáticos, do que você preencheu nas etapas anteriores.
-                              </div>
-                              <div className="flex items-center gap-2 rounded-[11px] border border-[#ECECF0] bg-[#F4F4F6] px-3.5 py-2.5 text-[12.5px] text-[#6e6e76]">
-                                <Ic d={IC.lock} size={13} stroke="#A6A6AE" width={2} />
-                                A assinatura “Criado com seuconvite · uma marca Orivya” é fixa e não pode ser removida.
-                              </div>
+                              {S.rodapeOn && (
+                                <>
+                                  <div>
+                                    <Label>Frase de despedida</Label>
+                                    <input value={S.rodapeTx} onChange={inp("rodapeTx")} placeholder="Feito com carinho." style={{ borderColor: "#E4E4EA" }} className={inputCls} />
+                                    <div className="mt-1 text-[11.5px] text-[#A6A6AE]">O fecho do site, logo abaixo do seu nome e da data.</div>
+                                  </div>
+                                  <div className="text-[12px] text-[#A6A6AE]">
+                                    O nome (<b>{S.nome || "—"}</b>) e a data aparecem automáticos, do que você preencheu nas etapas anteriores.
+                                  </div>
+                                  <div className="flex items-center gap-2 rounded-[11px] border border-[#ECECF0] bg-[#F4F4F6] px-3.5 py-2.5 text-[12.5px] text-[#6e6e76]">
+                                    <Ic d={IC.lock} size={13} stroke="#A6A6AE" width={2} />
+                                    A assinatura “Criado com seuconvite · uma marca Orivya” é fixa e não pode ser removida.
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1691,7 +1639,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                                 key={s.n}
                                 type="button"
                                 disabled={jaTem}
-                                onClick={() => upd({ giftList: [...S.giftList, { n: s.n, desc: s.desc, v: s.v }] })}
+                                onClick={() => upd({ giftList: [...S.giftList, { id: crypto.randomUUID(), n: s.n, desc: s.desc, v: s.v }] })}
                                 className={`rounded-full border px-3 py-[7px] text-[12.5px] font-medium transition-colors ${
                                   jaTem
                                     ? "cursor-default border-[#ECECF0] bg-[#F4F4F6] text-[#B9B9C0]"
@@ -1719,7 +1667,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                           const totalCentsGift = (parseInt(g.v.replace(/\D/g, ""), 10) || 0) * 100;
                           const cotaCentsGift = emCotas && nCotas > 0 ? Math.round(totalCentsGift / nCotas) : 0;
                           return (
-                          <div key={i} className="rounded-2xl border border-[#ECECF0] bg-white p-3 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
+                          <div key={g.id} className="rounded-2xl border border-[#ECECF0] bg-white p-3 shadow-[0_1px_4px_rgba(23,23,27,0.03)]">
                             <div className="flex items-center gap-2.5">
                               <span className="grid size-6 flex-none place-items-center rounded-full bg-[#F3EFFE] text-[11px] font-bold text-[#7C3AED]">{i + 1}</span>
                               {/* Ordem da lista = ordem que o convidado vê no site. */}
@@ -1853,7 +1801,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                         })}
                         <button
                           type="button"
-                          onClick={() => upd({ giftList: [...S.giftList, { n: "", desc: "", v: "" }] })}
+                          onClick={() => upd({ giftList: [...S.giftList, { id: crypto.randomUUID(), n: "", desc: "", v: "" }] })}
                           className="w-full cursor-pointer rounded-[11px] border-[1.5px] border-dashed border-[#D5D5DC] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#7C3AED] hover:border-[#7C3AED] hover:bg-[#FBFAFE]"
                         >
                           + Adicionar presente em branco
@@ -1866,6 +1814,27 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                     <div className={cardCls}>
                       <div className="text-[15.5px] font-bold">Dinheiro</div>
                       <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os presentes em dinheiro entram pela plataforma e ficam na sua carteira.</div>
+                      <div className="mb-4 rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[13.5px] font-bold">Mostrar Pix direto no convite</div>
+                            <div className="mt-0.5 text-[12px] text-[#6e6e76]">Permite que o convidado copie sua chave Pix.</div>
+                          </div>
+                          <Toggle on={S.pixOn} onClick={() => upd({ pixOn: !S.pixOn })} />
+                        </div>
+                        {S.pixOn && (
+                          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                              <Label>Nome do titular</Label>
+                              <input value={S.pixNome} onChange={inp("pixNome")} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                            </div>
+                            <div>
+                              <Label>Chave Pix</Label>
+                              <input value={S.pixChave} onChange={inp("pixChave")} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       <div className="mb-4 rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
                         <div className="mb-2 flex items-center justify-between">
                           <div className="text-[13.5px] font-bold">Contribuição com valor livre</div>
@@ -2034,21 +2003,17 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
               editor. Segue o passo: capa/home, evento, presentes, galeria. */}
           <div className="scv lg:sticky lg:top-0">
             <div className={`${cardCls} p-4`}>
-              <PreviewSite
-                rascunhoJson={JSON.stringify(montarRascunho(S))}
-                estruturalJson={estruturalDoEditor(S)}
-                liveRsvpConfig={S.rsvp ? rsvpConfigDe(S) : null}
-                pagina={paginaDaPrevia(S.step, S.foco, {
+              <EditorPreview
+                document={editor.document}
+                page={paginaDaPrevia(S.step, S.foco, {
                   rsvp: S.rsvp,
                   presentes: S.gifts,
                   galeria: S.gal,
                   recados: S.rec,
-                })}
-                foco={S.foco}
-                live={liveMapa(S)}
-                host={hostPublico}
-                rotulo="É assim que os convidados vão ver"
-                altura={700}
+                }) as "inicio" | "evento" | "confirmar" | "presentes" | "galeria" | "recados" | "obrigada"}
+                focus={S.foco}
+                device={S.pvMode === "celular" ? "mobile" : "desktop"}
+                onDeviceChange={(device) => upd({ pvMode: device === "mobile" ? "celular" : "desktop" })}
               />
               <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia é o site de verdade · {S.slug}.seuconvite.orivya.com</div>
             </div>

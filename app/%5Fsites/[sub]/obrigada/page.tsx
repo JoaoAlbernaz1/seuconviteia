@@ -5,7 +5,7 @@
 // subdominio e re-valida a visibilidade no servidor.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { lerRsvpConfig } from "@/lib/rsvpConfig";
 import { PaginaObrigada } from "@/components/evt/paginas/PaginaObrigada";

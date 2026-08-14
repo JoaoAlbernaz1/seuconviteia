@@ -4,7 +4,7 @@
 // primeiro). O chrome/tema ficam no layout aninhado.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
-import { carregarEventoFesta } from "@/lib/eventoFesta";
+import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 
 import { PaginaRecados } from "@/components/evt/paginas/PaginaRecados";
