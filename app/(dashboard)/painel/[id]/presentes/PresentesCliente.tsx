@@ -58,6 +58,7 @@ export function PresentesCliente({
   host,
   tipo,
   podeVitrine,
+  taxaDoPlano,
   listaModeloInicial,
   pixNomeInicial,
   pixChaveInicial,
@@ -71,6 +72,8 @@ export function PresentesCliente({
   host: string;
   tipo: string;
   podeVitrine: boolean;
+  /** Taxa do plano da conta, ja formatada (ex.: "3,4%"). */
+  taxaDoPlano: string;
   listaModeloInicial: ListaModelo;
   pixNomeInicial: string;
   pixChaveInicial: string;
@@ -350,7 +353,7 @@ export function PresentesCliente({
                 </a>
                 <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-scv-faint">
                   <i className="bi bi-shield-check" aria-hidden />
-                  Taxa de 5% por presente recebido. Sua chave Pix nunca aparece no site.
+                  Taxa de {taxaDoPlano} por presente recebido. Sua chave Pix nunca aparece no site.
                 </p>
               </div>
 

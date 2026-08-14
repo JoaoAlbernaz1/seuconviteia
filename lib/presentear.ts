@@ -62,7 +62,11 @@ export async function iniciarPresente(input: IniciarPresenteInput): Promise<Inic
   const dados = parsed.data;
 
   // Re-resolve o evento e valida visibilidade (não confia no cliente).
-  const event = await prisma.event.findUnique({ where: { id: dados.eventId } });
+  // O plano da CONTA define a taxa (lib/pagamentos/taxa) — por isso o include.
+  const event = await prisma.event.findUnique({
+    where: { id: dados.eventId },
+    include: { professional: { select: { plan: true } } },
+  });
   const visivel = eventoPublico(event, new Date());
   if (!event || !visivel.ok) {
     return { ok: false, erro: "Este convite não está disponível." };
@@ -97,8 +101,9 @@ export async function iniciarPresente(input: IniciarPresenteInput): Promise<Inic
     }
   }
 
-  const feeCents = calcularTaxaCents(valor.brutoCents);
-  const netCents = calcularLiquidoCents(valor.brutoCents);
+  const plano = event.professional?.plan ?? null;
+  const feeCents = calcularTaxaCents(valor.brutoCents, plano);
+  const netCents = calcularLiquidoCents(valor.brutoCents, plano);
   const provider = getPaymentProvider();
 
   // Cria a contribuição PENDING primeiro (o id vira a referência da cobrança).

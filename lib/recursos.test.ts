@@ -35,9 +35,10 @@ describe("lerToggles", () => {
 });
 
 describe("recursosDoSite (ativo = plano permite ∩ toggle)", () => {
-  it("BASICO: recados/galeria ficam OFF mesmo com toggle ligado", () => {
+  it("BASICO: RSVP/recados/galeria ficam OFF mesmo com toggle ligado", () => {
     const r = recursosDoSite("BASICO", {});
-    expect(r.rsvp).toBe(true);
+    // Confirmacao de presenca saiu do Basico em 12/08/2026 (ver lib/plans).
+    expect(r.rsvp).toBe(false);
     expect(r.presentes).toBe(true);
     expect(r.contador).toBe(true);
     expect(r.programacao).toBe(true);

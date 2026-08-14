@@ -5,6 +5,7 @@ import { appUrl } from "@/lib/tenant";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { RevealOnScroll } from "@/components/marketing/RevealOnScroll";
 import { Contador } from "@/components/marketing/Contador";
+import { PLANOS_INFO } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "seuconvite — seu evento merece um convite à altura",
@@ -141,53 +142,22 @@ const NUMEROS: { ate: number; sufixo: string; decimais?: number; t: string; s: s
   { ate: 4.9, decimais: 1, sufixo: "/5", t: "Satisfação dos clientes", s: "Avaliação média após o evento" },
 ];
 
-const PLANOS = [
-  {
-    nome: "Essencial",
-    para: "Para festas simples e diretas",
-    preco: "R$ 79",
-    ciclo: "/ evento",
-    cta: "Começar",
-    destaque: false,
-    itens: [
-      { t: "1 convite publicado", off: false },
-      { t: "Confirmação de presença", off: false },
-      { t: "Contagem regressiva e mapa", off: false },
-      { t: "Link para compartilhar", off: false },
-      { t: "Sem lista de presentes", off: true },
-    ],
-  },
-  {
-    nome: "Completo",
-    para: "Para 15 anos e casamentos",
-    preco: "R$ 149",
-    ciclo: "/ evento",
-    cta: "Começar agora",
-    destaque: true,
-    itens: [
-      { t: "Tudo do Essencial", off: false },
-      { t: "Lista de presentes com Pix", off: false },
-      { t: "Recados dos convidados", off: false },
-      { t: "Galeria de fotos e playlist", off: false },
-      { t: "Painel com exportação da lista", off: false },
-    ],
-  },
-  {
-    nome: "Profissional",
-    para: "Para cerimonialistas e empresas",
-    preco: "R$ 297",
-    ciclo: "/ mês",
-    cta: "Falar com vendas",
-    destaque: false,
-    itens: [
-      { t: "Tudo do Completo", off: false },
-      { t: "Convites ilimitados", off: false },
-      { t: "Domínio próprio e marca branca", off: false },
-      { t: "Credenciamento com QR Code", off: false },
-      { t: "Suporte prioritário", off: false },
-    ],
-  },
-] as const;
+// Planos da LANDING — derivados de `lib/plans.ts` + `lib/pagamentos/taxa.ts`,
+// pra a vitrine nunca divergir do que o produto cobra de verdade.
+//
+// A escada e desenhada pro plano do MEIO ganhar: o Basico e gratis mas paga a
+// taxa cheia; o Classico derruba a taxa em 2,5 pontos por R$ 59 (se paga com
+// pouco mais de uma festa); o Premium so compensa pra quem faz volume.
+const PLANOS = PLANOS_INFO.map((info) => ({
+  nome: info.label,
+  para: info.paraQuem,
+  preco: info.preco ?? "Grátis",
+  ciclo: info.preco ? "/ mês" : "para começar",
+  taxaLinha: info.taxaLinha,
+  cta: info.destaque ? "Começar agora" : info.preco ? "Assinar" : "Criar de graça",
+  destaque: !!info.destaque,
+  itens: info.inclui.map((t) => ({ t, off: false })),
+}));
 
 /**
  * Depoimentos. `foto` aponta para `public/marketing/depoimentos/*` — hoje são
@@ -330,7 +300,7 @@ export default function MarketingHome() {
               Escolha o plano do seu evento
             </h2>
             <p className="lead" data-rv="" style={{ margin: "16px auto 0", maxWidth: 520, "--d": "110ms" } as CSSProperties}>
-              Pagamento único por evento. Seu convite fica no ar até a data da festa e mais 90 dias depois.
+              Comece de graça e só pague quando receber presente. Quanto maior o plano, menor a taxa.
             </p>
           </div>
 
@@ -342,7 +312,7 @@ export default function MarketingHome() {
                 data-rv=""
                 style={{ "--d": `${i * 90}ms` } as CSSProperties}
               >
-                {p.destaque ? <div className="p-badge">Mais escolhido</div> : null}
+                {p.destaque ? <div className="p-badge">Melhor negócio</div> : null}
                 <div className="p-name">{p.nome}</div>
                 <div className="p-for">{p.para}</div>
 
@@ -365,6 +335,8 @@ export default function MarketingHome() {
                     <div key={it.t} className={it.off ? "no" : undefined}>{it.t}</div>
                   ))}
                 </div>
+
+                <div className="p-taxa">{p.taxaLinha}</div>
               </div>
             ))}
           </div>

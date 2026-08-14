@@ -11,6 +11,7 @@ import { lerCarteira, mascararCpf } from "@/lib/carteira";
 import { saldoDoEvento } from "@/lib/pagamentos/contribuicao";
 import { AtivarCarteira } from "./AtivarCarteira";
 import { BTN_PRIMARIO, BTN_VOLTAR, CARD, INPUT, LABEL, SUB, TITULO } from "../../_ui/estilos";
+import { taxaLabel } from "@/lib/pagamentos/taxa";
 
 export const dynamic = "force-dynamic";
 
@@ -104,7 +105,7 @@ export default async function CofrePage({
                   <p className="mt-0.5 text-[16px] font-semibold text-scv-ink">{fmt(recebido)}</p>
                 </div>
                 <div className="rounded-[13px] bg-scv-soft p-3">
-                  <p className="text-[11px] text-scv-muted">Taxa (5%)</p>
+                  <p className="text-[11px] text-scv-muted">Taxa ({taxaLabel(event.professional.plan)})</p>
                   <p className="mt-0.5 text-[16px] font-semibold text-scv-ink">− {fmt(taxa)}</p>
                 </div>
               </div>

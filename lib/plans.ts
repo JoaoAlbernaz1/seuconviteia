@@ -4,8 +4,8 @@
 // recursos liberam por NIVEL do plano (nao sao compras avulsas). A base do
 // convite (capa, convite, evento, lista de presentes) e sempre visivel.
 //
-// Matriz (conforme o brief):
-//   BASICO   -> base + RSVP.
+// Matriz (atualizada em 12/08/2026 — o RSVP saiu do Basico por decisao do dono):
+//   BASICO   -> base (convite, evento, contador, programacao, presentes + Pix).
 //   CLASSICO -> base + RSVP + recados + galeria (album).
 //   PREMIUM  -> tudo do CLASSICO + white-label + dominio proprio.
 
@@ -65,7 +65,9 @@ export function recursosDoPlano(plan: Plan): RecursosPlano {
     case "BASICO":
     default:
       return {
-        rsvp: true,
+        // Confirmacao de presenca saiu do Basico (12/08/2026): e o recurso que
+        // o profissional mais pede, e vira o motivo forte pra subir pro Classico.
+        rsvp: false,
         recados: false,
         galeria: false,
         whiteLabel: false,
@@ -90,7 +92,9 @@ export function podeVitrine(plan: Plan): boolean {
 }
 
 export function limiteEventos(plan: Plan): number | null {
-  return plan === "BASICO" ? 3 : null;
+  // Basico = 1 convite (decisao do Joao, 12/08/2026): quem faz festa o ano
+  // inteiro precisa do Classico, que e onde a escada quer que a pessoa fique.
+  return plan === "BASICO" ? 1 : null;
 }
 
 // ----------------------------------------------------------------------------
@@ -104,55 +108,96 @@ export interface PlanoInfo {
   /** Itens exibidos no card do plano (cumulativos). */
   inclui: string[];
   destaque?: boolean;
-  /**
-   * Preço mensal exibido nos cards (ex.: "R$ 39"). DECISÃO DE NEGÓCIO do dono —
-   * fica `undefined` até ser definido; a UI mostra "Assinatura mensal" no lugar.
-   */
+  /** Preço mensal exibido nos cards (ex.: "R$ 59"); `undefined` = grátis. */
   preco?: string;
+  /** Mensalidade em centavos — usada no cálculo de "se paga com". */
+  mensalidadeCents: number;
+  /** Para quem é este plano, em uma linha (ajuda a pessoa a se reconhecer). */
+  paraQuem: string;
+  /**
+   * Linha da taxa, exibida no RODAPE do card (decisao do Joao, 12/08/2026: a
+   * taxa aparece uma vez so, embaixo, e nao grande no topo).
+   */
+  taxaLinha: string;
 }
 
 /** Ordem de exibicao dos planos (do menor para o maior). */
 export const PLAN_ORDER: readonly Plan[] = ["BASICO", "CLASSICO", "PREMIUM"] as const;
 
 /** Metadados dos tres planos para o cadastro e o painel. */
+/**
+ * Metadados dos tres planos.
+ *
+ * DESENHO DA ESCADA (decisao do Joao, 12/08/2026): o plano do MEIO tem que ser
+ * o obviamente melhor negocio. Por isso a queda de taxa e assimetrica —
+ * Basico -> Classico cai 2,5 pontos (a assinatura se paga com pouco mais de uma
+ * festa), Classico -> Premium cai so 0,8 ponto (so compensa pra quem faz
+ * volume). O Basico e gratis de proposito: enche a base e a plataforma ganha na
+ * taxa desde o primeiro convite.
+ *
+ * Precos sao DECISAO DE NEGOCIO — mexer aqui muda a UI inteira e o calculo de
+ * "se paga com". As taxas moram em `lib/pagamentos/taxa.ts`.
+ */
+/**
+ * Metadados dos tres planos.
+ *
+ * DESENHO DA ESCADA (decisao do Joao, 12/08/2026): o plano do MEIO tem que ser
+ * o obviamente melhor negocio. A queda de taxa e assimetrica — Basico ->
+ * Classico cai 2,5 pontos, Classico -> Premium cai so 0,8. Somado ao limite de
+ * 1 convite no Basico, quem faz festa com frequencia sobe pro Classico.
+ *
+ * As listas tem o MESMO numero de itens de proposito: cards do mesmo tamanho
+ * comparam melhor. A taxa sai da lista e vira `taxaLinha`, no rodape do card.
+ *
+ * Precos sao DECISAO DE NEGOCIO. As taxas moram em `lib/pagamentos/taxa.ts`.
+ */
 export const PLANOS_INFO: PlanoInfo[] = [
   {
     key: "BASICO",
     label: "Básico",
-    descricaoCurta: "O essencial para começar: convite, RSVP e presentes.",
+    descricaoCurta: "Comece de graça. Você só paga quando recebe presente.",
+    paraQuem: "Para quem está fazendo o primeiro convite.",
+    mensalidadeCents: 0,
+    taxaLinha: "Taxa de 5,9% sobre os presentes",
     inclui: [
-      "Até 3 eventos",
-      "Templates essenciais",
-      "Convite digital",
-      "Confirmação de presença (RSVP)",
-      "Lista de presentes (Pix)",
+      "1 convite",
+      "Convite digital completo",
+      "Contagem regressiva e programação",
+      "Lista de presentes e recebimento por Pix",
       "Endereço próprio (subdomínio)",
     ],
   },
   {
     key: "CLASSICO",
     label: "Clássico",
-    descricaoCurta: "O mais popular: todos os recursos da festa, eventos ilimitados.",
+    descricaoCurta: "Convites ilimitados e a taxa quase pela metade.",
+    paraQuem: "Para quem faz festa o ano inteiro.",
+    preco: "R$ 59",
+    mensalidadeCents: 5_900,
+    taxaLinha: "Taxa de 3,4% sobre os presentes",
     inclui: [
       "Tudo do Básico",
-      "Todos os templates e nichos",
-      "Álbum de fotos",
+      "Confirmação de presença",
+      "Convites ilimitados",
       "Mural de recados",
-      "Save the date",
-      "Eventos ilimitados",
-      "Taxa reduzida na lista de presentes",
+      "Álbum de fotos",
     ],
     destaque: true,
   },
   {
     key: "PREMIUM",
     label: "Premium",
-    descricaoCurta: "Sua marca: white-label, domínio próprio e suporte prioritário.",
+    descricaoCurta: "Sua marca no lugar da nossa, e a menor taxa da plataforma.",
+    paraQuem: "Para estúdio com time e clientes de alto padrão.",
+    preco: "R$ 149",
+    mensalidadeCents: 14_900,
+    taxaLinha: "Taxa de 2,6% sobre os presentes",
     inclui: [
       "Tudo do Clássico",
-      "White-label (sua marca)",
-      "Domínio personalizado",
+      "Sua marca no lugar da nossa",
+      "Domínio próprio do cliente",
       "Suporte prioritário",
+      "Atendimento em até 1 dia útil",
     ],
   },
 ];

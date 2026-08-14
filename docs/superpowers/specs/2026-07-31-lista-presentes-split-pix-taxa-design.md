@@ -11,7 +11,9 @@ Hoje a lista de presentes é **estática**: o dono coloca a chave Pix + QR dele 
 e o convidado paga **direto na conta do dono**, por fora da plataforma. O botão
 "Presentear" só rola até a seção do Pix. Como o dinheiro nunca passa pela plataforma,
 **não é possível cobrar a taxa nem fazer split** — que é o motor de receita nº 2 do negócio
-(taxa de 5% sobre a lista de presentes, decidido na Frente 1 do modelo de negócio).
+(taxa sobre a lista de presentes, decidido na Frente 1 do modelo de negócio).
+> **Atualização 12/08/2026:** a taxa passou de 5% para **2,5%** (decisão do dono).
+> Fonte única: `lib/pagamentos/taxa.ts` (`TAXA_BPS`).
 
 ## Objetivo
 

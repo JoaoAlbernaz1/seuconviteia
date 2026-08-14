@@ -9,6 +9,7 @@ import {
   voltarDe,
 } from "../_carregar";
 import { podeVitrine } from "@/lib/plans";
+import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { lerCarteira } from "@/lib/carteira";
 import { PresentesCliente } from "./PresentesCliente";
 
@@ -36,6 +37,7 @@ export default async function PresentesPage({
       host={hostDoEvento(event.subdomain)}
       tipo={event.type}
       podeVitrine={podeVitrine(event.professional.plan)}
+      taxaDoPlano={taxaLabel(event.professional.plan)}
       listaModeloInicial={modeloInicial}
       pixNomeInicial={lerCustomStr(c, "pixNome") ?? ""}
       pixChaveInicial={lerCustomStr(c, "pixChave") ?? ""}

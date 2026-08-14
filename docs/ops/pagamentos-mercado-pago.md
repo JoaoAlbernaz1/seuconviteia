@@ -46,7 +46,7 @@ O webhook (`app/api/webhooks/mercadopago/route.ts`):
 
 ## Taxa e cofre
 
-- Taxa da plataforma: **5%** (o dono assume; líquido = bruto − taxa). Fonte:
+- Taxa da plataforma: **2,5%** (o dono assume; líquido = bruto − taxa). Fonte:
   `lib/pagamentos/taxa.ts`.
 - O líquido entra no **cofre** do convite (saldo = Σ líquidos pagos − Σ payouts).
   O **saque** do cofre pro Pix do dono (payout/`transferir`) ainda **não** está
