@@ -11,6 +11,17 @@ import {
 } from "./eventoForm";
 
 describe("brlParaCents", () => {
+  it.each([
+    ["R$ 10", 1000],
+    ["R$ 10,50", 1050],
+    ["R$ 1.200", 120000],
+    ["R$ 1.200,50", 120050],
+    ["1200", 120000],
+    ["1200,50", 120050],
+  ])("converte %s exatamente para %i centavos", (input, cents) => {
+    expect(brlParaCents(input)).toBe(cents);
+  });
+
   it("converte formato pt-BR com virgula decimal", () => {
     expect(brlParaCents("150,00")).toBe(15000);
     expect(brlParaCents("90,50")).toBe(9050);

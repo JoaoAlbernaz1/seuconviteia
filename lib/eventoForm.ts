@@ -91,8 +91,12 @@ export function brlParaCents(valor: string | null | undefined): number | null {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (temVirgula) {
     s = s.replace(",", ".");
+  } else if (temPonto && /^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Sem vírgula, grupos exatos de três dígitos representam milhares em BRL.
+    // Outros usos de ponto continuam aceitos como decimal (ex.: "150.5").
+    s = s.replace(/\./g, "");
   }
-  // So ponto: tratado como separador decimal (deixa como esta).
+  // Ponto que não forma grupos de milhar: separador decimal (deixa como está).
 
   const n = Number(s);
   if (!Number.isFinite(n) || n < 0) return null;
