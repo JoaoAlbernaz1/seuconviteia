@@ -179,23 +179,22 @@ test.describe("fundação do editor", () => {
     await publicPage.goto(`http://${slug}.localhost:3000`);
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
 
-    // Sai do modal publicado por uma rota diferente antes de reabrir o editor;
-    // isso evita reutilizar o estado local da mesma página do wizard.
-    await page.getByRole("button", { name: "Voltar ao dashboard" }).click();
-    await expect(page).toHaveURL(/\/painel$/);
-    await page.goto(`/painel/criar?id=${event.id}`);
+    const editorPage = await browser.newPage();
+    await login(editorPage);
+    await editorPage.goto(`/painel/criar?id=${event.id}`);
     const unpublishedName = `${publishedName}-não-publicado`;
-    await nameInput(page).fill(unpublishedName);
-    await page.getByRole("button", { name: "Salvar rascunho" }).click();
+    await nameInput(editorPage).fill(unpublishedName);
+    await editorPage.getByRole("button", { name: "Salvar rascunho" }).click();
     await publicPage.reload();
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
     await expect(publicPage.locator("body")).not.toContainText(unpublishedName);
 
-    for (let step = 1; step < 6; step += 1) await continueStep(page).click();
-    await page.getByRole("button", { name: "Publicar convite" }).click();
-    await expect(page.getByText("Seu convite está no ar")).toBeVisible();
+    for (let step = 1; step < 6; step += 1) await continueStep(editorPage).click();
+    await editorPage.getByRole("button", { name: "Publicar convite" }).click();
+    await expect(editorPage.getByText("Seu convite está no ar")).toBeVisible();
     await publicPage.reload();
     await expect(publicPage.locator("body")).toContainText(unpublishedName);
     await publicPage.close();
+    await editorPage.close();
   });
 });
