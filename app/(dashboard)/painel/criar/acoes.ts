@@ -570,10 +570,14 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const document = EventEditorDocumentSchema.safeParse(event.draftData);
   if (!document.success) return { ok: false, kind: "validation", error: "O rascunho precisa ser revisado antes de publicar." };
 
+  const subdomain = await gerarSlugUnico(document.data.basic.slug || document.data.basic.name || "convite", async (slug) =>
+    slug !== event.subdomain && Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
+  );
   const publishedAt = new Date();
   const updated = await prisma.event.updateMany({
     where: { id, professionalId, draftVersion: expectedDraftVersion },
     data: {
+      subdomain,
       status: "PUBLISHED",
       publishedData: jsonDoDocumento(document.data),
       publishedVersion: expectedDraftVersion,
@@ -586,6 +590,6 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
     return { ok: false, kind: "conflict", currentVersion: current?.draftVersion ?? expectedDraftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
   }
   revalidatePath("/painel");
-  const address = enderecoPublico(event.subdomain);
+  const address = enderecoPublico(subdomain);
   return { ok: true, id, publishedVersion: expectedDraftVersion, publishedAt: publishedAt.toISOString(), ...address };
 }
