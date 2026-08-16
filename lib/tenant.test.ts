@@ -105,6 +105,18 @@ describe("appUrl — link absoluto pro painel (app.<root>)", () => {
       "http://app.localhost:3000/cadastrar",
     );
   });
+
+  // Enquanto nao ha dominio proprio, o site roda em *.vercel.app, onde
+  // subdominio curinga nao existe: `app.<host>.vercel.app` nao resolve e todo
+  // CTA da landing morreria em erro de DNS. Ali o painel vive no mesmo host.
+  it("em *.vercel.app devolve link relativo (nao ha subdominio curinga)", () => {
+    expect(appUrl("/entrar", "seuconviteia.vercel.app")).toBe("/entrar");
+    expect(appUrl("cadastrar", "meu-app-abc123.vercel.app")).toBe("/cadastrar");
+  });
+
+  it("em *.vercel.app sem caminho aponta para o painel", () => {
+    expect(appUrl("", "seuconviteia.vercel.app")).toBe("/painel");
+  });
 });
 
 describe("protocoloDe", () => {

@@ -133,7 +133,14 @@ export function protocoloDe(rootDomain: string): "http" | "https" {
  *   appUrl("", "seuconviteia.com")            // "https://app.seuconviteia.com"
  */
 export function appUrl(path: string, rootDomain: string): string {
+  const caminho = path ? (path.startsWith("/") ? path : `/${path}`) : "/painel";
+  // Em `*.vercel.app` NAO existe subdominio curinga: `app.<algo>.vercel.app` nao
+  // resolve. Enquanto o dominio proprio nao existir, o painel e a landing moram
+  // no MESMO host, entao o link tem que ser relativo — senao todo botao de
+  // conversao da landing ("Entrar", "Criar de graca", "Assinar") cai em erro de
+  // DNS. Com dominio proprio configurado, volta a apontar para `app.<root>`.
+  if (/\.vercel\.app$/i.test(rootDomain)) return caminho;
   const base = eventPublicUrl("app", rootDomain);
   if (!path) return base;
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  return `${base}${caminho}`;
 }
