@@ -61,3 +61,68 @@ Resumo do que você precisa saber:
 - O que trava agora não é mais o banco: é o `prisma/schema.prisma` ainda ser `provider = "mysql"`.
   Enquanto a linha atual não tiver um schema Postgres, o código não aponta para o banco pronto.
   **Não vou mexer nisso sem combinar** — muda o seu ambiente local também.
+
+---
+
+## 2026-08-16 (terceiro recado) — Postgres unificado + 2 achados sobre o seu trabalho
+
+### 1. Correção do meu recado anterior sobre o `tsconfig.json`
+
+Eu disse que o `exclude: [".next/dev"]` resolvia o conflito de tipos. **Está incompleto.**
+Quando existe um build BEM-SUCEDIDO (`.next/types`) e um dev rodando (`.next/dev/types`) ao mesmo
+tempo, o `tsc` volta a acusar:
+
+```
+.next/types/validator.ts(25,44): error TS2344: Type 'Route' does not satisfy the constraint 'LayoutRoutes'
+  '"/_sites/[sub]"' is not assignable ... Did you mean '"/%5Fsites/[sub]"'?
+```
+
+Motivo: o `validator.ts` **gerado pelo build importa** `.next/dev/types/routes` diretamente.
+`exclude` só impede que o arquivo entre como raiz do projeto — não impede import. Na primeira vez
+que testei, o build tinha falhado, então `.next/types` não existia e o erro não aparecia; foi por
+isso que eu dei o veredito errado.
+
+Sugestão (não apliquei, o arquivo é seu e você está mexendo nele agora): tirar `.next` inteiro do
+`tsc` e deixar a validação de rotas para o `next build`, que já faz isso. Assim o `tsc --noEmit`
+vira um check rápido de fonte e nunca mais dá erro fantasma. Enquanto isso, `rm -rf .next` antes
+do `tsc` resolve.
+
+### 2. O e2e do editor falha por seletor, não por lógica
+
+Rodei o seu `e2e/editor-foundation.spec.ts` (com `E2E_DATABASE_READY=1`) contra o app em Postgres.
+Falha determinística na **linha 114**:
+
+```
+strict mode violation: getByRole('button', { name: 'Continuar' }) resolved to 2 elements
+  1) dentro de getByLabel('Pré-visualização do convite')  <- o botão do RSVP DO CONVITE
+  2) o "Continuar" do editor
+```
+
+Ou seja: depois do `cycle(page, "Ativar RSVP")`, a prévia passa a renderizar o formulário de RSVP,
+que tem o próprio botão "Continuar" — e aí o locator casa com dois. Não tem nada a ver com banco.
+O caminho é escopar o locator do editor para fora da prévia (por exemplo, ancorar no formulário/
+painel de edição em vez da página inteira). Não mexi no arquivo porque você está commitando nele.
+
+### 3. O banco agora é PostgreSQL nos dois lados — **você vai precisar migrar seu ambiente local**
+
+Commit `5c0737c` na branch `claude/editor-foundation`. O `provider` do `schema.prisma` virou
+`postgresql`, o `relationMode = "prisma"` foi aposentado (produção sempre teve FKs reais) e o repo
+passou a ter histórico em `prisma/migrations/` (o `init` de produção + a expansão da Fase 1).
+
+Quando isso mergear na sua branch, seu MySQL local para de servir. São dois comandos:
+
+```bash
+docker run -d --name sc-postgres -e POSTGRES_PASSWORD=seuconvite -e POSTGRES_USER=postgres \
+  -e POSTGRES_DB=seuconviteia -p 5433:5432 postgres:17
+# no seu .env:
+#   DATABASE_URL="postgresql://postgres:seuconvite@127.0.0.1:5433/seuconviteia"
+#   DIRECT_URL="postgresql://postgres:seuconvite@127.0.0.1:5433/seuconviteia"
+pnpm db:deploy && pnpm db:seed
+```
+
+**Não use mais `pnpm db:push`** — agora existe histórico de migrations e o push dessincroniza.
+Para mudar schema: `pnpm db:migrate --name <descricao>`.
+
+Um detalhe que te afeta: seu `lib/event-editor/legacy-db-characterization.test.ts` usava SQL MySQL
+(crase em `` `order` ``, tabelas sem aspas). Reescrevi em Postgres e ele **deixou de ser pulado** —
+roda e passa contra o banco real com o seed.
