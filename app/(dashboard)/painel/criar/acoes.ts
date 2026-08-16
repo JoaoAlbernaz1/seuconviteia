@@ -30,6 +30,8 @@ import { protocoloDe } from "@/lib/tenant";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
 import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
+import { mergeCustomization } from "@/lib/customizationMerge";
+import { planGiftSync } from "@/lib/event-editor/gift-sync";
 
 export type CriarConviteResult =
   | { ok: true; id: string; subdomain: string; host: string; url: string }
@@ -178,21 +180,8 @@ const payloadSchema = z.object({
 
 export type CriarConvitePayload = z.input<typeof payloadSchema>;
 
-/** MERGE no customization (igual `acoes.ts`): `undefined` remove a chave. */
-function mesclar(
-  atual: unknown,
-  patch: Record<string, unknown>,
-): Prisma.InputJsonValue {
-  const base: Record<string, unknown> =
-    atual && typeof atual === "object" && !Array.isArray(atual)
-      ? { ...(atual as Record<string, unknown>) }
-      : {};
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete base[k];
-    else base[k] = v;
-  }
-  return base as Prisma.InputJsonValue;
-}
+const mesclar = (atual: unknown, patch: Record<string, unknown>): Prisma.InputJsonValue =>
+  mergeCustomization(atual, patch) as Prisma.InputJsonValue;
 
 /** Texto limpo -> `undefined` quando vazio. */
 function txt(v: string | undefined): string | undefined {
@@ -452,11 +441,11 @@ function jsonDoDocumento(document: EventEditorDocument): Prisma.InputJsonValue {
 
 async function sincronizarPresentesDoDocumento(eventId: string, document: EventEditorDocument): Promise<void> {
   const contributions = await prisma.giftContribution.count({ where: { eventId } });
-  if (contributions > 0) return;
-
   const current = await prisma.giftItem.findMany({ where: { eventId }, select: { id: true } });
   const currentIds = new Set(current.map((gift) => gift.id));
-  const incomingIds = new Set(document.gifts.items.map((gift) => gift.id).filter(Boolean));
+  const incomingIds = document.gifts.items.map((gift) => gift.id).filter(Boolean);
+  const syncPlan = planGiftSync({ existingIds: [...currentIds], incomingIds, contributionCount: contributions });
+  if (syncPlan.protectedByLedger) return;
 
   for (const gift of document.gifts.items) {
     const cents = brlParaCents(gift.value) ?? 0;
@@ -477,7 +466,7 @@ async function sincronizarPresentesDoDocumento(eventId: string, document: EventE
     }
   }
 
-  const removed = current.filter((gift) => !incomingIds.has(gift.id)).map((gift) => gift.id);
+  const removed = syncPlan.removeIds;
   if (removed.length) await prisma.giftItem.deleteMany({ where: { eventId, id: { in: removed } } });
 }
 

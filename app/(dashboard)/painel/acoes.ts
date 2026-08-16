@@ -17,6 +17,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { mergeCustomization, removeCustomizationWhenMissing } from "@/lib/customizationMerge";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
@@ -70,24 +71,8 @@ async function eventoDoDono(eventId: unknown) {
   });
 }
 
-/**
- * MERGE no customization: aplica o patch por chave. Valor `undefined` REMOVE a
- * chave (campo limpo pelo usuario); os demais campos existentes ficam como estao.
- */
-function mesclar(
-  atual: unknown,
-  patch: Record<string, unknown>,
-): Prisma.InputJsonValue {
-  const base: Record<string, unknown> =
-    atual && typeof atual === "object" && !Array.isArray(atual)
-      ? { ...(atual as Record<string, unknown>) }
-      : {};
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete base[k];
-    else base[k] = v;
-  }
-  return base as Prisma.InputJsonValue;
-}
+const mesclar = (atual: unknown, patch: Record<string, unknown>): Prisma.InputJsonValue =>
+  mergeCustomization(atual, patch) as Prisma.InputJsonValue;
 
 /** Destino do "Pronto, voltar" — so caminhos internos do painel. */
 function destinoVoltar(formData: FormData, fallback: string): string {
@@ -301,10 +286,10 @@ export async function atualizarDetalhes(
       eventDate: dh.eventDate,
       expiresAt: dh.expiresAt,
       customization: mesclar(event.customization, {
-        mensagem,
+        mensagem: removeCustomizationWhenMissing(mensagem),
         local,
-        endereco,
-        traje,
+        endereco: removeCustomizationWhenMissing(endereco),
+        traje: removeCustomizationWhenMissing(traje),
         mapsUrl,
         mapsEmbedUrl,
       }),
@@ -331,16 +316,16 @@ export async function salvarEstilo(formData: FormData): Promise<void> {
     patch.accent = acentoDoTema(tema);
   }
   if (typeof fontes === "string" && FONTE_KEYS.includes(fontes)) {
-    patch.fontes = fontes === FONTE_PADRAO ? undefined : fontes;
+    patch.fontes = removeCustomizationWhenMissing(fontes === FONTE_PADRAO ? undefined : fontes);
   }
   const template = formData.get("template");
   if (typeof template === "string" && template in TEMPLATES) {
-    patch.template = template === TEMPLATE_PADRAO ? undefined : template;
+    patch.template = removeCustomizationWhenMissing(template === TEMPLATE_PADRAO ? undefined : template);
   }
   // Tamanho das letras (multiplicador do lockup da capa: 0.9 / 1 / 1.15).
   const capaEscala = Number(formData.get("capaEscala"));
   if (Number.isFinite(capaEscala) && capaEscala >= 0.5 && capaEscala <= 2) {
-    patch.capaEscala = capaEscala === 1 ? undefined : capaEscala;
+    patch.capaEscala = removeCustomizationWhenMissing(capaEscala === 1 ? undefined : capaEscala);
   }
   await prisma.event.update({
     where: { id: event.id },
@@ -357,7 +342,7 @@ export async function salvarRecursos(formData: FormData): Promise<void> {
     where: { id: event.id },
     data: {
       customization: mesclar(event.customization, {
-        recursos: parseRecursosForm((k) => formData.get(k)),
+        recursos: removeCustomizationWhenMissing(parseRecursosForm((k) => formData.get(k))),
       }),
     },
   });
@@ -387,8 +372,8 @@ export async function salvarFotos(
     where: { id: event.id },
     data: {
       customization: mesclar(event.customization, {
-        fotoUrl: fotoUrl.data || undefined,
-        presentesFotoUrl: presentesFotoUrl.data || undefined,
+        fotoUrl: removeCustomizationWhenMissing(fotoUrl.data || undefined),
+        presentesFotoUrl: removeCustomizationWhenMissing(presentesFotoUrl.data || undefined),
       }),
     },
   });
@@ -459,10 +444,10 @@ export async function salvarPresentes(
     where: { id: event.id },
     data: {
       customization: mesclar(event.customization, {
-        pixNome,
-        pixChave,
-        pixQrUrl,
-        presentesTexto,
+        pixNome: removeCustomizationWhenMissing(pixNome),
+        pixChave: removeCustomizationWhenMissing(pixChave),
+        pixQrUrl: removeCustomizationWhenMissing(pixQrUrl),
+        presentesTexto: removeCustomizationWhenMissing(presentesTexto),
         listaModelo,
       }),
     },
@@ -515,7 +500,7 @@ export async function salvarProgramacao(formData: FormData): Promise<void> {
     where: { id: event.id },
     data: {
       customization: mesclar(event.customization, {
-        programacao: programacao.length ? programacao : undefined,
+        programacao: removeCustomizationWhenMissing(programacao.length ? programacao : undefined),
       }),
     },
   });
