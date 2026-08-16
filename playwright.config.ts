@@ -16,7 +16,7 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: process.env.E2E_WEB_SERVER_COMMAND ?? "pnpm dev --webpack --hostname 127.0.0.1",
+        command: process.env.E2E_WEB_SERVER_COMMAND ?? "pnpm dev --hostname 127.0.0.1",
         url: "http://127.0.0.1:3000/entrar",
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
