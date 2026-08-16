@@ -22,9 +22,9 @@ export const EMPRESA = {
    * ⚠️ Precisa EXISTIR de verdade: e o canal que a LGPD (art. 18) exige para o
    * titular exercer direitos, e o CDC para reclamacao. O antigo
    * `sac@seuconviteia.com` apontava para um dominio inexistente.
-   * `orivya.com.br` ja tem Google Workspace; falta criar este apelido (gratis).
+   * Caixa real do Workspace do dono, ja existente.
    */
-  email: "contato@orivya.com.br",
+  email: "joaoalbernaz@orivya.com.br",
   /** Encarregado de dados (LGPD, art. 41). Pode ser o proprio dono. */
   encarregado: "[PREENCHER: nome do encarregado de dados]",
 } as const;

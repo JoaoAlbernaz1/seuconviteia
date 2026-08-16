@@ -3,8 +3,11 @@
  *
  * Modelo de roteamento:
  *  - dominio raiz / www  -> site de marketing (grupo (marketing))
- *  - app.<root>          -> painel do profissional (grupo (dashboard))
  *  - <slug>.<root>       -> site publico do evento (rewrite p/ /_sites/<slug>)
+ *
+ * O painel NAO tem host proprio: vive no mesmo dominio raiz, em /painel
+ * (decisao do dono em 2026-08-16). `app` segue em RESERVED para nunca virar
+ * slug de evento.
  */
 
 /** Labels reservados que NUNCA representam um evento. */
@@ -123,24 +126,21 @@ export function protocoloDe(rootDomain: string): "http" | "https" {
 }
 
 /**
- * Monta uma URL ABSOLUTA do painel (`app.<root>`) para um caminho. Necessario
- * para links que partem do site de marketing (dominio raiz) rumo ao painel/
- * cadastro/login, que vivem no subdominio `app.` — link relativo daria 404.
+ * Caminho do painel a partir do site de marketing.
+ *
+ * Decisao do dono (2026-08-16): o painel NAO fica num subdominio `app.` — ele
+ * mora no MESMO host da landing. Entao o link e sempre relativo: `/entrar`,
+ * `/cadastrar`. O parametro `rootDomain` fica na assinatura porque os
+ * chamadores ja o passam e porque um dia pode voltar a existir separacao de
+ * host; hoje ele nao muda o resultado.
  *
  * @example
- *   appUrl("/cadastrar", "localhost:3000")   // "http://app.localhost:3000/cadastrar"
- *   appUrl("/entrar", "seuconviteia.com")     // "https://app.seuconviteia.com/entrar"
- *   appUrl("", "seuconviteia.com")            // "https://app.seuconviteia.com"
+ *   appUrl("/cadastrar", "seuconvite.orivya.com.br")  // "/cadastrar"
+ *   appUrl("entrar", "localhost:3000")                // "/entrar"
+ *   appUrl("", "qualquer")                            // "/painel"
  */
-export function appUrl(path: string, rootDomain: string): string {
-  const caminho = path ? (path.startsWith("/") ? path : `/${path}`) : "/painel";
-  // Em `*.vercel.app` NAO existe subdominio curinga: `app.<algo>.vercel.app` nao
-  // resolve. Enquanto o dominio proprio nao existir, o painel e a landing moram
-  // no MESMO host, entao o link tem que ser relativo — senao todo botao de
-  // conversao da landing ("Entrar", "Criar de graca", "Assinar") cai em erro de
-  // DNS. Com dominio proprio configurado, volta a apontar para `app.<root>`.
-  if (/\.vercel\.app$/i.test(rootDomain)) return caminho;
-  const base = eventPublicUrl("app", rootDomain);
-  if (!path) return base;
-  return `${base}${caminho}`;
+export function appUrl(path: string, _rootDomain?: string): string {
+  if (!path) return "/painel";
+  return path.startsWith("/") ? path : `/${path}`;
 }
+

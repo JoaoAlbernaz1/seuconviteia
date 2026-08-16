@@ -83,39 +83,21 @@ describe("eventPublicUrl", () => {
   });
 });
 
-describe("appUrl — link absoluto pro painel (app.<root>)", () => {
-  it("monta caminho do painel em dev", () => {
-    expect(appUrl("/cadastrar", "localhost:3000")).toBe(
-      "http://app.localhost:3000/cadastrar",
-    );
-  });
-
-  it("monta caminho do painel em producao", () => {
-    expect(appUrl("/entrar", "seuconviteia.com")).toBe(
-      "https://app.seuconviteia.com/entrar",
-    );
-  });
-
-  it("sem caminho retorna a raiz do app", () => {
-    expect(appUrl("", "seuconviteia.com")).toBe("https://app.seuconviteia.com");
+describe("appUrl — o painel vive no mesmo host da landing", () => {
+  // Decisao do dono: sem subdominio `app.`. O link e sempre relativo, o que
+  // tambem evita o bug antigo de apontar para um host que nao existe.
+  it("devolve caminho relativo, seja qual for o dominio", () => {
+    expect(appUrl("/entrar", "seuconvite.orivya.com.br")).toBe("/entrar");
+    expect(appUrl("/cadastrar", "localhost:3000")).toBe("/cadastrar");
+    expect(appUrl("/entrar", "seuconviteia.vercel.app")).toBe("/entrar");
   });
 
   it("normaliza caminho sem barra inicial", () => {
-    expect(appUrl("cadastrar", "localhost:3000")).toBe(
-      "http://app.localhost:3000/cadastrar",
-    );
+    expect(appUrl("cadastrar", "localhost:3000")).toBe("/cadastrar");
   });
 
-  // Enquanto nao ha dominio proprio, o site roda em *.vercel.app, onde
-  // subdominio curinga nao existe: `app.<host>.vercel.app` nao resolve e todo
-  // CTA da landing morreria em erro de DNS. Ali o painel vive no mesmo host.
-  it("em *.vercel.app devolve link relativo (nao ha subdominio curinga)", () => {
-    expect(appUrl("/entrar", "seuconviteia.vercel.app")).toBe("/entrar");
-    expect(appUrl("cadastrar", "meu-app-abc123.vercel.app")).toBe("/cadastrar");
-  });
-
-  it("em *.vercel.app sem caminho aponta para o painel", () => {
-    expect(appUrl("", "seuconviteia.vercel.app")).toBe("/painel");
+  it("sem caminho aponta para o painel", () => {
+    expect(appUrl("", "seuconvite.orivya.com.br")).toBe("/painel");
   });
 });
 
