@@ -9,6 +9,13 @@ const emailB = "editor-e2e-b@seuconviteia.test";
 const passwordB = "editor-e2e-password";
 const prisma = databaseReady ? new PrismaClient() : null;
 
+// A porta vem da baseURL: o site do tenant mora num subdominio, entao nao da para
+// usar o `page.goto` relativo — e fixar 3000 quebra quando o app sobe noutra porta.
+function urlDoTenant(slug: string, baseURL: string | undefined) {
+  const base = new URL(baseURL ?? "http://127.0.0.1:3000");
+  return `${base.protocol}//${slug}.localhost:${base.port || (base.protocol === "https:" ? "443" : "80")}`;
+}
+
 async function login(page: Page, email = emailA, password = passwordA) {
   await page.goto("/entrar");
   await page.getByPlaceholder("E-mail").fill(email);
@@ -45,7 +52,7 @@ function continueStep(page: Page) {
 }
 
 test.describe("fundação do editor", () => {
-  test.skip(!databaseReady, "Requer MySQL isolado com schema expandido (E2E_DATABASE_READY=1)." );
+  test.skip(!databaseReady, "Requer Postgres local com as migrations aplicadas (E2E_DATABASE_READY=1)." );
 
   test.beforeAll(async () => {
     await prisma!.professional.deleteMany({ where: { email: emailB } });
@@ -56,7 +63,7 @@ test.describe("fundação do editor", () => {
 
   test.afterAll(async () => prisma?.$disconnect());
 
-  test("editar, autosave em rajada, conflito, autorização e publicação isolada", async ({ browser, page }) => {
+  test("editar, autosave em rajada, conflito, autorização e publicação isolada", async ({ browser, page, baseURL }) => {
     let saveRequests = 0;
     page.on("request", (request) => {
       if (request.method() === "POST" && request.url().includes("/painel/criar")) saveRequests += 1;
@@ -176,7 +183,7 @@ test.describe("fundação do editor", () => {
     await expect(page.getByText("Seu convite está no ar")).toBeVisible();
 
     const publicPage = await browser.newPage();
-    await publicPage.goto(`http://${slug}.localhost:3000`);
+    await publicPage.goto(urlDoTenant(slug, baseURL));
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
 
     const editorPage = await browser.newPage();
