@@ -83,6 +83,16 @@ test.describe("fundação do editor", () => {
     await expect(input).toBeEditable();
     await input.fill(`${prefix}-inicial`);
     await expect(page.locator('[data-invitation-renderer="preview"]')).toContainText(`${prefix}-inicial`);
+
+    // A previa mora no MESMO documento do painel: se a moldura deixar de conter o
+    // convite, o que e `fixed` no site (barra do SiteNav, foto/particulas) volta a
+    // se ancorar no viewport e cobre a sidebar e o formulario do editor.
+    const moldura = (await page.getByLabel("Pré-visualização do convite").boundingBox())!;
+    const barraDoConvite = (await page.locator('[data-invitation-renderer="preview"] header').boundingBox())!;
+    expect(barraDoConvite.x).toBeGreaterThanOrEqual(moldura.x);
+    expect(barraDoConvite.y).toBeGreaterThanOrEqual(moldura.y);
+    expect(barraDoConvite.x + barraDoConvite.width).toBeLessThanOrEqual(moldura.x + moldura.width + 1);
+
     let createdEventId: string | undefined;
     await expect.poll(async () => {
       const saved = await prisma!.event.findFirst({ where: { title: `${prefix}-inicial` }, select: { id: true } });

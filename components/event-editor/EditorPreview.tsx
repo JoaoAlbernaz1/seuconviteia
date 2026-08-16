@@ -49,12 +49,23 @@ export function EditorPreview({
         </div>
       </div>
       <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
+        {/* A moldura é a "janela" do convite. `contain:layout paint` a torna o
+            bloco-contêiner dos `position: fixed` do site (barra do SiteNav, foto
+            e partículas do SiteAtmosphere): sem isso eles se ancoram no viewport
+            do navegador e cobrem a sidebar e o formulário do painel, porque a
+            prévia mora no mesmo documento (não é mais iframe). O scroll fica no
+            filho para o que é fixo continuar grudado no topo da moldura, como no
+            site publicado, em vez de rolar junto com o conteúdo. */}
         <div
-          ref={viewportRef}
-          className="h-[680px] w-full overflow-y-auto rounded-xl bg-white shadow-xl transition-[max-width] duration-300 [&_[data-editor-highlight=true]]:outline [&_[data-editor-highlight=true]]:outline-2 [&_[data-editor-highlight=true]]:outline-offset-[-2px] [&_[data-editor-highlight=true]]:outline-[#7C3AED]"
+          className="relative h-[680px] w-full overflow-hidden rounded-xl bg-white shadow-xl transition-[max-width] duration-300 [contain:layout_paint]"
           style={{ maxWidth: device === "mobile" ? 390 : 1024 }}
         >
-          <InvitationRenderer document={document} mode="preview" page={page} />
+          <div
+            ref={viewportRef}
+            className="absolute inset-0 overflow-y-auto [&_[data-editor-highlight=true]]:outline [&_[data-editor-highlight=true]]:outline-2 [&_[data-editor-highlight=true]]:outline-offset-[-2px] [&_[data-editor-highlight=true]]:outline-[#7C3AED]"
+          >
+            <InvitationRenderer document={document} mode="preview" page={page} />
+          </div>
         </div>
       </div>
     </section>
