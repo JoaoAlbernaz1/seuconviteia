@@ -70,7 +70,16 @@ export function InvitationRenderer({
       style={{ ...varsDoTema(document.appearance.theme, document.appearance.customColor), ...varsDaFonteCombinada(document.appearance.font) }}
     >
       <SiteAtmosphere fotoUrl={evento.fotoUrl} />
-      <SiteNav nome={evento.primeiroNome} logoUrl={evento.logoUrl} monograma={evento.monograma} recursos={model.resources} />
+      {/* Na prévia a barra tem que ler a página MOSTRADA: o pathname aqui é o do
+          painel (`/painel/criar`), então sem isso ela nunca se reconhece na capa
+          e mostra o wordmark e as cores de página interna sobre o hero escuro. */}
+      <SiteNav
+        nome={evento.primeiroNome}
+        logoUrl={evento.logoUrl}
+        monograma={evento.monograma}
+        recursos={model.resources}
+        preview={mode === "preview" ? { pagina: page } : undefined}
+      />
       {body}
       {model.footerEnabled && <SiteFooter nome={evento.primeiroNome} linhaInfo={evento.footerInfo} mensagem={evento.rodapeMsg} whiteLabel={false} />}
     </div>

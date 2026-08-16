@@ -50,17 +50,20 @@ export function SiteNav({
   monograma?: boolean;
   recursos: TogglesSite;
   /**
-   * Modo PREVIEW (dentro do iframe do editor): links navegam a própria prévia
-   * (`/preview-evento?p=&s=`) em vez das rotas reais, e os estados ativo/hero
-   * vêm da `pagina` mostrada, não do pathname (que é sempre `/preview-evento`).
+   * Modo PREVIEW (prévia do editor): os estados ativo/hero vêm da `pagina`
+   * mostrada, não do pathname — que é o do painel (`/preview-evento` no iframe,
+   * `/painel/criar` na prévia embutida), nunca o do convite.
+   * Com `s` (iframe `/preview-evento`) os links navegam a própria prévia
+   * mantendo o rascunho; sem `s` (prévia embutida, cujos links são inertes)
+   * ficam nas rotas reais do site.
    */
-  preview?: { s: string; pagina: string };
+  preview?: { s?: string; pagina: string };
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((l) => l.recurso === null || recursos[l.recurso]);
-  // No preview, cada link aponta pra própria prévia (mantendo o rascunho `s`).
+  // No preview em iframe, cada link aponta pra própria prévia (mantendo `s`).
   const hrefDe = (href: string) =>
-    preview
+    preview?.s !== undefined
       ? `/preview-evento?p=${PREVIEW_PAGE[href] ?? "inicio"}&s=${encodeURIComponent(preview.s)}`
       : href;
   const ehAtivo = (href: string) =>

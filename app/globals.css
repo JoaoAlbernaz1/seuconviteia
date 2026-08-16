@@ -1162,8 +1162,13 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0) sc
   background: var(--dv-bg);
   letter-spacing: -0.006em;
 }
-.dash a { color: var(--dv); text-decoration: none; }
-.dash a:hover { color: var(--dv-deep); }
+/* A previa do convite renderiza DENTRO do painel (deixou de ser iframe), entao
+   estas regras alcancavam tambem os links do convite. Como elas estao fora de
+   @layer e as utilities do Tailwind v4 estao dentro, elas venciam ate o
+   `text-white` do template e pintavam a barra do convite de violeta.
+   O `:not(:is(.evt a))` devolve os links do convite para o proprio template. */
+.dash a:not(:is(.evt a)) { color: var(--dv); text-decoration: none; }
+.dash a:not(:is(.evt a)):hover { color: var(--dv-deep); }
 .dash input::placeholder, .dash textarea::placeholder { color: #a6a6ae; }
 .dash input:focus, .dash textarea:focus {
   outline: none;
