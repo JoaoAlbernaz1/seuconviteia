@@ -179,9 +179,11 @@ test.describe("fundação do editor", () => {
     await publicPage.goto(`http://${slug}.localhost:3000`);
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
 
-    // Reabre o editor publicado de forma completa para limpar o modal/etapa
-    // local do fluxo anterior e validar o rascunho persistido do servidor.
-    await page.reload();
+    // Sai do modal publicado por uma rota diferente antes de reabrir o editor;
+    // isso evita reutilizar o estado local da mesma página do wizard.
+    await page.getByRole("button", { name: "Voltar ao dashboard" }).click();
+    await expect(page).toHaveURL(/\/painel$/);
+    await page.goto(`/painel/criar?id=${event.id}`);
     const unpublishedName = `${publishedName}-não-publicado`;
     await nameInput(page).fill(unpublishedName);
     await page.getByRole("button", { name: "Salvar rascunho" }).click();
