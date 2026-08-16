@@ -1,5 +1,6 @@
 import { EventEditorDocumentSchema } from "./schema";
 import { documentToRenderModel } from "./render";
+import { brlParaCents } from "../eventoForm";
 
 type EventWithPublishedData = {
   title: string;
@@ -31,7 +32,7 @@ export function publishedEventProjection<T extends EventWithPublishedData>(event
       id: gift.id,
       title: gift.title,
       description: gift.description || null,
-      priceCents: Math.round((Number(gift.value.replace(/[^\d,]/g, "").replace(",", ".")) || 0) * 100),
+      priceCents: brlParaCents(gift.value) ?? 0,
       pricingMode: gift.pricingMode,
       quotaCount: gift.quotas ?? null,
       imageUrl: gift.imageUrl || null,

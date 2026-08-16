@@ -33,4 +33,11 @@ describe("modelo único do renderer", () => {
     expect(model.event.customization).toMatchObject({ pixNome: undefined, pixChave: undefined });
     expect(document.pix).toEqual({ enabled: false, name: "Ana", key: "ana@example.com" });
   });
+
+  it("usa o parser canônico para preços brasileiros", () => {
+    const document = createDefaultEventDocument({
+      gifts: { items: [{ id: "gift-1", title: "Presente", description: "", value: "R$ 1.200,50", imageUrl: "", pricingMode: "FIXO" }] },
+    });
+    expect(documentToRenderModel(document).event.gifts?.[0]?.priceCents).toBe(120050);
+  });
 });

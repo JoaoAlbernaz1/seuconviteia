@@ -19,13 +19,18 @@ describe("seleção do documento público", () => {
   });
 
   it("renderiza o snapshot publicado e não o draft mais novo", () => {
-    const published = createDefaultEventDocument({ basic: { name: "Nome publicado" }, content: { opening: { text: "Publicado" } } });
+    const published = createDefaultEventDocument({
+      basic: { name: "Nome publicado" },
+      content: { opening: { text: "Publicado" } },
+      gifts: { items: [{ id: "gift-real", title: "Viagem", description: "", value: "R$ 1.200", imageUrl: "", pricingMode: "FIXO" }] },
+    });
     const draft = createDefaultEventDocument({ basic: { name: "Rascunho novo" }, content: { opening: { text: "Ainda não publicado" } } });
 
     const projected = publishedEventProjection({ ...legacy, publishedData: published, draftData: draft });
 
     expect(projected.title).toBe("Nome publicado");
     expect((projected.customization as { mensagem: string }).mensagem).toBe("Publicado");
+    expect(projected.gifts[0]).toMatchObject({ id: "gift-real", priceCents: 120000 });
     expect(publishedEditorDocument({ publishedData: published })?.basic.name).toBe("Nome publicado");
     expect(publishedEditorDocument({ publishedData: null })).toBeNull();
   });

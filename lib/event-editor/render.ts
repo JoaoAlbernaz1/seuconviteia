@@ -2,6 +2,7 @@ import type { EventoParaConteudo } from "../convite";
 import type { TogglesSite } from "../recursos";
 import { documentToLegacyCustomization } from "./legacy";
 import type { EventEditorDocument } from "./document";
+import { brlParaCents } from "../eventoForm";
 
 export type EventEditorRenderModel = {
   event: EventoParaConteudo;
@@ -31,7 +32,7 @@ export function documentToRenderModel(document: EventEditorDocument): EventEdito
     gifts: document.gifts.items.map((gift) => ({
       title: gift.title,
       description: gift.description,
-      priceCents: Math.round((Number(gift.value.replace(/[^\d,]/g, "").replace(",", ".")) || 0) * 100),
+      priceCents: brlParaCents(gift.value) ?? 0,
     })),
     photos: document.gallery.imageUrls.map((url, order) => ({ url, order })),
   };
