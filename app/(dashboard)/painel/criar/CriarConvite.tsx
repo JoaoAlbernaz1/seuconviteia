@@ -20,6 +20,7 @@ import { Ic, IC } from "../_shell/Ic";
 import { publicarDocumentoConvite, salvarDocumentoConvite } from "./acoes";
 import { podeVitrine, type Plan } from "@/lib/plans";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
+import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
 import { SeletorFontes } from "../_ui/SeletorFontes";
 import { enviarUpload } from "../_ui/Uploads";
 import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
@@ -2022,7 +2023,8 @@ export function CriarConvite({
 
           {/* ===================== PREVIEW COLUMN ===================== */}
           {/* Prévia = SITE REAL (mesmos componentes do publicado), reagindo ao
-              editor. Segue o passo: capa/home, evento, presentes, galeria. */}
+              editor, dentro da moldura do aparelho. Segue o passo: capa/home,
+              evento, presentes, galeria. */}
           <div className="scv lg:sticky lg:top-0">
             <div className={`${cardCls} p-4`}>
               <EditorPreview
@@ -2032,8 +2034,9 @@ export function CriarConvite({
                   presentes: S.gifts,
                   galeria: S.gal,
                   recados: S.rec,
-                }) as "inicio" | "evento" | "confirmar" | "presentes" | "galeria" | "recados" | "obrigada"}
+                }) as EditorPreviewPage}
                 focus={S.foco}
+                host={hostPublico}
                 device={S.pvMode === "celular" ? "mobile" : "desktop"}
                 onDeviceChange={(device) => upd({ pvMode: device === "mobile" ? "celular" : "desktop" })}
               />

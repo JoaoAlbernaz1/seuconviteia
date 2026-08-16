@@ -47,6 +47,12 @@ function nameInput(page: Page) {
   return page.getByText("Nome da debutante", { exact: true }).locator("..").locator("input");
 }
 
+// A previa mora num iframe (`/previa-convite`) dentro da moldura do aparelho: e o
+// documento proprio dele que da ao convite um viewport real de 390px / 1024px.
+function previa(page: Page) {
+  return page.frameLocator('iframe[title="Prévia do convite"]');
+}
+
 function continueStep(page: Page) {
   return page.getByRole("button", { name: "Continuar", exact: true }).last();
 }
@@ -82,16 +88,20 @@ test.describe("fundação do editor", () => {
     const input = nameInput(page);
     await expect(input).toBeEditable();
     await input.fill(`${prefix}-inicial`);
-    await expect(page.locator('[data-invitation-renderer="preview"]')).toContainText(`${prefix}-inicial`);
+    await expect(previa(page).locator('[data-invitation-renderer="preview"]')).toContainText(`${prefix}-inicial`);
 
-    // A previa mora no MESMO documento do painel: se a moldura deixar de conter o
-    // convite, o que e `fixed` no site (barra do SiteNav, foto/particulas) volta a
-    // se ancorar no viewport e cobre a sidebar e o formulario do editor.
-    const moldura = (await page.getByLabel("Pré-visualização do convite").boundingBox())!;
-    const barraDoConvite = (await page.locator('[data-invitation-renderer="preview"] header').boundingBox())!;
-    expect(barraDoConvite.x).toBeGreaterThanOrEqual(moldura.x);
-    expect(barraDoConvite.y).toBeGreaterThanOrEqual(moldura.y);
-    expect(barraDoConvite.x + barraDoConvite.width).toBeLessThanOrEqual(moldura.x + moldura.width + 1);
+    // Sem iframe as media queries do convite mediam a JANELA (1440px) e o modo
+    // "Celular" mostrava o menu de desktop espremido. Cada aparelho tem que cair
+    // no seu layout: hamburguer no celular, os seis links no computador.
+    await expect(previa(page).getByRole("button", { name: "Abrir menu" })).toBeVisible();
+    await expect(previa(page).locator("header nav ul")).toBeHidden();
+    const aparelho = page.getByRole("group", { name: "Dispositivo da prévia" });
+    await aparelho.getByRole("button", { name: "Computador" }).click();
+    await expect(previa(page).locator("header nav ul")).toBeVisible();
+    await expect(previa(page).getByRole("button", { name: "Abrir menu" })).toBeHidden();
+    await aparelho.getByRole("button", { name: "Celular" }).click();
+    await expect(previa(page).getByRole("button", { name: "Abrir menu" })).toBeVisible();
+    await expect(previa(page).locator('[data-invitation-renderer="preview"]')).toContainText(`${prefix}-inicial`);
 
     let createdEventId: string | undefined;
     await expect.poll(async () => {
@@ -144,7 +154,7 @@ test.describe("fundação do editor", () => {
     await page.reload();
     await page.getByText("Capa", { exact: true }).click();
     await expect(nameInput(page)).toHaveValue(publishedName);
-    await expect(page.locator('[data-invitation-renderer="preview"]')).toContainText(publishedName);
+    await expect(previa(page).locator('[data-invitation-renderer="preview"]')).toContainText(publishedName);
 
     // Duas sessões autenticadas abrem exatamente a mesma versão do banco.
     const secondContext = await browser.newContext();
