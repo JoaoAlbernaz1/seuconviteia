@@ -431,8 +431,8 @@ export default function MarketingHome() {
               <h4>Suporte</h4>
               <nav className="foot-links" aria-label="Suporte">
                 <a href={CONTATO}>Central de ajuda</a>
-                <a href={CONTATO}>Termos de uso</a>
-                <a href={CONTATO}>Privacidade</a>
+                <a href="/termos">Termos de uso</a>
+                <a href="/privacidade">Privacidade</a>
               </nav>
             </div>
           </div>
