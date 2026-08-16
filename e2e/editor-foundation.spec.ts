@@ -40,6 +40,10 @@ function nameInput(page: Page) {
   return page.getByText("Nome da debutante", { exact: true }).locator("..").locator("input");
 }
 
+function continueStep(page: Page) {
+  return page.getByRole("button", { name: "Continuar", exact: true }).last();
+}
+
 test.describe("fundação do editor", () => {
   test.skip(!databaseReady, "Requer MySQL isolado com schema expandido (E2E_DATABASE_READY=1)." );
 
@@ -99,7 +103,7 @@ test.describe("fundação do editor", () => {
     }
     const publishedName = `${prefix}-5-ABCD`;
 
-    await page.getByRole("button", { name: "Continuar" }).click();
+    await continueStep(page).click();
     await page.locator('[data-foco="assinatura"]').filter({ hasText: "Pais e família" }).first().click();
     await cycle(page, "Mostrar pais");
     await page.locator('[data-foco="quando"]').filter({ hasText: "Data e local" }).first().click();
@@ -109,11 +113,11 @@ test.describe("fundação do editor", () => {
     await page.getByText("Cidade", { exact: true }).locator("..").locator("input").fill("Brasília");
     await page.getByText("UF", { exact: true }).locator("..").locator("input").fill("DF");
 
-    await page.getByRole("button", { name: "Continuar" }).click();
+    await continueStep(page).click();
     await cycle(page, "Ativar RSVP");
-    await page.getByRole("button", { name: "Continuar" }).click();
+    await continueStep(page).click();
     await cycle(page, "Mostrar Pix");
-    await page.getByRole("button", { name: "Continuar" }).click();
+    await continueStep(page).click();
     await cycle(page, "Ativar galeria");
 
     await page.getByRole("button", { name: "Salvar rascunho" }).click();
@@ -121,6 +125,7 @@ test.describe("fundação do editor", () => {
     const event = await prisma!.event.findUniqueOrThrow({ where: { id: createdEventId! }, select: { id: true } });
 
     await page.reload();
+    await page.getByText("Capa", { exact: true }).click();
     await expect(nameInput(page)).toHaveValue(publishedName);
     await expect(page.locator('[data-invitation-renderer="preview"]')).toContainText(publishedName);
 
@@ -144,7 +149,7 @@ test.describe("fundação do editor", () => {
     await unauthorized.goto(`/painel/criar?id=${event.id}`);
     await expect(nameInput(unauthorized)).not.toHaveValue(`${publishedName}-A`);
     await nameInput(unauthorized).fill("Documento do usuário B");
-    await unauthorized.waitForTimeout(1000);
+    await unauthorized.waitForFunction(() => Object.keys(localStorage).some((key) => key.startsWith("sc-editor-rascunho:new:")));
     const recovery = await unauthorized.evaluate(() => {
       const key = Object.keys(localStorage).find((candidate) => candidate.startsWith("sc-editor-rascunho:new:"));
       return key ? { key, value: localStorage.getItem(key) } : null;
@@ -164,7 +169,7 @@ test.describe("fundação do editor", () => {
 
     // Publica A, edita B sem republicar e confirma que o site continua em A.
     await page.goto(`/painel/criar?id=${event.id}`);
-    for (let step = 1; step < 6; step += 1) await page.getByRole("button", { name: "Continuar" }).click();
+    for (let step = 1; step < 6; step += 1) await continueStep(page).click();
     const slug = `e2e-${Date.now()}`;
     await page.getByText("Endereço do seu convite").locator("..").locator("input").fill(slug);
     await page.getByRole("button", { name: "Publicar convite" }).click();
@@ -174,19 +179,22 @@ test.describe("fundação do editor", () => {
     await publicPage.goto(`http://${slug}.localhost:3000`);
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
 
-    await page.goto(`/painel/criar?id=${event.id}`);
+    const editorPage = await browser.newPage();
+    await login(editorPage);
+    await editorPage.goto(`/painel/criar?id=${event.id}`);
     const unpublishedName = `${publishedName}-não-publicado`;
-    await nameInput(page).fill(unpublishedName);
-    await page.getByRole("button", { name: "Salvar rascunho" }).click();
+    await nameInput(editorPage).fill(unpublishedName);
+    await editorPage.getByRole("button", { name: "Salvar rascunho" }).click();
     await publicPage.reload();
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
     await expect(publicPage.locator("body")).not.toContainText(unpublishedName);
 
-    for (let step = 1; step < 6; step += 1) await page.getByRole("button", { name: "Continuar" }).click();
-    await page.getByRole("button", { name: "Publicar convite" }).click();
-    await expect(page.getByText("Seu convite está no ar")).toBeVisible();
+    for (let step = 1; step < 6; step += 1) await continueStep(editorPage).click();
+    await editorPage.getByRole("button", { name: "Publicar convite" }).click();
+    await expect(editorPage.getByText("Seu convite está no ar")).toBeVisible();
     await publicPage.reload();
     await expect(publicPage.locator("body")).toContainText(unpublishedName);
     await publicPage.close();
+    await editorPage.close();
   });
 });
