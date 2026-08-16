@@ -149,7 +149,7 @@ test.describe("fundação do editor", () => {
     await unauthorized.goto(`/painel/criar?id=${event.id}`);
     await expect(nameInput(unauthorized)).not.toHaveValue(`${publishedName}-A`);
     await nameInput(unauthorized).fill("Documento do usuário B");
-    await unauthorized.waitForTimeout(1000);
+    await unauthorized.waitForFunction(() => Object.keys(localStorage).some((key) => key.startsWith("sc-editor-rascunho:new:")));
     const recovery = await unauthorized.evaluate(() => {
       const key = Object.keys(localStorage).find((candidate) => candidate.startsWith("sc-editor-rascunho:new:"));
       return key ? { key, value: localStorage.getItem(key) } : null;
