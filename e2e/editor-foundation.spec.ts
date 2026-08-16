@@ -179,7 +179,9 @@ test.describe("fundação do editor", () => {
     await publicPage.goto(`http://${slug}.localhost:3000`);
     await expect(publicPage.locator("body")).toContainText(`${publishedName}-A`);
 
-    await page.goto(`/painel/criar?id=${event.id}`);
+    // Reabre o editor publicado de forma completa para limpar o modal/etapa
+    // local do fluxo anterior e validar o rascunho persistido do servidor.
+    await page.reload();
     const unpublishedName = `${publishedName}-não-publicado`;
     await nameInput(page).fill(unpublishedName);
     await page.getByRole("button", { name: "Salvar rascunho" }).click();
