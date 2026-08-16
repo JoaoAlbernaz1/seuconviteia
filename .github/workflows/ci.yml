@@ -18,7 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DATABASE_URL: mysql://root:root@127.0.0.1:3306/seuconviteia
+      # Postgres desde 16/08/2026 (era MySQL/PlanetScale). Envs dummy: nenhum passo
+      # do CI conecta no banco — sao so para o Prisma validar o datasource.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/seuconviteia
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/seuconviteia
       AUTH_SECRET: ci-dummy-secret-nao-usar-em-prod
       NEXT_PUBLIC_ROOT_DOMAIN: seuconviteia.com
     steps:

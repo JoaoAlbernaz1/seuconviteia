@@ -10,7 +10,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:push": "prisma db push",
+    "db:push": "echo 'ERRO: db:push nao e mais permitido — o repo tem historico em prisma/migrations. Use: pnpm db:migrate --name <descricao>' && exit 1",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",

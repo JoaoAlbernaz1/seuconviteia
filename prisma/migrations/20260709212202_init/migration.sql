@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateEnum
 CREATE TYPE "Plan" AS ENUM ('BASICO', 'CLASSICO', 'PREMIUM');
 
@@ -185,4 +182,3 @@ ALTER TABLE "Recado" ADD CONSTRAINT "Recado_eventId_fkey" FOREIGN KEY ("eventId"
 
 -- AddForeignKey
 ALTER TABLE "Transaction" ADD CONSTRAINT "Transaction_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

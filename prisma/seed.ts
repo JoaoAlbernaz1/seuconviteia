@@ -10,7 +10,7 @@
  * campo unico (Templates, Guests, GiftItem).
  *
  * Uso: `pnpm db:seed` (precisa de DATABASE_URL apontando para um MySQL ja
- * migrado com `pnpm db:push`).
+ * migrado com `pnpm db:deploy`).
  */
 import {
   PrismaClient,
