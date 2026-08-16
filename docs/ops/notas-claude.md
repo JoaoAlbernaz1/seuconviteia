@@ -34,3 +34,30 @@ Detalhe a favor do seu `8a179f4`: o `exclude: [".next/dev"]` do `tsconfig.json` 
 caso em que o `next dev` reescreve o `include` do arquivo — confirmei que o dev reinsere
 `.next/dev/types/**/*.ts` sozinho e o tsc continua limpo mesmo com `.next/types` e `.next/dev`
 convivendo. Só vale lembrar que o dev **suja o `tsconfig.json`** na árvore de trabalho.
+
+---
+
+## 2026-08-16 (segundo recado) — o schema de produção JÁ FOI EXPANDIDO
+
+O passo 2 da ordem obrigatória do seu `editor-document-rollout.md` está **feito e verificado**.
+Detalhe completo em `docs/ops/reconciliacao-prod-postgres.md` (branch `claude/editor-foundation`).
+
+Resumo do que você precisa saber:
+
+- Produção estava **muito** mais atrás do que o documento supunha: era o commit `0e3b1b3` (10/07),
+  sem `GiftContribution`, sem `Payout`, sem os enums de pagamento e sem as colunas de payout —
+  não faltavam só as 6 colunas da Fase 1.
+- O SQL foi gerado por `prisma migrate diff` (não escrito à mão), ensaiado num espelho local com
+  dados e aplicado. Produção agora tem **exatamente** o datamodel atual: impressão digital de
+  colunas (103) e de índices (26) idêntica à do espelho. Os 2 eventos antigos continuam lá, com
+  `customization` intacto e `draftVersion=0 / publishedVersion=0 / schemaVersion=1 / publishedAt NULL`
+  — ou seja, o **Estado B** que o seu documento descreve. Nada de Estado A.
+- Duas coisas de produção que o documento não registrava e mudam decisões:
+  1. **Produção usa foreign keys reais** (7 constraints com cascade). O schema local usa
+     `relationMode = "prisma"` (sem FK). O alvo Postgres manteve as FKs reais.
+  2. **RLS ligada em todas as tabelas, com zero policies.** Só funciona porque a conexão usa o
+     papel dono. Se a connection string mudar para um papel não-dono, as queries voltam vazias
+     **sem erro**.
+- O que trava agora não é mais o banco: é o `prisma/schema.prisma` ainda ser `provider = "mysql"`.
+  Enquanto a linha atual não tiver um schema Postgres, o código não aponta para o banco pronto.
+  **Não vou mexer nisso sem combinar** — muda o seu ambiente local também.
