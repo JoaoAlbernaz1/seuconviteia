@@ -1,5 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// O processo do Playwright NAO herda o `.env`: o Next carrega o dele sozinho, mas o
+// `@prisma/client` usado direto nos specs nao carrega nada. Sem isto, um spec que fala
+// com o banco morre em "Environment variable not found: DATABASE_URL".
+try {
+  process.loadEnvFile(".env");
+} catch {
+  // sem .env (CI com variaveis ja exportadas): segue com o que estiver no ambiente
+}
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 360_000,
