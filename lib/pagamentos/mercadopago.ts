@@ -142,3 +142,16 @@ export function verificarAssinaturaMp(params: {
     return false;
   }
 }
+
+/**
+ * Com dinheiro REAL circulando, webhook sem segredo e webhook aberto: a
+ * `verificarAssinaturaMp` deixa passar quando `secret` e undefined (comodidade
+ * de desenvolvimento). Isso e aceitavel enquanto o provedor e o simulado, mas
+ * nao quando o Mercado Pago esta ativo — a convencao do repo (CLAUDE.md) e
+ * validar assinatura de webhook de pagamento ANTES de processar.
+ *
+ * Retorna true quando a requisicao deve ser recusada por falta de segredo.
+ */
+export function webhookDesprotegido(providerNome: string, secret: string | undefined): boolean {
+  return providerNome === "mercadopago" && !secret?.trim();
+}

@@ -6,7 +6,7 @@
 // (evento "Pagamentos"). Segredo -> MERCADO_PAGO_WEBHOOK_SECRET.
 import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
-import { verificarAssinaturaMp } from "@/lib/pagamentos/mercadopago";
+import { verificarAssinaturaMp, webhookDesprotegido } from "@/lib/pagamentos/mercadopago";
 import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +34,23 @@ export async function POST(req: Request): Promise<Response> {
     url.searchParams.get("type") ??
     url.searchParams.get("topic");
 
+  // 0) Com Mercado Pago ATIVO (dinheiro real), webhook sem segredo nao pode rodar:
+  //    a validacao de assinatura passaria direto. Falha fechado, e alto.
+  const segredo = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+  if (webhookDesprotegido(getPaymentProvider().nome, segredo)) {
+    console.error(
+      "[webhook mercadopago] RECUSADO: MERCADO_PAGO_ACCESS_TOKEN esta setado (Pix real) " +
+        "mas MERCADO_PAGO_WEBHOOK_SECRET nao. Configure o segredo do webhook no painel do MP.",
+    );
+    return new Response("webhook sem segredo configurado", { status: 503 });
+  }
+
   // 1) Assinatura (HMAC do header x-signature). Sem segredo configurado, passa (dev).
   const assinaturaOk = verificarAssinaturaMp({
     xSignature: req.headers.get("x-signature"),
     xRequestId: req.headers.get("x-request-id"),
     dataId,
-    secret: process.env.MERCADO_PAGO_WEBHOOK_SECRET,
+    secret: segredo,
   });
   if (!assinaturaOk) {
     return new Response("assinatura inválida", { status: 401 });

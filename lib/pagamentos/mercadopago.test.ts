@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
-import { mapMpStatus, verificarAssinaturaMp } from "./mercadopago";
+import { mapMpStatus, verificarAssinaturaMp, webhookDesprotegido } from "./mercadopago";
 
 describe("mapMpStatus", () => {
   it("mapeia os status do Mercado Pago", () => {
@@ -59,5 +59,20 @@ describe("verificarAssinaturaMp", () => {
     expect(
       verificarAssinaturaMp({ xSignature: `ts=${ts},v1=${v1}`, xRequestId: reqId, dataId: null, secret }),
     ).toBe(false);
+  });
+});
+
+describe("webhookDesprotegido — trava de producao", () => {
+  it("recusa quando o Mercado Pago esta ativo e nao ha segredo", () => {
+    expect(webhookDesprotegido("mercadopago", undefined)).toBe(true);
+    expect(webhookDesprotegido("mercadopago", "   ")).toBe(true);
+  });
+
+  it("aceita quando ha segredo", () => {
+    expect(webhookDesprotegido("mercadopago", "abc123")).toBe(false);
+  });
+
+  it("nao atrapalha o provedor simulado (dev)", () => {
+    expect(webhookDesprotegido("fake", undefined)).toBe(false);
   });
 });
