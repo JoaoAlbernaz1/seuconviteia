@@ -1,36 +1,18 @@
 /**
  * Fontes do SITE DO EVENTO (todas as duplas de `lib/fontes.ts`), carregadas via
- * next/font num modulo unico — compartilhado pelo layout do site publico
+ * next/font/local num modulo unico — compartilhado pelo layout do site publico
  * (`app/%5Fsites/[sub]/layout.tsx`) e pelas paginas do editor (que renderizam os
  * cards de "Estilo das letras" e o preview com as fontes REAIS).
+ *
+ * Os arquivos vivem em `app/fonts/<familia>/` (subset `latin`, os MESMOS .woff2
+ * que o Google serve) para o build nao depender do CDN do Google — quando eles
+ * rotacionam os arquivos, `next/font/google` quebra o build inteiro com 404.
+ * Licencas (SIL OFL) ao lado de cada familia, em `OFL.txt`.
  *
  * Cada fonte expoe uma variavel CSS estavel (`--font-*`) que os presets de
  * `lib/fontes.ts` referenciam. Aplicar `EVT_FONTS_CLASS` num wrapper deixa
  * TODAS as variaveis disponiveis; a dupla escolhida so decide quais sao usadas.
  */
-import {
-  Cormorant,
-  Dancing_Script,
-  Jost,
-  Marcellus,
-  Pacifico,
-  Playfair_Display,
-  Great_Vibes,
-  Fraunces,
-  Cinzel,
-  EB_Garamond,
-  Montserrat,
-  Allura,
-  Bodoni_Moda,
-  Parisienne,
-  Sacramento,
-  Lora,
-  Cinzel_Decorative,
-  Yeseva_One,
-  Tangerine,
-  Josefin_Sans,
-  Poppins,
-} from "next/font/google";
 import localFont from "next/font/local";
 
 // ── Dupla "classica" (a tipografia exata da festa) ───────────────────────────
@@ -44,151 +26,211 @@ export const vogue = localFont({
   variable: "--font-vogue",
   display: "swap",
 });
-export const cormorant = Cormorant({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+export const cormorant = localFont({
+  src: [
+    { path: "./fonts/cormorant/cormorant-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/cormorant/cormorant-400-italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/cormorant/cormorant-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/cormorant/cormorant-500-italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/cormorant/cormorant-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/cormorant/cormorant-600-italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-cormorant",
   display: "swap",
 });
-export const jost = Jost({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+export const jost = localFont({
+  src: [
+    { path: "./fonts/jost/jost-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/jost/jost-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/jost/jost-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-jost",
   display: "swap",
 });
 
 // ── Demais duplas (romantica / moderna / minimalista / festiva) ──────────────
-export const dancing = Dancing_Script({
-  subsets: ["latin"],
-  weight: ["500", "600"],
+export const dancing = localFont({
+  src: [
+    { path: "./fonts/dancingscript/dancingscript-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/dancingscript/dancingscript-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-dancing",
   display: "swap",
 });
-export const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+export const playfair = localFont({
+  src: [
+    { path: "./fonts/playfairdisplay/playfairdisplay-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/playfairdisplay/playfairdisplay-400-italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/playfairdisplay/playfairdisplay-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/playfairdisplay/playfairdisplay-500-italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/playfairdisplay/playfairdisplay-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/playfairdisplay/playfairdisplay-600-italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-playfair",
   display: "swap",
 });
-export const marcellus = Marcellus({
-  subsets: ["latin"],
-  weight: "400",
+export const marcellus = localFont({
+  src: [
+    { path: "./fonts/marcellus/marcellus-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-marcellus",
   display: "swap",
 });
-export const pacifico = Pacifico({
-  subsets: ["latin"],
-  weight: "400",
+export const pacifico = localFont({
+  src: [
+    { path: "./fonts/pacifico/pacifico-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-pacifico",
   display: "swap",
 });
 
 // ── Fontes extras (mais opções + combinações personalizadas do Premium) ──────
-export const greatVibes = Great_Vibes({
-  subsets: ["latin"],
-  weight: "400",
+export const greatVibes = localFont({
+  src: [
+    { path: "./fonts/greatvibes/greatvibes-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-greatvibes",
   display: "swap",
 });
-export const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+export const fraunces = localFont({
+  src: [
+    { path: "./fonts/fraunces/fraunces-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/fraunces/fraunces-400-italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/fraunces/fraunces-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/fraunces/fraunces-500-italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/fraunces/fraunces-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/fraunces/fraunces-600-italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-fraunces",
   display: "swap",
 });
-export const cinzel = Cinzel({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+export const cinzel = localFont({
+  src: [
+    { path: "./fonts/cinzel/cinzel-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/cinzel/cinzel-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/cinzel/cinzel-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-cinzel",
   display: "swap",
 });
-export const ebGaramond = EB_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+export const ebGaramond = localFont({
+  src: [
+    { path: "./fonts/ebgaramond/ebgaramond-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ebgaramond/ebgaramond-400-italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/ebgaramond/ebgaramond-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/ebgaramond/ebgaramond-500-italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/ebgaramond/ebgaramond-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/ebgaramond/ebgaramond-600-italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-ebgaramond",
   display: "swap",
 });
-export const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+export const montserrat = localFont({
+  src: [
+    { path: "./fonts/montserrat/montserrat-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/montserrat/montserrat-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/montserrat/montserrat-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-montserrat",
   display: "swap",
 });
 
 // ── Estilos NOVOS (mais opcoes p/ o cliente escolher) — `preload: false` porque
 //    so carregam quando a dupla e escolhida (evita preload de fonte nao usada). ─
-export const allura = Allura({
-  subsets: ["latin"],
-  weight: "400",
+export const allura = localFont({
+  src: [
+    { path: "./fonts/allura/allura-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-allura",
   display: "swap",
   preload: false,
 });
-export const bodoni = Bodoni_Moda({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
+export const bodoni = localFont({
+  src: [
+    { path: "./fonts/bodonimoda/bodonimoda-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/bodonimoda/bodonimoda-400-italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/bodonimoda/bodonimoda-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/bodonimoda/bodonimoda-500-italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/bodonimoda/bodonimoda-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/bodonimoda/bodonimoda-600-italic.woff2", weight: "600", style: "italic" },
+    { path: "./fonts/bodonimoda/bodonimoda-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/bodonimoda/bodonimoda-700-italic.woff2", weight: "700", style: "italic" },
+  ],
   variable: "--font-bodoni",
   display: "swap",
   preload: false,
 });
-export const parisienne = Parisienne({
-  subsets: ["latin"],
-  weight: "400",
+export const parisienne = localFont({
+  src: [
+    { path: "./fonts/parisienne/parisienne-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-parisienne",
   display: "swap",
   preload: false,
 });
-export const sacramento = Sacramento({
-  subsets: ["latin"],
-  weight: "400",
+export const sacramento = localFont({
+  src: [
+    { path: "./fonts/sacramento/sacramento-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-sacramento",
   display: "swap",
   preload: false,
 });
-export const lora = Lora({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+export const lora = localFont({
+  src: [
+    { path: "./fonts/lora/lora-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/lora/lora-400-italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/lora/lora-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/lora/lora-500-italic.woff2", weight: "500", style: "italic" },
+    { path: "./fonts/lora/lora-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/lora/lora-600-italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-lora",
   display: "swap",
   preload: false,
 });
-export const cinzelDeco = Cinzel_Decorative({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+export const cinzelDeco = localFont({
+  src: [
+    { path: "./fonts/cinzeldecorative/cinzeldecorative-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/cinzeldecorative/cinzeldecorative-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-cinzeldeco",
   display: "swap",
   preload: false,
 });
-export const yeseva = Yeseva_One({
-  subsets: ["latin"],
-  weight: "400",
+export const yeseva = localFont({
+  src: [
+    { path: "./fonts/yesevaone/yesevaone-400.woff2", weight: "400", style: "normal" },
+  ],
   variable: "--font-yeseva",
   display: "swap",
   preload: false,
 });
-export const tangerine = Tangerine({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+export const tangerine = localFont({
+  src: [
+    { path: "./fonts/tangerine/tangerine-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/tangerine/tangerine-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-tangerine",
   display: "swap",
   preload: false,
 });
-export const josefin = Josefin_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+export const josefin = localFont({
+  src: [
+    { path: "./fonts/josefinsans/josefinsans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/josefinsans/josefinsans-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/josefinsans/josefinsans-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-josefin",
   display: "swap",
   preload: false,
 });
-export const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+export const poppins = localFont({
+  src: [
+    { path: "./fonts/poppins/poppins-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/poppins/poppins-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/poppins/poppins-600.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-poppins",
   display: "swap",
   preload: false,
