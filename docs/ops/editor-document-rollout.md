@@ -21,6 +21,12 @@ O Prisma seleciona os escalares declarados no schema. Se `draftData`, `draftVers
 
 A aplicação nova é compatível com `draftData = NULL` e `publishedData = NULL`: o adapter constrói o documento a partir de `Event + customization + gifts + photos`. Em evento legado já publicado, a primeira abertura autorizada no editor inicializa, por compare-and-set idempotente, `draftData` e `publishedData` com o estado legado corrente antes de qualquer edição.
 
+## BLOCKER-1 — escolha: pré-condição schema-first
+
+A escolha desta Fase 1 é **schema-first**, e não um `select` público que omitiria as colunas novas. O caminho público precisa preferir `publishedData` e, quando ele não existir, cair para o adapter legado; manter os dois comportamentos no mesmo Prisma Client exige que o schema expandido já exista fisicamente. Com Estado A, uma query do modelo `Event` pode falhar com `P2022` antes de o fallback ser executado.
+
+Portanto, o banco isolado de verificação deve alcançar o Estado B antes de iniciar o app/E2E. A variável `E2E_DATABASE_READY=1` só pode ser usada depois de aplicar e verificar a expansão nesse banco. Esta pré-condição é bloqueante para promover a aplicação; não se resolve com `db push` contra produção nem com uma alteração no renderer público.
+
 ## Ordem obrigatória do rollout
 
 1. Criar e verificar backup recuperável do banco de produção.
