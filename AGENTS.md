@@ -22,8 +22,11 @@ O Claude chama o Codex ao fechar cada pedaço de trabalho, de dentro do worktree
 ```bash
 /Applications/ChatGPT.app/Contents/Resources/codex review \
   --base refactor/editor-foundation \
-  -m gpt-5.6-luna -c model_reasoning_effort="max"
+  -c model="gpt-5.6-luna" -c model_reasoning_effort="max" < /dev/null
 ```
+
+(`codex review` **não** aceita o `-m` do `codex exec`; o modelo vai por `-c model=...`.
+Sem o `< /dev/null` o comando fica esperando stdin.)
 
 Regra do João: **o Codex roda sempre em `gpt-5.6-luna` com reasoning `max`.**
 
