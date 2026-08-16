@@ -1,11 +1,11 @@
 ---
 name: db
-description: Use ao trabalhar com Prisma, schema, seed, relacoes/indices, queries ou qualquer acesso a banco — mesmo que a tarefa nao fale "banco" (ex.: novo campo num form, nova entidade, RSVP, presentes). Garante o padrao multi-tenant e as restricoes do PlanetScale.
+description: Use ao trabalhar com Prisma, schema, seed, relacoes/indices, queries ou qualquer acesso a banco — mesmo que a tarefa nao fale "banco" (ex.: novo campo num form, nova entidade, RSVP, presentes). Garante o padrao multi-tenant e as regras do Postgres/Supabase.
 ---
 
-# Banco — Prisma + MySQL (PlanetScale em prod)
+# Banco — Prisma + PostgreSQL (Supabase em prod)
 
-Dev: MySQL 8 no Docker (`sc-mysql`). Prod: **PlanetScale**. Client singleton em
+Dev: Postgres 17 no Docker (`sc-postgres`, porta 5433). Prod: **Supabase**. Client singleton em
 `lib/db.ts`. Schema em `prisma/schema.prisma` — **ja existe e esta em uso**:
 models `Professional`, `Event`, `Guest`, `GiftItem`, `Photo`, `Recado`, `Template`,
 `Transaction` + enums `Plan`, `EventType`, `EventStatus`, `GuestStatus`, `GiftMode`.
@@ -18,9 +18,10 @@ ja quebrou uma vez. So subir de major com migracao deliberada (existe a skill gl
 
 ## Convencoes obrigatorias
 
-- **`relationMode = "prisma"`**: PlanetScale nao usa FKs reais. Consequencia pratica:
-  **TODA coluna de relacao precisa de `@@index([...])` explicito** (ex.: `eventId`,
-  `professionalId`), senao a query fica lenta — nao ha indice implicito de FK.
+- **FKs sao REAIS** (o `relationMode = "prisma"` foi aposentado em 16/08/2026): o banco
+  aplica integridade e `onDelete: Cascade` de verdade. Ainda assim, **TODA coluna de
+  relacao precisa de `@@index([...])` explicito** (ex.: `eventId`, `professionalId`) —
+  o Postgres nao cria indice automatico do lado que referencia.
 - Campos flexiveis do evento (paleta, textos, programacao, pix, fotos) vivem no JSON
   **`Event.customization`** — lido/normalizado por `lib/eventoFesta.ts` e
   `lib/convite.ts` (`lerConteudo`). Novo campo de personalizacao entra AI, nao como
@@ -36,9 +37,12 @@ ja quebrou uma vez. So subir de major com migracao deliberada (existe a skill gl
 ## Fluxo de alteracao de schema
 
 1. Editar `prisma/schema.prisma` (lembrar `@@index` nas relacoes novas).
-2. `pnpm db:push` (dev; sem arquivo de migration) + `pnpm db:generate` se preciso.
+2. `pnpm db:migrate --name <descricao>` (cria o arquivo em `prisma/migrations/` e aplica
+   no banco local). O repo tem historico de migrations — **nao usar `db:push`**, que
+   dessincroniza o historico.
 3. Atualizar `prisma/seed.ts` se o dado demo mudar — o seed e **idempotente**, mantenha assim.
-4. Prod/PlanetScale: mudanca sai via deploy request (branch -> main), na Fase 8.
+4. Prod/Supabase: `pnpm db:deploy` (`prisma migrate deploy`) ANTES do deploy da aplicacao —
+   a ordem esta em `docs/ops/editor-document-rollout.md` e `docs/ops/reconciliacao-prod-postgres.md`.
 
 ## Tipos e validacao
 

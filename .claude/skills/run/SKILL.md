@@ -9,12 +9,13 @@ Gerenciador de pacotes: **pnpm**. Porta padrao: **3000**.
 
 ## Banco local (pre-requisito do dev)
 
-MySQL 8 em Docker, container **`sc-mysql`** (`mysql://root:root@127.0.0.1:3306/seuconviteia`):
+Postgres 17 em Docker, container **`sc-postgres`**
+(`postgresql://postgres:seuconvite@127.0.0.1:5433/seuconviteia`):
 
 ```bash
-docker start sc-mysql   # container ja existe; so precisa estar de pe
-pnpm db:push            # sincroniza o schema
-pnpm db:seed            # seed idempotente (evento demo maria-clara + login demo)
+docker start sc-postgres   # container ja existe; so precisa estar de pe
+pnpm db:deploy             # aplica as migrations de prisma/migrations/
+pnpm db:seed               # seed idempotente (evento demo maria-clara + login demo)
 ```
 
 Login demo do painel: **demo@seuconviteia.com / demo12345**.

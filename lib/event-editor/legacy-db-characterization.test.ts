@@ -31,13 +31,13 @@ afterAll(async () => prisma?.$disconnect());
 describe.runIf(enabled)("round-trip somente leitura dos eventos legados reais", () => {
   it("caracteriza todos os eventos sem alterar o banco", async () => {
     const events = await prisma!.$queryRaw<EventRow[]>`
-      SELECT id, title, type, subdomain, eventDate, customization FROM Event ORDER BY id
+      SELECT id, title, type, subdomain, "eventDate", customization FROM "Event" ORDER BY id
     `;
     const gifts = await prisma!.$queryRaw<GiftRow[]>`
-      SELECT id, eventId, title, description, priceCents, pricingMode, quotaCount, imageUrl FROM GiftItem ORDER BY id
+      SELECT id, "eventId", title, description, "priceCents", "pricingMode", "quotaCount", "imageUrl" FROM "GiftItem" ORDER BY id
     `;
     const photos = await prisma!.$queryRawUnsafe<PhotoRow[]>(
-      "SELECT eventId, url, `order` FROM Photo ORDER BY eventId, `order`",
+      'SELECT "eventId", url, "order" FROM "Photo" ORDER BY "eventId", "order"',
     );
 
     expect(events.length).toBeGreaterThan(0);

@@ -27,7 +27,8 @@ Sem o wildcard, novos subdominios de evento nao resolvem.
 
 Configure na Vercel todas as chaves de `.env.example`:
 
-- `DATABASE_URL` — connection string do **PlanetScale** (banco de producao).
+- `DATABASE_URL` / `DIRECT_URL` — connection strings do **Supabase** (banco de producao;
+  a `DIRECT_URL` e a conexao direta usada pelas migrations).
 - `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
 - `RESEND_API_KEY`, `EMAIL_FROM`, `SUPPORT_EMAIL`
 - `MERCADOPAGO_ACCESS_TOKEN`, `BLOB_READ_WRITE_TOKEN`
