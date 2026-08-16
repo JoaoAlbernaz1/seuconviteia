@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import { appUrl } from "@/lib/tenant";
+import { EMPRESA } from "./legal/dados-da-empresa";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { RevealOnScroll } from "@/components/marketing/RevealOnScroll";
 import { Contador } from "@/components/marketing/Contador";
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 const CADASTRO = appUrl("/cadastrar", ROOT_DOMAIN);
 const ENTRAR = appUrl("/entrar", ROOT_DOMAIN);
-const CONTATO = "mailto:sac@seuconviteia.com";
+// Endereco de contato: fonte UNICA, compartilhada com os Termos e a Privacidade.
+// `sac@seuconviteia.com` apontava para um dominio que nao existe — todo link de
+// suporte do rodape abria um e-mail que nunca chegaria a ninguem.
+const CONTATO = `mailto:${EMPRESA.email}`;
 
 /** Chaves do design (Claude Design → props do componente). */
 const PRECOS_DEFINIDOS: boolean = true;
@@ -421,16 +425,14 @@ export default function MarketingHome() {
             <div data-rv="soft" style={{ "--d": "160ms" } as CSSProperties}>
               <h4>Empresa</h4>
               <nav className="foot-links" aria-label="Empresa">
-                <a href="#topo">Sobre</a>
                 <a href={CONTATO}>Contato</a>
-                <a href={CONTATO}>Parceiros</a>
               </nav>
             </div>
 
             <div data-rv="soft" style={{ "--d": "240ms" } as CSSProperties}>
               <h4>Suporte</h4>
               <nav className="foot-links" aria-label="Suporte">
-                <a href={CONTATO}>Central de ajuda</a>
+                <a href={CONTATO}>Falar com o suporte</a>
                 <a href="/termos">Termos de uso</a>
                 <a href="/privacidade">Privacidade</a>
               </nav>

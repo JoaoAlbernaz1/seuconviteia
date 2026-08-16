@@ -17,8 +17,14 @@ export const EMPRESA = {
   cnpj: "[PREENCHER: CNPJ]",
   /** Endereco completo com CEP — precisa ser um endereco real de correspondencia. */
   endereco: "[PREENCHER: endereço completo com CEP]",
-  /** E-mail de contato que FUNCIONA. Hoje o dominio seuconviteia.com nao existe. */
-  email: "[PREENCHER: e-mail de contato]",
+  /**
+   * E-mail de contato — usado no rodape da landing E nos documentos legais.
+   * ⚠️ Precisa EXISTIR de verdade: e o canal que a LGPD (art. 18) exige para o
+   * titular exercer direitos, e o CDC para reclamacao. O antigo
+   * `sac@seuconviteia.com` apontava para um dominio inexistente.
+   * `orivya.com.br` ja tem Google Workspace; falta criar este apelido (gratis).
+   */
+  email: "contato@orivya.com.br",
   /** Encarregado de dados (LGPD, art. 41). Pode ser o proprio dono. */
   encarregado: "[PREENCHER: nome do encarregado de dados]",
 } as const;
