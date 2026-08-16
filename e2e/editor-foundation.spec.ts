@@ -125,6 +125,7 @@ test.describe("fundação do editor", () => {
     const event = await prisma!.event.findUniqueOrThrow({ where: { id: createdEventId! }, select: { id: true } });
 
     await page.reload();
+    await page.getByText("Capa", { exact: true }).click();
     await expect(nameInput(page)).toHaveValue(publishedName);
     await expect(page.locator('[data-invitation-renderer="preview"]')).toContainText(publishedName);
 
