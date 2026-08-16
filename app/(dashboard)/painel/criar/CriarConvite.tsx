@@ -30,7 +30,8 @@ import { deveResalvar } from "@/lib/autosave";
 import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
-import { createDefaultEventDocument, type EventEditorDocument } from "@/lib/event-editor/document";
+import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
+import { activeDraftPointerKey, localDraftKey } from "@/lib/event-editor/local-draft";
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
@@ -65,7 +66,6 @@ function isoParaDDMM(iso: string): string {
 }
 
 // Rascunho salvo no navegador (resume ao reabrir a página).
-const RASCUNHO_KEY = "sc-editor-rascunho";
 
 /** "dd/mm/aaaa" -> "aaaa-mm-dd" (vazio se invalido; a action valida). */
 function ddmmParaISO(s: string): string {
@@ -108,7 +108,7 @@ function focoDoPasso(step: number, acc: number): string {
  */
 /** Converte a UI legada no documento canônico consumido pelo renderer e pelo
  * autosave versionado. Não existe estado de preview separado. */
-function documentoDoEditor(S: State): EventEditorDocument {
+export function documentoDoEditor(S: State): EventEditorDocument {
   return createDefaultEventDocument({
     basic: { name: S.nome, slug: S.slug, eventType: "QUINZE_ANOS" },
     template: { id: "quinze-anos-glamour-rose", version: 1 },
@@ -152,7 +152,7 @@ function documentoDoEditor(S: State): EventEditorDocument {
       freeContribution: { enabled: S.free, title: S.freeTitulo, suggestedValues: S.freeValores },
     },
     pix: { enabled: S.pixOn, name: S.pixNome, key: S.pixChave },
-    gallery: { enabled: S.gal, imageUrls: [] },
+    gallery: { enabled: S.gal, imageUrls: S.galFotos },
     messages: { enabled: S.rec, eyebrow: S.recEyebrow, title: S.recTitulo, invitation: S.recConvite, wallTitle: S.recMural },
     footer: { enabled: S.rodapeOn, text: S.rodapeTx },
     appearance: {
@@ -220,7 +220,7 @@ type State = {
   gifts: boolean; free: boolean; giftList: GiftRow[]; pixOn: boolean; pixNome: string; pixChave: string; presentesTexto: string;
   freeTitulo: string; freeValores: string;
   programacao: ItemProgramacao[]; prog: boolean;
-  gal: boolean; rec: boolean; recSt: string[];
+  gal: boolean; galFotos: string[]; rec: boolean; recSt: string[];
   recEyebrow: string; recTitulo: string; recConvite: string; recMural: string;
   listaModelo: "painel" | "vitrine";
   animacoes: boolean;
@@ -249,7 +249,7 @@ const INICIAL: State = {
   pixOn: true, pixNome: "", pixChave: "", presentesTexto: "",
   freeTitulo: "Contribua com o valor que desejar", freeValores: "R$ 50 · R$ 100 · R$ 200",
   programacao: programacaoSugerida("QUINZE_ANOS"), prog: true,
-  gal: true, rec: true, recSt: ["pendente", "publicado", "pendente"],
+  gal: true, galFotos: [], rec: true, recSt: ["pendente", "publicado", "pendente"],
   recEyebrow: REC_PADRAO.eyebrow, recTitulo: REC_PADRAO.titulo,
   recConvite: REC_PADRAO.convite, recMural: REC_PADRAO.mural,
   animacoes: false,
@@ -260,7 +260,7 @@ type EditorUiState = Pick<State,
   "step" | "sv" | "showErr" | "foco" | "acc" | "theme" | "recSt" | "published" | "copied" | "pvMode"
 >;
 
-function uiDoEstado(state: State): EditorUiState {
+export function uiDoEstado(state: State): EditorUiState {
   return {
     step: state.step,
     sv: state.sv,
@@ -277,7 +277,7 @@ function uiDoEstado(state: State): EditorUiState {
 
 /** View de compatibilidade da UI monolítica. É derivada do documento; nunca é
  * armazenada como uma segunda cópia editável. */
-function estadoDoDocumento(document: EventEditorDocument, ui: EditorUiState): State {
+export function estadoDoDocumento(document: EventEditorDocument, ui: EditorUiState): State {
   const size = document.appearance.titleSize === "small" ? 0 : document.appearance.titleSize === "large" ? 2 : 1;
   const buttonIndex = Math.max(0, BTN_HREFS.indexOf(document.content.cta.href));
   return {
@@ -334,6 +334,7 @@ function estadoDoDocumento(document: EventEditorDocument, ui: EditorUiState): St
     programacao: document.schedule.program.items.map((item) => ({ hora: item.time, titulo: item.title })),
     prog: document.schedule.program.enabled,
     gal: document.gallery.enabled,
+    galFotos: document.gallery.imageUrls,
     rec: document.messages.enabled,
     recEyebrow: document.messages.eyebrow,
     recTitulo: document.messages.title,
@@ -357,15 +358,15 @@ function Label({ children, opt }: { children: React.ReactNode; opt?: boolean }) 
 }
 
 
-function Toggle({ on, onClick, size = "sm" }: { on: boolean; onClick: () => void; size?: "sm" | "lg" }) {
+function Toggle({ on, onClick, size = "sm", label }: { on: boolean; onClick: () => void; size?: "sm" | "lg"; label?: string }) {
   const w = size === "lg" ? 42 : 38;
   const h = size === "lg" ? 24 : 22;
   const knob = h - 5;
   const left = on ? (size === "lg" ? 20 : 18) : 3;
   return (
-    <span onClick={onClick} style={{ width: w, height: h, background: on ? V : "#D5D5DC" }} className="relative shrink-0 cursor-pointer rounded-full transition-colors">
+    <button type="button" role="switch" aria-label={label} aria-checked={on} onClick={onClick} style={{ width: w, height: h, background: on ? V : "#D5D5DC" }} className="relative shrink-0 cursor-pointer rounded-full transition-colors">
       <span style={{ top: 2.5, left, width: knob, height: knob }} className="absolute rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-all" />
-    </span>
+    </button>
   );
 }
 
@@ -471,10 +472,22 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
+export function CriarConvite({
+  plano = "BASICO",
+  initialDocument,
+  initialEventId = null,
+  initialDraftVersion = 0,
+  storageScope,
+}: {
+  plano?: Plan;
+  initialDocument?: EventEditorDocument;
+  initialEventId?: string | null;
+  initialDraftVersion?: number;
+  storageScope: string;
+}) {
   const router = useRouter();
   const [editor, setEditor] = useState(() => ({
-    document: documentoDoEditor(INICIAL),
+    document: initialDocument ?? withFreshGiftIds(documentoDoEditor(INICIAL)),
     ui: uiDoEstado(INICIAL),
   }));
   const S = estadoDoDocumento(editor.document, editor.ui);
@@ -487,8 +500,8 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   };
   // Persistencia: id do convite ja gravado (idempotente), link publico apos
   // publicar, erro da gravacao e estado "gravando".
-  const [eventId, setEventId] = useState<string | null>(null);
-  const [draftVersion, setDraftVersion] = useState(0);
+  const [eventId, setEventId] = useState<string | null>(initialEventId);
+  const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
   // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
@@ -511,7 +524,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   const dadosRef = useRef("");
   const lastSavedRef = useRef<string | null>(null);
   const savingRef = useRef(false);
-  const versionRef = useRef(0);
+  const versionRef = useRef(initialDraftVersion);
   const primeiroRender = useRef(true);
   // Resume: restaura o rascunho do localStorage ao reabrir; só persiste depois
   // que o usuário muda algo (não guarda o demo intocado).
@@ -692,7 +705,9 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
         setPubInfo({ host: published.host, url: published.url });
         setS((s) => ({ ...s, published: true }));
         try {
-          localStorage.removeItem(RASCUNHO_KEY);
+          localStorage.removeItem(localDraftKey(saved.id, storageScope));
+          localStorage.removeItem(localDraftKey(null, storageScope));
+          localStorage.removeItem(activeDraftPointerKey(storageScope));
         } catch {}
       } else {
         setS((s) => ({ ...s, sv: "salvo" }));
@@ -783,7 +798,8 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(RASCUNHO_KEY);
+      const pointedEventId = initialEventId ?? localStorage.getItem(activeDraftPointerKey(storageScope));
+      const raw = localStorage.getItem(localDraftKey(pointedEventId, storageScope));
       if (raw) {
         const saved = JSON.parse(raw) as {
           document?: EventEditorDocument;
@@ -792,12 +808,13 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
           eventId?: string | null;
           draftVersion?: number;
         };
-        if (saved.document) {
+        const versionCompatible = !initialEventId || saved.eventId === initialEventId && saved.draftVersion === initialDraftVersion;
+        if (saved.document && versionCompatible) {
           setEditor((current) => ({
             document: saved.document!,
             ui: { ...current.ui, ...saved.ui, sv: "salvo", showErr: false },
           }));
-        } else if (saved?.S) {
+        } else if (saved?.S && versionCompatible) {
           setS((state) => ({ ...state, ...saved.S, sv: "salvo", showErr: false }));
         }
         if (saved?.eventId) setEventId(saved.eventId);
@@ -808,7 +825,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
       }
     } catch {}
     restauradoRef.current = true;
-  }, []);
+  }, [initialDraftVersion, initialEventId, storageScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Guarda o rascunho no navegador a cada alteração (após restaurar; nunca o demo intocado).
@@ -816,10 +833,15 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
     if (!restauradoRef.current) return;
     if (dadosStr === dadosInicialRef.current) return;
     try {
-      localStorage.setItem(RASCUNHO_KEY, JSON.stringify({ document: editor.document, ui: editor.ui, eventId, draftVersion }));
+      const key = localDraftKey(eventId, storageScope);
+      localStorage.setItem(key, JSON.stringify({ document: editor.document, ui: editor.ui, eventId, draftVersion }));
+      if (eventId) {
+        localStorage.setItem(activeDraftPointerKey(storageScope), eventId);
+        localStorage.removeItem(localDraftKey(null, storageScope));
+      }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dadosStr, S.step, eventId, draftVersion]);
+  }, [dadosStr, S.step, eventId, draftVersion, storageScope]);
 
   const rsvpFieldNames: string[] = [];
   if (S.rsvpOpts[0]) rsvpFieldNames.push(`Quantos acompanhantes? (até ${S.maxComp})`);
@@ -1215,7 +1237,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                             <div className="flex flex-col gap-3">
                               <div className="flex items-center justify-between">
                                 <span className="text-[13px] font-semibold">Mostrar o nome dos pais na assinatura</span>
-                                <Toggle on={S.paisOn} onClick={() => upd({ paisOn: !S.paisOn })} />
+                                <Toggle label="Mostrar pais" on={S.paisOn} onClick={() => upd({ paisOn: !S.paisOn })} />
                               </div>
                               {S.paisOn && (
                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1457,7 +1479,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                     <div className="text-[18px] font-bold tracking-[-0.02em]">Configure as confirmações</div>
                     <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Defina como seus convidados vão confirmar presença.</div>
                   </div>
-                  <Toggle on={S.rsvp} onClick={() => upd({ rsvp: !S.rsvp })} size="lg" />
+                  <Toggle label="Ativar RSVP" on={S.rsvp} onClick={() => upd({ rsvp: !S.rsvp })} size="lg" />
                 </div>
                 {!S.rsvp ? (
                   <div className="mt-[18px] rounded-xl border border-[#ECECF0] bg-[#F4F4F6] p-4 text-[13px] leading-relaxed text-[#6e6e76]">
@@ -1579,7 +1601,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                       <div className="text-[18px] font-bold tracking-[-0.02em]">Presentes e Pix</div>
                       <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">Sua lista de presentes e onde o dinheiro cai.</div>
                     </div>
-                    <Toggle on={S.gifts} onClick={() => upd({ gifts: !S.gifts })} size="lg" />
+                    <Toggle label="Ativar presentes" on={S.gifts} onClick={() => upd({ gifts: !S.gifts })} size="lg" />
                   </div>
                 </div>
                 {S.gifts && (
@@ -1820,7 +1842,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                             <div className="text-[13.5px] font-bold">Mostrar Pix direto no convite</div>
                             <div className="mt-0.5 text-[12px] text-[#6e6e76]">Permite que o convidado copie sua chave Pix.</div>
                           </div>
-                          <Toggle on={S.pixOn} onClick={() => upd({ pixOn: !S.pixOn })} />
+                          <Toggle label="Mostrar Pix" on={S.pixOn} onClick={() => upd({ pixOn: !S.pixOn })} />
                         </div>
                         {S.pixOn && (
                           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1880,7 +1902,7 @@ export function CriarConvite({ plano = "BASICO" }: { plano?: Plan }) {
                 <div data-foco="galeria" className={cardCls}>
                   <div className="mb-3.5 flex items-center justify-between">
                     <div className="text-[14.5px] font-bold">Galeria de fotos</div>
-                    <Toggle on={S.gal} onClick={() => upd({ gal: !S.gal })} />
+                    <Toggle label="Ativar galeria" on={S.gal} onClick={() => upd({ gal: !S.gal })} />
                   </div>
                   {S.gal && (
                     <>

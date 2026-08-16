@@ -160,3 +160,13 @@ function mergeDefaults<T>(base: T, patch: DeepPartial<T> | undefined): T {
 export function createDefaultEventDocument(overrides?: DeepPartial<EventEditorDocument>): EventEditorDocument {
   return mergeDefaults<EventEditorDocument>(DEFAULT_DOCUMENT, overrides);
 }
+
+export function withFreshGiftIds(document: EventEditorDocument, createId = () => crypto.randomUUID()): EventEditorDocument {
+  return {
+    ...document,
+    gifts: {
+      ...document.gifts,
+      items: document.gifts.items.map((gift) => ({ ...gift, id: createId() })),
+    },
+  };
+}
