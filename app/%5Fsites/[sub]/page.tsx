@@ -10,6 +10,7 @@ import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { PaginaInicio } from "@/components/evt/paginas/PaginaInicio";
+import { planoDoSite } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function EventSitePage({
     <PaginaInicio
       evento={comFotosDemo(event)}
       nicho={event.type}
-      recursos={recursosDoSite(event.plan, event.customization)}
+      recursos={recursosDoSite(planoDoSite(event, new Date()), event.customization)}
     />
   );
 }

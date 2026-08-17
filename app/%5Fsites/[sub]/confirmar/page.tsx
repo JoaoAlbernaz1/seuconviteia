@@ -12,6 +12,7 @@ import { RsvpConvite } from "@/components/evt/RsvpConvite";
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { recursosDoSite } from "@/lib/recursos";
 import { lerRsvpConfig } from "@/lib/rsvpConfig";
+import { planoDoSite } from "@/lib/plans";
 
 // Sempre dinamico: depende do banco e do subdominio da requisicao.
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export default async function ConfirmarPage({
   }
 
   // Gate por plano: o RSVP so existe no CLASSICO/PREMIUM.
-  if (!recursosDoSite(event.plan, event.customization).rsvp) {
+  if (!recursosDoSite(planoDoSite(event, new Date()), event.customization).rsvp) {
     return (
       <RecursoIndisponivel
         titulo="Confirmação indisponível"

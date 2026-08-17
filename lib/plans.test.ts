@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recursosDoPlano, planoPermite, PLANOS_INFO, rotuloPlano, limiteEventos, planoEfetivo, ehDowngrade } from "./plans";
+import { PLANOS_INFO, ehDowngrade, limiteEventos, planoDoSite, planoEfetivo, planoPermite, recursosDoPlano, rotuloPlano, type Plan } from "./plans";
 
 describe("recursosDoPlano — gating por plano (assinatura)", () => {
   it("BASICO (gratuito) -> convite COMPLETO; so marca e dominio ficam de fora", () => {
@@ -152,5 +152,32 @@ describe("ehDowngrade", () => {
     expect(ehDowngrade("BASICO", "PREMIUM")).toBe(false);
     expect(ehDowngrade("BASICO", "CLASSICO")).toBe(false);
     expect(ehDowngrade("CLASSICO", "CLASSICO")).toBe(false);
+  });
+});
+
+describe("planoDoSite — o convite fica no ar; o que muda é o que ele tem", () => {
+  const AGORA = new Date("2026-08-17T12:00:00Z");
+  const conta = (plan: Plan, ate: string | null) => ({
+    plan,
+    assinaturaStatus: "authorized",
+    assinaturaAte: ate ? new Date(ate) : null,
+  });
+
+  it("assinatura ativa manda no site, mesmo que o convite tenha nascido no grátis", () => {
+    expect(
+      planoDoSite({ plan: "BASICO", professional: conta("PREMIUM", "2026-12-01T00:00:00Z") }, AGORA),
+    ).toBe("PREMIUM");
+  });
+
+  it("assinatura vencida derruba o convite para o gratuito — é o vazamento fechado", () => {
+    // Publicou no teste, cancelou no 6º dia: o convite continua no ar, mas
+    // volta a ser o grátis (com a nossa marca), não fica Premium para sempre.
+    expect(
+      planoDoSite({ plan: "PREMIUM", professional: conta("PREMIUM", "2026-08-01T00:00:00Z") }, AGORA),
+    ).toBe("BASICO");
+  });
+
+  it("sem a conta carregada, respeita o que está gravado no convite", () => {
+    expect(planoDoSite({ plan: "PREMIUM" }, AGORA)).toBe("PREMIUM");
   });
 });

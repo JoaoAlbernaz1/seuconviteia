@@ -9,7 +9,7 @@ import { comFotosDemo } from "@/lib/demoFotos";
 import { recursosDoSite } from "@/lib/recursos";
 import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
-import { podeVitrine } from "@/lib/plans";
+import { planoDoSite, podeVitrine } from "@/lib/plans";
 import type { GiftPricing } from "@/lib/pagamentos/contribuicao";
 import type { PresentearData, PresenteInterativo } from "@/lib/presentesTipos";
 
@@ -34,7 +34,7 @@ export default async function PresentesPage({
 
   // Recurso "presentes" desligado no evento -> pagina indisponivel (o link ja
   // some da nav; isto cobre o acesso direto pela URL).
-  if (!recursosDoSite(event.plan, event.customization).presentes) {
+  if (!recursosDoSite(planoDoSite(event, new Date()), event.customization).presentes) {
     return (
       <RecursoIndisponivel
         titulo="Lista de presentes"
@@ -45,13 +45,13 @@ export default async function PresentesPage({
 
   const presentear = await montarPresentear(event);
   const modelo = (event.customization as { listaModelo?: string } | null)?.listaModelo;
-  const usarVitrine = modelo === "vitrine" && podeVitrine(event.plan);
+  const usarVitrine = modelo === "vitrine" && podeVitrine(planoDoSite(event, new Date()));
 
   return (
     <PaginaPresentes
       evento={comFotosDemo(event)}
       nicho={event.type}
-      recursos={recursosDoSite(event.plan, event.customization)}
+      recursos={recursosDoSite(planoDoSite(event, new Date()), event.customization)}
       presentear={presentear}
       usarVitrine={usarVitrine}
     />

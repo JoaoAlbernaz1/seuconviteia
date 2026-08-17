@@ -13,7 +13,7 @@ import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
 import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
-import { planoPermite } from "@/lib/plans";
+import { planoDoSite, planoPermite } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
 import { publishedEditorDocument } from "@/lib/event-editor/public-document";
 
@@ -58,8 +58,8 @@ export default async function EventSiteLayout({
 
   // Recursos ATIVOS = plano permite ∩ toggle do evento (lib/recursos). A nav
   // filtra os links; o rodape/white-label continua so por plano.
-  const recursos = recursosDoSite(event.plan, event.customization);
-  const whiteLabel = planoPermite(event.plan, "whiteLabel");
+  const recursos = recursosDoSite(planoDoSite(event, new Date()), event.customization);
+  const whiteLabel = planoPermite(planoDoSite(event, new Date()), "whiteLabel");
   // Só a marca EXPLÍCITA do profissional (não vaza o nome interno da conta): sem
   // brandName, o rodapé white-label fica sem crédito (como o site real da festa).
   const brandName = event.professional?.brandName ?? undefined;

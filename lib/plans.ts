@@ -249,6 +249,30 @@ export function planoEfetivo(conta: ContaAssinatura, agora: Date): Plan {
   return conta.assinaturaAte.getTime() > agora.getTime() ? conta.plan : "BASICO";
 }
 
+/**
+ * Plano que vale para o SITE PUBLICO daquele convite.
+ *
+ * O convite NUNCA sai do ar por causa de pagamento — ele vive ate `expiresAt`
+ * (90 dias depois da festa). O que a assinatura controla e o que o convite TEM:
+ * marca propria, dominio e a taxa menor. Quando a assinatura acaba, o convite
+ * volta a ser o gratuito, e como o gratuito e completo o convidado nao perde
+ * nada (RSVP, recados e album continuam) — volta a nossa marca no rodape.
+ *
+ * Antes isto lia `event.plan`, congelado na criacao: quem assinava, publicava e
+ * cancelava ficava com o convite pago PARA SEMPRE. Era o vazamento do teste
+ * gratis.
+ *
+ * Sem `professional` carregado, cai no plano gravado no evento — defensivo, para
+ * uma consulta que esqueceu o include nao derrubar recurso de quem paga.
+ */
+export function planoDoSite(
+  event: { plan: Plan; professional?: ContaAssinatura | null },
+  agora: Date,
+): Plan {
+  if (!event.professional) return event.plan;
+  return planoEfetivo(event.professional, agora);
+}
+
 /** Descer de plano (inclui cancelar, que e descer para o Basico). */
 export function ehDowngrade(de: Plan, para: Plan): boolean {
   return PLAN_ORDER.indexOf(para) < PLAN_ORDER.indexOf(de);
