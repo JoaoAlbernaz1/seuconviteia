@@ -167,7 +167,11 @@ export function documentToLegacyCustomization(document: EventEditorDocument): Re
     capaOverlay: document.appearance.overlay,
     animacoes: document.appearance.animations,
     fotoUrl: document.cover.mobileImageUrl,
-    fotoDesktopUrl: document.cover.desktopImage.url,
+    // Seções com liga/desliga saem VAZIAS quando desligadas. O texto continua
+    // guardado no documento (o contrato de toggle garante isso), mas não pode
+    // vazar para o convite — copiar sem olhar o `enabled` era o que fazia o
+    // botão não ter efeito nenhum na prévia. `texto()` lê vazio como ausente.
+    fotoDesktopUrl: document.cover.desktopImage.enabled ? document.cover.desktopImage.url : "",
     idade: Number(document.cover.age) || 15,
     monograma: document.cover.monogram.enabled,
     logoUrl: document.cover.monogram.imageUrl,
@@ -181,8 +185,10 @@ export function documentToLegacyCustomization(document: EventEditorDocument): Re
         muralTitulo: document.messages.wallTitle,
       },
     },
-    pais: { pai: document.content.parents.father, mae: document.content.parents.mother },
-    traje: document.content.dressCode.text,
+    pais: document.content.parents.enabled
+      ? { pai: document.content.parents.father, mae: document.content.parents.mother }
+      : { pai: "", mae: "" },
+    traje: document.content.dressCode.enabled ? document.content.dressCode.text : "",
     ctaLabel: document.content.cta.label,
     ctaHref: document.content.cta.href,
     ctaLead: document.content.cta.lead,

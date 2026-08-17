@@ -149,24 +149,32 @@ export function RsvpConvite({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Config AO VIVO: no preview do editor, o painel manda a config nova por
-  // postMessage e o form re-renderiza NA HORA (opções aparecem/somem sem reload).
-  // No site publicado, `preview` é false: só usa a config do servidor (prop).
-  // Inicia com a config do servidor; no reload do iframe o componente remonta e
-  // pega a config nova. Entre reloads, o listener abaixo atualiza ao vivo.
-  const [liveConfig, setLiveConfig] = useState<RsvpConfig>(config);
+  // A config vem pela PROP e é ela quem manda.
+  //
+  // Guardar a prop em `useState` (como era antes) congelava o formulário no
+  // valor do MONTE: no editor novo o documento inteiro chega no iframe a cada
+  // tecla e desce como prop, então os liga/desliga da aba Confirmação
+  // (telefone, e-mail, acompanhantes, restrição, recado) não tinham efeito
+  // nenhum na prévia — só "Ativar RSVP" parecia funcionar, porque ele troca a
+  // página inteira e REMONTA este componente.
+  //
+  // A prévia ANTIGA (`painel/_ui/PreviewSite`) não passa config nova por prop:
+  // ela avisa pelo canal `__scPreview`. Por isso o override abaixo continua —
+  // ele nasce nulo e só existe onde aquele canal fala; no editor novo e no site
+  // publicado nunca chega mensagem, e a prop segue sendo a verdade.
+  const [override, setOverride] = useState<RsvpConfig | null>(null);
   useEffect(() => {
     if (!preview) return;
     const onMsg = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
       const d = e.data as { __scPreview?: boolean; rsvpConfig?: Partial<RsvpConfig> | null };
       if (!d || d.__scPreview !== true || !d.rsvpConfig) return;
-      setLiveConfig({ ...RSVP_CONFIG_PADRAO, ...d.rsvpConfig });
+      setOverride({ ...RSVP_CONFIG_PADRAO, ...d.rsvpConfig });
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, [preview]);
-  const cfg = liveConfig;
+  const cfg = override ?? config;
 
   // Modo CONTADOR: pode levar acompanhantes, mas sem pedir o nome de cada um —
   // então em vez de linhas de convidado, o titular só diz QUANTOS vão com ele.
