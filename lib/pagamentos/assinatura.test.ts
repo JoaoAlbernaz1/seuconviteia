@@ -121,6 +121,23 @@ describe("criarAssinaturaMp", () => {
     ).rejects.toThrow(/400/);
   });
 
+  it("a EXPLICAÇÃO do Mercado Pago vai junto — sem ela, um 400 vira adivinhação", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        message: "Cannot operate between the same user",
+        error: "bad_request",
+        cause: [{ code: 2034, description: "invalid payer_email" }],
+      }),
+    });
+
+    await expect(
+      criarAssinaturaMp({ plano: "CLASSICO", email: "a@b.com", professionalId: "p", backUrl: "https://x/y" }),
+    ).rejects.toThrow(/Cannot operate between the same user[\s\S]*invalid payer_email/);
+  });
+
   it("resposta sem init_point não passa em silêncio", async () => {
     process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: "pre-1" }) });

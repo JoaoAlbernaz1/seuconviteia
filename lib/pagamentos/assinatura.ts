@@ -78,7 +78,27 @@ export async function criarAssinaturaMp(input: {
     }),
   });
 
-  if (!res.ok) throw new Error(`Mercado Pago recusou a assinatura (${res.status}).`);
+  if (!res.ok) {
+    // NUNCA engolir a explicacao do gateway. A primeira versao disto guardava
+    // so o numero do status, e um 400 em producao virou adivinhacao: o motivo
+    // ("nao pode assinar de si mesmo", campo invalido, produto nao habilitado)
+    // vem no corpo, e e ele que diz o que fazer.
+    const erro = (await res.json().catch(() => null)) as {
+      message?: unknown;
+      error?: unknown;
+      cause?: unknown;
+    } | null;
+    const detalhe = [
+      typeof erro?.message === "string" ? erro.message : null,
+      typeof erro?.error === "string" ? erro.error : null,
+      erro?.cause ? JSON.stringify(erro.cause) : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    throw new Error(
+      `Mercado Pago recusou a assinatura (${res.status})${detalhe ? `: ${detalhe}` : ""}`,
+    );
+  }
 
   const data = (await res.json()) as { id?: string; init_point?: string };
   // Falha alto: sem `init_point` nao ha para onde mandar a pessoa, e seguir em
