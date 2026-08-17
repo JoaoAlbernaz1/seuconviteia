@@ -17,6 +17,8 @@ export const metadata: Metadata = {
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 const CADASTRO = appUrl("/cadastrar", ROOT_DOMAIN);
 const ENTRAR = appUrl("/entrar", ROOT_DOMAIN);
+/** Porta do checkout: escolheu o plano aqui, digita o cartão no Mercado Pago. */
+const assinarUrl = (plano: string) => appUrl(`/assinar/${plano.toLowerCase()}`, ROOT_DOMAIN);
 // Endereco de contato: fonte UNICA, compartilhada com os Termos e a Privacidade.
 // `sac@seuconviteia.com` apontava para um dominio que nao existe — todo link de
 // suporte do rodape abria um e-mail que nunca chegaria a ninguem.
@@ -149,19 +151,30 @@ const NUMEROS: { ate: number; sufixo: string; decimais?: number; t: string; s: s
 // Planos da LANDING — derivados de `lib/plans.ts` + `lib/pagamentos/taxa.ts`,
 // pra a vitrine nunca divergir do que o produto cobra de verdade.
 //
-// A escada e desenhada pro plano do MEIO ganhar: o Basico e gratis mas paga a
-// taxa cheia; o Classico derruba a taxa em 2,5 pontos por R$ 59 (se paga com
-// pouco mais de uma festa); o Premium so compensa pra quem faz volume.
-const PLANOS = PLANOS_INFO.map((info) => ({
+// A vitrine mostra só os planos PAGOS, e cada um leva ao checkout com 7 dias
+// gratis (cartao na hora, cobranca no 8o dia). O Basico continua existindo no
+// produto — e onde a conta cai quando alguem cancela, e os convites publicados
+// seguem no ar — mas nao e vendido aqui: plano gratis ao lado de teste com
+// cartao faz todo mundo escolher o gratis, e a escada de planos morre.
+//
+// A escada segue desenhada pro plano do MEIO ganhar: o Classico derruba a taxa
+// em 2,5 pontos por R$ 59 (se paga com pouco mais de uma festa); o Premium so
+// compensa pra quem faz volume.
+const PLANOS = PLANOS_INFO.filter((info) => info.mensalidadeCents > 0).map((info) => ({
   key: info.key,
   nome: info.label,
   para: info.paraQuem,
   preco: info.preco ?? "Grátis",
-  ciclo: info.preco ? "/ mês" : "para começar",
+  ciclo: "/ mês depois do teste",
   taxaLinha: info.taxaLinha,
-  cta: info.destaque ? "Começar agora" : info.preco ? "Assinar" : "Criar de graça",
+  cta: "Testar 7 dias grátis",
   destaque: !!info.destaque,
-  itens: info.inclui.map((t) => ({ t, off: false })),
+  // "Tudo do Básico" ficou órfão quando o Básico saiu da vitrine — quem lê não
+  // tem mais como saber o que é o Básico. Na landing, vira o que ele de fato é.
+  itens: info.inclui.map((t) => ({
+    t: t === "Tudo do Básico" ? "Convite digital completo" : t,
+    off: false,
+  })),
 }));
 
 /**
@@ -219,7 +232,7 @@ export default function MarketingHome() {
             </p>
 
             <div className="cta-row" data-rv="" style={{ "--d": "210ms" } as CSSProperties}>
-              <a className="btn grad" href="#precos">Ver planos e começar</a>
+              <a className="btn grad" href="#precos">Testar 7 dias grátis</a>
               <a className="btn ghost" href="#como">Ver como funciona</a>
             </div>
 
@@ -302,10 +315,12 @@ export default function MarketingHome() {
           <div style={{ textAlign: "center" }}>
             <div className="kicker" data-rv="">Preços</div>
             <h2 className="h2" data-rv="" style={{ margin: "14px auto 0", maxWidth: 600, "--d": "60ms" } as CSSProperties}>
-              Escolha o plano do seu evento
+              Teste 7 dias grátis
             </h2>
-            <p className="lead" data-rv="" style={{ margin: "16px auto 0", maxWidth: 520, "--d": "110ms" } as CSSProperties}>
-              Comece de graça e só pague quando receber presente. Quanto maior o plano, menor a taxa.
+            <p className="lead" data-rv="" style={{ margin: "16px auto 0", maxWidth: 560, "--d": "110ms" } as CSSProperties}>
+              Escolha o plano, cadastre o cartão e use tudo por 7 dias sem pagar nada.
+              A primeira cobrança só acontece no 8º dia — e você cancela quando quiser,
+              em dois cliques, direto no painel.
             </p>
           </div>
 
@@ -330,13 +345,11 @@ export default function MarketingHome() {
                   <div className="p-sob">Sob consulta</div>
                 )}
 
-                {/* Todo card leva ao CADASTRO carregando o plano escolhido — quem
-                    clicou em "Assinar" no Premium não pode cair numa tela de
-                    login sem memória do que escolheu. */}
-                <a
-                  className={p.destaque ? "p-cta grad" : "p-cta"}
-                  href={p.key === "BASICO" ? CADASTRO : `${CADASTRO}?plano=${p.key.toLowerCase()}`}
-                >
+                {/* Vai direto para o checkout: `/assinar/<plano>` cria a
+                    assinatura no Mercado Pago e redireciona. Quem ainda não tem
+                    conta passa pelo cadastro no meio do caminho e volta para cá
+                    sozinho — sem ter de escolher o plano de novo. */}
+                <a className={p.destaque ? "p-cta grad" : "p-cta"} href={assinarUrl(p.key)}>
                   {p.cta}
                 </a>
 
@@ -354,7 +367,8 @@ export default function MarketingHome() {
 
           {MOSTRAR_GARANTIA ? (
             <p className="p-note" data-rv="">
-              7 dias de garantia — se não gostar, devolvemos o valor sem perguntas.
+              Nada é cobrado nos 7 primeiros dias. Cancelou dentro do teste? Não paga
+              nada — e o convite que você já publicou continua no ar.
             </p>
           ) : null}
         </section>
@@ -398,9 +412,9 @@ export default function MarketingHome() {
             <div className="in">
               <Image src="/brand/monograma.png" alt="" width={793} height={615} />
               <h2>Comece hoje o convite do seu evento</h2>
-              <p>Escolha um plano, personalize e envie o link ainda hoje.</p>
+              <p>7 dias grátis para testar tudo. Cancele quando quiser.</p>
               <div className="cta-row">
-                <a className="btn grad" href="#precos">Ver planos</a>
+                <a className="btn grad" href="#precos">Começar o teste grátis</a>
                 <a className="btn ghost" href={CONTATO}>Falar com a gente</a>
               </div>
             </div>

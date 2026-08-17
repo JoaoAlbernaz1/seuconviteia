@@ -13,6 +13,7 @@ import {
   type SignupState,
 } from "../actions";
 import { INPUT, BTN_PRIMARIO } from "../painel/_ui/estilos";
+import { PLANOS_INFO } from "@/lib/plans";
 
 function Erro({ msg }: { msg?: string }) {
   if (!msg) return null;
@@ -24,6 +25,11 @@ function CardEntrar() {
   const [aba, setAba] = useState<"entrar" | "criar">(
     params.get("criar") != null ? "criar" : "entrar",
   );
+  // `?plano=classico` (da landing) → CLASSICO. Valor invalido é ignorado; quem
+  // valida de verdade é o servidor.
+  const planoEscolhido = PLANOS_INFO.find(
+    (p) => p.key === (params.get("plano") ?? "").toUpperCase() && p.mensalidadeCents > 0,
+  )?.key;
   const [loginState, loginAction, loginPending] = useActionState<LoginState, FormData>(
     entrarComCredenciais,
     {},
@@ -52,8 +58,22 @@ function CardEntrar() {
         Bem-vindo(a)
       </h1>
       <p className="mt-2 text-[13.5px] leading-relaxed text-scv-muted">
-        Crie o site da sua festa em minutos —<br />
-        para você ou para seus clientes.
+        {criar && planoEscolhido ? (
+          <>
+            Teste o{" "}
+            <strong className="font-semibold text-scv-ink">
+              {PLANOS_INFO.find((p) => p.key === planoEscolhido)?.label}
+            </strong>{" "}
+            por 7 dias grátis.
+            <br />
+            Crie sua conta — o cartão vem na próxima tela.
+          </>
+        ) : (
+          <>
+            Crie o site da sua festa em minutos —<br />
+            para você ou para seus clientes.
+          </>
+        )}
       </p>
 
       <div className="my-5 flex rounded-full bg-scv-soft p-1" role="tablist">
@@ -79,6 +99,10 @@ function CardEntrar() {
 
       {criar ? (
         <form action={signupAction} className="flex flex-col gap-3 text-left">
+          {/* Plano escolhido na landing. Viaja escondido para que, logo depois
+              de criar a conta, a pessoa caia no checkout do plano que ela
+              clicou — e não numa tela pedindo para escolher de novo. */}
+          {planoEscolhido ? <input type="hidden" name="plan" value={planoEscolhido} /> : null}
           <div>
             <input name="name" placeholder="Seu nome" autoComplete="name" className={INPUT} />
             <Erro msg={signupState.fieldErrors?.name} />

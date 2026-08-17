@@ -11,6 +11,15 @@ import { mapMpStatus } from "./mercadopago";
 
 const MP_API = "https://api.mercadopago.com";
 
+/**
+ * Teste gratis: dias de uso ANTES da primeira cobranca.
+ *
+ * O cartao e digitado no comeco (e o MP guarda), a cobranca so acontece no 8o
+ * dia — e e o proprio MP que segura o prazo (`free_trial`), nao a gente. Assim
+ * nao existe estado nosso "em teste" para dessincronizar do gateway.
+ */
+export const DIAS_TESTE_GRATIS = 7;
+
 function tokenMp(): string {
   const t = process.env.MERCADO_PAGO_ACCESS_TOKEN;
   if (!t) throw new Error("MERCADO_PAGO_ACCESS_TOKEN ausente.");
@@ -35,6 +44,8 @@ export async function criarAssinaturaMp(input: {
   email: string;
   professionalId: string;
   backUrl: string;
+  /** 7 dias antes da primeira cobranca. So na PRIMEIRA assinatura da conta. */
+  comTesteGratis?: boolean;
 }): Promise<AssinaturaCriada> {
   const token = tokenMp();
 
@@ -59,6 +70,10 @@ export async function criarAssinaturaMp(input: {
         frequency_type: "months",
         transaction_amount: info.mensalidadeCents / 100,
         currency_id: "BRL",
+        // O teste ADIA a cobranca, nao desconta: o valor cheio continua aqui.
+        ...(input.comTesteGratis
+          ? { free_trial: { frequency: DIAS_TESTE_GRATIS, frequency_type: "days" } }
+          : {}),
       },
     }),
   });
@@ -80,19 +95,30 @@ export async function criarAssinaturaMp(input: {
  * O webhook nunca confia no corpo que recebeu — ele diz apenas QUE algo mudou;
  * quem diz O QUE mudou e esta consulta. Mesma regra do fluxo de presente.
  */
-export async function consultarAssinaturaMp(
-  preapprovalId: string,
-): Promise<{ preapprovalId: string; status: string }> {
+export async function consultarAssinaturaMp(preapprovalId: string): Promise<{
+  preapprovalId: string;
+  status: string;
+  /** Quando o MP vai cobrar de novo — durante o teste grátis, o fim do teste. */
+  proximoPagamento: Date | null;
+}> {
   const res = await fetch(`${MP_API}/preapproval/${encodeURIComponent(preapprovalId)}`, {
     headers: { Authorization: `Bearer ${tokenMp()}` },
   });
   if (!res.ok) throw new Error(`Mercado Pago: consulta da assinatura falhou (HTTP ${res.status}).`);
 
-  const data = (await res.json()) as { id?: unknown; status?: unknown };
+  const data = (await res.json()) as { id?: unknown; status?: unknown; next_payment_date?: unknown };
   if (typeof data.status !== "string") {
     throw new Error("Resposta do Mercado Pago sem status da assinatura.");
   }
-  return { preapprovalId: data.id != null ? String(data.id) : preapprovalId, status: data.status };
+  // É esta data que sustenta o teste grátis: o direito vale até a próxima
+  // cobrança, seja ela daqui a 7 dias (teste) ou daqui a um mês (renovação).
+  const proximo =
+    typeof data.next_payment_date === "string" ? new Date(data.next_payment_date) : null;
+  return {
+    preapprovalId: data.id != null ? String(data.id) : preapprovalId,
+    status: data.status,
+    proximoPagamento: proximo && !Number.isNaN(proximo.getTime()) ? proximo : null,
+  };
 }
 
 /**

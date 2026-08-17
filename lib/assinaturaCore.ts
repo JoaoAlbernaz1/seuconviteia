@@ -5,12 +5,17 @@
 // Quem concede plano pago e SO este arquivo, a partir do que o gateway
 // confirmou — nunca o clique no painel (ver `ehDowngrade` em lib/plans.ts).
 import { prisma } from "@/lib/db";
+import { DIAS_TESTE_GRATIS } from "@/lib/pagamentos/assinatura";
 
 /** Um mes a frente da data dada (a assinatura do MP e mensal). */
 function umMesDepois(de: Date): Date {
   const d = new Date(de);
   d.setMonth(d.getMonth() + 1);
   return d;
+}
+
+function diasDepois(de: Date, dias: number): Date {
+  return new Date(de.getTime() + dias * 24 * 60 * 60 * 1000);
 }
 
 /** Violacao de indice unico do Prisma — o unico erro que aqui NAO e erro. */
@@ -32,6 +37,7 @@ function ehDuplicata(err: unknown): boolean {
 export async function aplicarStatusAssinatura(
   preapprovalId: string,
   status: string,
+  proximoPagamento?: Date | null,
 ): Promise<boolean> {
   const conta = await prisma.professional.findUnique({
     where: { mpPreapprovalId: preapprovalId },
@@ -39,10 +45,17 @@ export async function aplicarStatusAssinatura(
   if (!conta) return false;
 
   const data: { assinaturaStatus: string; assinaturaAte?: Date } = { assinaturaStatus: status };
-  // Autorizou e ainda nao havia prazo nenhum: garante o primeiro mes mesmo se a
-  // notificacao da cobranca demorar a chegar. Se ja existe prazo, quem o empurra
-  // e o pagamento (`registrarCobrancaAssinatura`), nao o status.
-  if (status === "authorized" && !conta.assinaturaAte) data.assinaturaAte = umMesDepois(new Date());
+  if (status === "authorized") {
+    // O direito vale ate a PROXIMA COBRANCA informada pelo MP — e e isso que faz
+    // o teste gratis funcionar sem estado nosso: durante o teste, a proxima
+    // cobranca e o fim dos 7 dias; depois, a renovacao mensal.
+    //
+    // Sem a data (o MP omitiu), liberamos no maximo o teste gratis: errar para
+    // menos custa um pedido de suporte; errar para mais e um mes de graca.
+    const ate = proximoPagamento ?? diasDepois(new Date(), DIAS_TESTE_GRATIS);
+    // Nunca ENCURTA um prazo ja pago.
+    if (!conta.assinaturaAte || ate > conta.assinaturaAte) data.assinaturaAte = ate;
+  }
 
   await prisma.professional.update({ where: { id: conta.id }, data });
   return true;

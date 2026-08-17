@@ -36,17 +36,44 @@ describe("eventos de assinatura", () => {
     await prisma.$disconnect();
   });
 
-  it.skipIf(!enabled)("authorized empurra o vencimento um mês à frente", async () => {
+  it.skipIf(!enabled)("authorized libera até a PRÓXIMA COBRANÇA que o MP informou (é o que sustenta o teste grátis)", async () => {
     const db = prisma!;
     const pre = `${MARCA}-a${Date.now()}`;
     const p = await conta(db, pre);
+    const fimDoTeste = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    expect(await aplicarStatusAssinatura(pre, "authorized")).toBe(true);
+    expect(await aplicarStatusAssinatura(pre, "authorized", fimDoTeste)).toBe(true);
 
     const depois = await db.professional.findUniqueOrThrow({ where: { id: p.id } });
     expect(depois.assinaturaStatus).toBe("authorized");
-    expect(depois.assinaturaAte).not.toBeNull();
-    expect(depois.assinaturaAte!.getTime()).toBeGreaterThan(Date.now());
+    expect(depois.assinaturaAte?.getTime()).toBe(fimDoTeste.getTime());
+  });
+
+  it.skipIf(!enabled)("authorized SEM data do MP não libera mais que o teste grátis", async () => {
+    const db = prisma!;
+    const pre = `${MARCA}-s${Date.now()}`;
+    const p = await conta(db, pre);
+
+    await aplicarStatusAssinatura(pre, "authorized");
+
+    const ate = (await db.professional.findUniqueOrThrow({ where: { id: p.id } })).assinaturaAte;
+    // No máximo os 7 dias do teste — nunca um mês de graça por falta de dado.
+    expect(ate!.getTime()).toBeGreaterThan(Date.now());
+    expect(ate!.getTime()).toBeLessThanOrEqual(Date.now() + 7 * 24 * 60 * 60 * 1000 + 5_000);
+  });
+
+  it.skipIf(!enabled)("authorized NUNCA encurta um prazo já pago", async () => {
+    const db = prisma!;
+    const pre = `${MARCA}-l${Date.now()}`;
+    const p = await conta(db, pre);
+    const longe = new Date(Date.now() + 300 * 24 * 60 * 60 * 1000);
+    await db.professional.update({ where: { id: p.id }, data: { assinaturaAte: longe } });
+
+    await aplicarStatusAssinatura(pre, "authorized", new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
+    expect(
+      (await db.professional.findUniqueOrThrow({ where: { id: p.id } })).assinaturaAte?.getTime(),
+    ).toBe(longe.getTime());
   });
 
   it.skipIf(!enabled)("cancelled NÃO apaga o vencimento já pago", async () => {

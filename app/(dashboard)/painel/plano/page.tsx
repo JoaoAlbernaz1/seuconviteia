@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { planoEfetivo, PLANOS_INFO, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
+import { DIAS_TESTE_GRATIS } from "@/lib/pagamentos/assinatura";
 import { assinarPlano, trocarPlano } from "../../actions";
 import { BTN_PRIMARIO, COLUNA, SUB, TITULO } from "../_ui/estilos";
 
@@ -25,10 +26,13 @@ export default async function PlanoPage({
   const [prof, { assinatura }] = await Promise.all([
     prisma.professional.findUnique({
       where: { id: session.user.id },
-      select: SELECT_ASSINATURA,
+      select: { ...SELECT_ASSINATURA, mpPreapprovalId: true },
     }),
     searchParams,
   ]);
+  // O teste grátis vale UMA vez por conta: quem já assinou alguma vez (mesmo
+  // tendo cancelado) paga desde o primeiro dia.
+  const podeTestar = !prof?.mpPreapprovalId;
   const agora = new Date();
   const atual = prof ? planoEfetivo(prof, agora) : "BASICO";
   // Estado da assinatura em uma linha — sem isso, quem cancela não vê nada
@@ -148,7 +152,11 @@ export default async function PlanoPage({
                         : "w-full rounded-[11px] bg-scv-btn py-3 text-[13.5px] font-semibold text-scv-btn-ink transition hover:opacity-90"
                     }
                   >
-                    {p.key === "BASICO" ? "Cancelar assinatura" : "Assinar"}
+                    {p.key === "BASICO"
+                      ? "Cancelar assinatura"
+                      : podeTestar
+                        ? `Testar ${DIAS_TESTE_GRATIS} dias grátis`
+                        : "Assinar"}
                   </button>
                 </form>
               ) : (
@@ -162,9 +170,12 @@ export default async function PlanoPage({
       </div>
 
       <p className="mt-5 text-xs text-scv-faint">
+        {podeTestar
+          ? `Os ${DIAS_TESTE_GRATIS} primeiros dias são grátis: o cartão é cadastrado agora e a primeira cobrança só acontece depois desse prazo. `
+          : ""}
         Assinatura mensal no cartão, cobrada pelo Mercado Pago — o cartão é
         digitado lá, nunca aqui. Você pode cancelar quando quiser e continua com
-        o plano até o fim do mês já pago. O plano vale para todos os seus eventos.
+        o plano até o fim do período já pago. O plano vale para todos os seus eventos.
       </p>
     </div>
   );

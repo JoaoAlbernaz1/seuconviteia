@@ -4,6 +4,7 @@ import {
   consultarAssinaturaMp,
   consultarCobrancaAssinaturaMp,
   criarAssinaturaMp,
+  DIAS_TESTE_GRATIS,
 } from "./assinatura";
 
 const fetchMock = vi.fn();
@@ -49,6 +50,39 @@ describe("criarAssinaturaMp", () => {
     // O cartão é digitado NO MERCADO PAGO. Mandar token aqui nos jogaria dentro
     // do escopo PCI — este expect existe para que ninguém "ajude" no futuro.
     expect(body).not.toHaveProperty("card_token_id");
+  });
+
+  it("com teste grátis, manda os 7 dias de carência ao MP (o cartão entra agora, a cobrança só depois)", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: "p", init_point: "https://mp.com/x" }) });
+
+    await criarAssinaturaMp({
+      plano: "CLASSICO",
+      email: "a@b.com",
+      professionalId: "p",
+      backUrl: "https://x/y",
+      comTesteGratis: true,
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.auto_recurring.free_trial).toEqual({ frequency: DIAS_TESTE_GRATIS, frequency_type: "days" });
+    // O valor da mensalidade continua o mesmo — o teste adia a cobrança, não a desconta.
+    expect(body.auto_recurring.transaction_amount).toBe(59);
+  });
+
+  it("sem teste grátis, NÃO manda carência — quem já testou paga desde o primeiro dia", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: "p", init_point: "https://mp.com/x" }) });
+
+    await criarAssinaturaMp({
+      plano: "CLASSICO",
+      email: "a@b.com",
+      professionalId: "p",
+      backUrl: "https://x/y",
+      comTesteGratis: false,
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).auto_recurring).not.toHaveProperty("free_trial");
   });
 
   it("usa o preço do Premium quando o plano é Premium", async () => {
@@ -106,9 +140,24 @@ describe("consultarAssinaturaMp", () => {
 
     const r = await consultarAssinaturaMp("pre-9");
 
-    expect(r).toEqual({ preapprovalId: "pre-9", status: "authorized" });
+    expect(r).toEqual({ preapprovalId: "pre-9", status: "authorized", proximoPagamento: null });
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.mercadopago.com/preapproval/pre-9");
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer APP_USR-teste");
+  });
+
+  it("traz a data da PRÓXIMA cobrança — é ela que diz até quando o teste grátis vale", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "pre-9",
+        status: "authorized",
+        next_payment_date: "2026-08-24T12:00:00.000-03:00",
+      }),
+    });
+
+    const r = await consultarAssinaturaMp("pre-9");
+    expect(r.proximoPagamento?.toISOString()).toBe("2026-08-24T15:00:00.000Z");
   });
 
   it("consulta que falha vira erro — o webhook precisa responder 5xx e ser reenviado", async () => {

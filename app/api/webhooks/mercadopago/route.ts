@@ -93,7 +93,13 @@ export async function POST(req: Request): Promise<Response> {
     } else if (tipo === "assinatura") {
       // Mudou o estado da assinatura (autorizou, pausou, cancelou).
       const assinatura = await consultarAssinaturaMp(dataId);
-      await aplicarStatusAssinatura(assinatura.preapprovalId, assinatura.status);
+      await aplicarStatusAssinatura(
+        assinatura.preapprovalId,
+        assinatura.status,
+        // Durante o teste grátis é esta data que libera o plano: o MP diz quando
+        // vai cobrar (fim dos 7 dias), e o direito vale até lá.
+        assinatura.proximoPagamento,
+      );
     } else {
       // Cobrança mensal. Só o pagamento aprovado empurra o vencimento; tentativa
       // recusada não vira mês pago.

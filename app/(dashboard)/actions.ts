@@ -19,7 +19,8 @@ import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
 import { protocoloDe } from "@/lib/tenant";
 import { ehDowngrade, planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
-import { cancelarAssinaturaMp, criarAssinaturaMp } from "@/lib/pagamentos/assinatura";
+import { cancelarAssinaturaMp } from "@/lib/pagamentos/assinatura";
+import { iniciarAssinatura, planoPago } from "@/lib/assinarFluxo";
 import { enviarEmail } from "@/lib/email";
 import { MARCA } from "@/lib/email/remetente";
 import { emailBoasVindas } from "@/lib/email/templates";
@@ -96,10 +97,14 @@ export async function cadastrarProfissional(
   const { subject, html } = emailBoasVindas({ nome: name, painelUrl: urlDoPainel() });
   await enviarEmail({ to: email, subject, html, fromName: MARCA });
 
-  // Loga e redireciona para o painel. `signIn` lanca o redirect (NEXT_REDIRECT)
-  // em caso de sucesso; so tratamos AuthError aqui.
+  // Loga e leva ao destino. Quem escolheu um plano PAGO na landing vai direto
+  // para o checkout (`/assinar/<plano>`): o cadastro e so a etapa do meio entre
+  // clicar no plano e digitar o cartao. `signIn` lanca o redirect
+  // (NEXT_REDIRECT) em caso de sucesso; so tratamos AuthError aqui.
+  const pago = planoPago(plan);
+  const destino = pago ? `/assinar/${pago.toLowerCase()}` : "/painel";
   try {
-    await signIn("credentials", { email, password, redirectTo: "/painel" });
+    await signIn("credentials", { email, password, redirectTo: destino });
   } catch (error) {
     if (error instanceof AuthError) {
       // Conta criada, mas o auto-login falhou por algum motivo: manda pro login.
@@ -330,62 +335,19 @@ export async function trocarPlano(formData: FormData) {
  * SUBIR de plano: cria a assinatura no Mercado Pago e manda a pessoa para o
  * checkout DELES, onde o cartao e digitado.
  *
- * O plano NAO muda aqui. A linha so recebe o id da assinatura (`pending`); quem
- * concede e o webhook, quando o MP confirmar o pagamento. Guardar o id ANTES do
- * redirect e obrigatorio: e por ele que o webhook acha a conta — sem isso, uma
- * assinatura autorizada chegaria sem dono.
+ * A regra toda vive em `iniciarAssinatura` (compartilhada com a rota
+ * `/assinar/[plano]`, por onde entra quem vem da landing). Aqui so traduzimos o
+ * resultado em navegacao: gateway fora do ar leva de volta a tela com aviso, em
+ * vez de bater na tela de erro do Next.
  */
 export async function assinarPlano(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) redirect("/entrar");
-  const planRaw = formData.get("plan");
-  if (typeof planRaw !== "string" || !PLAN_VALUES.includes(planRaw as (typeof PLAN_VALUES)[number])) {
-    return;
+  const destino = planoPago(formData.get("plan"));
+  if (!destino) return;
+
+  const r = await iniciarAssinatura(destino);
+  if (!r.ok) {
+    if (r.motivo === "sem-sessao") redirect("/entrar");
+    redirect("/painel/plano?assinatura=erro");
   }
-  const destino = planRaw as (typeof PLAN_VALUES)[number];
-
-  const prof = await prisma.professional.findUnique({
-    where: { id: session.user.id },
-    select: { ...SELECT_ASSINATURA, email: true, mpPreapprovalId: true },
-  });
-  if (!prof) return;
-  // O Basico nao se assina — sair de um plano pago e cancelamento (`trocarPlano`).
-  if (destino === "BASICO") return;
-
-  // Trocando de assinatura: para a antiga antes de criar a nova, senao o MP
-  // cobraria as duas. O mes ja pago continua valendo (`assinaturaAte` intacto).
-  if (prof.mpPreapprovalId && prof.assinaturaStatus !== "cancelled") {
-    await cancelarAssinaturaMp(prof.mpPreapprovalId).catch((err: unknown) => {
-      console.error("[assinarPlano] nao consegui cancelar a assinatura anterior:", err);
-      return false;
-    });
-  }
-
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
-  // Gateway fora do ar ou sem token configurado: a pessoa volta para a tela com
-  // um aviso, em vez de bater na tela de erro do Next.
-  const criada = await criarAssinaturaMp({
-    plano: destino,
-    email: prof.email,
-    professionalId: session.user.id,
-    backUrl: `${protocoloDe(root)}://${root}/painel/plano?assinatura=ok`,
-  }).catch((err: unknown) => {
-    console.error("[assinarPlano] Mercado Pago recusou:", err);
-    return null;
-  });
-  if (!criada) redirect("/painel/plano?assinatura=erro");
-
-  // `plan` = plano CONTRATADO, e o contrato e este agora. Gravar aqui nao
-  // libera nada: `planoEfetivo` so concede com `assinaturaAte` no futuro, e essa
-  // data quem escreve e o webhook, depois de o MP confirmar o pagamento.
-  await prisma.professional.update({
-    where: { id: session.user.id },
-    data: {
-      plan: destino,
-      mpPreapprovalId: criada.preapprovalId,
-      assinaturaStatus: "pending",
-    },
-  });
-
-  redirect(criada.initPoint);
+  redirect(r.initPoint);
 }
