@@ -7,14 +7,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { eventPublicUrl } from "@/lib/tenant";
+import { eventPublicUrl, rootDomain } from "@/lib/tenant";
 import { TIPO_LABEL } from "@/lib/painelUi";
 import { Ic, IC } from "../_shell/Ic";
 import { ListaConvites, type ItemConvite } from "./ListaConvites";
 
 export const dynamic = "force-dynamic";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+const ROOT_DOMAIN = rootDomain();
 
 const DATA_LONGA = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",

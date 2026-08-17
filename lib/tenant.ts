@@ -105,6 +105,22 @@ export function resolveSubdomain(
 }
 
 /**
+ * Dominio raiz do ambiente, JA NORMALIZADO. Todo mundo que precisa dele deve
+ * ler daqui, nunca de `process.env` direto.
+ *
+ * O `.trim()` nao e paranoia: a env var e gravada por gente, e
+ * `echo "dominio" | vercel env add` guarda um "\n" no fim. O caractere
+ * invisivel viajava para dentro das URLs montadas
+ * (`https://seuconvite.orivya.com.br\n/painel/plano`) e o Mercado Pago passou a
+ * recusar TODO checkout com "Invalid value for back_url". `extractLabel` ja
+ * aparava o valor — por isso os convites continuavam abrindo e ninguem
+ * desconfiava —, mas quem montava URL nao aparava.
+ */
+export function rootDomain(): string {
+  return (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "").trim() || "localhost:3000";
+}
+
+/**
  * Monta a URL publica de um evento a partir do seu subdominio e do `rootDomain`.
  * Em dev (root contendo `localhost`) usa `http://`; em producao usa `https://`.
  *

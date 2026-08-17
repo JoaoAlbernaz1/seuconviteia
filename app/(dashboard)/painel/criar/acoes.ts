@@ -26,7 +26,7 @@ import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
 import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
-import { protocoloDe } from "@/lib/tenant";
+import { protocoloDe, rootDomain } from "@/lib/tenant";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
 import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
@@ -191,7 +191,7 @@ function txt(v: string | undefined): string | undefined {
 
 /** Host + URL publicos do subdominio (mesma regra de `_carregar.ts`). */
 function enderecoPublico(subdomain: string): { host: string; url: string } {
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+  const root = rootDomain();
   const host = `${subdomain}.${root.replace(/:\d+$/, "")}`;
   const proto = protocoloDe(root);
   return { host, url: `${proto}://${subdomain}.${root}` };

@@ -17,7 +17,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
-import { protocoloDe } from "@/lib/tenant";
+import { protocoloDe, rootDomain } from "@/lib/tenant";
 import { ehDowngrade, planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
 import { cancelarAssinaturaMp } from "@/lib/pagamentos/assinatura";
 import { iniciarAssinatura, planoPago } from "@/lib/assinarFluxo";
@@ -50,7 +50,7 @@ export type SignupState = {
  * (reservado no middleware). Localhost usa http; qualquer outro dominio, https.
  */
 function urlDoPainel(): string {
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "seuconviteia.com";
+  const root = rootDomain();
   const protocolo = protocoloDe(root);
   return `${protocolo}://app.${root}/painel`;
 }

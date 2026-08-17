@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { appUrl, eventPublicUrl, protocoloDe, resolveSubdomain, slugify } from "./tenant";
+import { afterEach, describe, it, expect } from "vitest";
+import { appUrl, eventPublicUrl, protocoloDe, resolveSubdomain, rootDomain, slugify } from "./tenant";
 
 const ROOT = "seuconviteia.com";
 
@@ -117,5 +117,35 @@ describe("protocoloDe", () => {
     expect(eventPublicUrl("ana", "192.168.1.4.nip.io:3000")).toBe(
       "http://ana.192.168.1.4.nip.io:3000",
     );
+  });
+});
+
+describe("rootDomain — apara o que a env var traz de sujeira", () => {
+  const original = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+  afterEach(() => {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    else process.env.NEXT_PUBLIC_ROOT_DOMAIN = original;
+  });
+
+  it("tira a quebra de linha que o `echo | vercel env add` deixa", () => {
+    // Este \n derrubou TODO o checkout: a URL de retorno virava
+    // "https://dominio\n/painel/plano" e o Mercado Pago recusava.
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "seuconvite.orivya.com.br\n";
+    expect(rootDomain()).toBe("seuconvite.orivya.com.br");
+    expect(`https://${rootDomain()}/painel/plano`).toBe(
+      "https://seuconvite.orivya.com.br/painel/plano",
+    );
+  });
+
+  it("espaços em volta também somem", () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "  exemplo.com  ";
+    expect(rootDomain()).toBe("exemplo.com");
+  });
+
+  it("vazia ou só espaço cai no padrão de dev", () => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "   ";
+    expect(rootDomain()).toBe("localhost:3000");
+    delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    expect(rootDomain()).toBe("localhost:3000");
   });
 });

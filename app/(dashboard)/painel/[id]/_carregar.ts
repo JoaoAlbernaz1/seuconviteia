@@ -5,9 +5,9 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { rascunhoDoEvento } from "@/lib/previewEvento";
-import { protocoloDe } from "@/lib/tenant";
+import { protocoloDe, rootDomain } from "@/lib/tenant";
 
-export const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+export const ROOT_DOMAIN = rootDomain();
 
 /** Host público do evento (sem porta, para exibição). */
 export function hostDoEvento(subdomain: string): string {

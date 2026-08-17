@@ -8,7 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { cancelarAssinaturaMp, criarAssinaturaMp } from "@/lib/pagamentos/assinatura";
 import { PLANOS_INFO, SELECT_ASSINATURA, type Plan } from "@/lib/plans";
-import { protocoloDe } from "@/lib/tenant";
+import { protocoloDe, rootDomain } from "@/lib/tenant";
 
 export type InicioAssinatura =
   | { ok: true; initPoint: string }
@@ -51,7 +51,7 @@ export async function iniciarAssinatura(plano: Plan): Promise<InicioAssinatura> 
     });
   }
 
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+  const root = rootDomain();
   const criada = await criarAssinaturaMp({
     plano,
     email: prof.email,

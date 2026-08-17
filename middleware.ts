@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { extractLabel, resolveSubdomain, RESERVED } from "@/lib/tenant";
+import { RESERVED, extractLabel, resolveSubdomain, rootDomain } from "@/lib/tenant";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+const ROOT_DOMAIN = rootDomain();
 
 /**
  * Roteamento de tenant por subdominio.

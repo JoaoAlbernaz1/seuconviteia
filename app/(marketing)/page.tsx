@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Image from "next/image";
-import { appUrl } from "@/lib/tenant";
+import { appUrl, rootDomain } from "@/lib/tenant";
 import { EMPRESA } from "./legal/dados-da-empresa";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { RevealOnScroll } from "@/components/marketing/RevealOnScroll";
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     "Um site de convite completo — confirmação de presença, lista de presentes, localização e contagem regressiva — pronto em minutos e perfeito em qualquer tela.",
 };
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+const ROOT_DOMAIN = rootDomain();
 const CADASTRO = appUrl("/cadastrar", ROOT_DOMAIN);
 const ENTRAR = appUrl("/entrar", ROOT_DOMAIN);
 /** Porta do checkout: escolheu o plano aqui, digita o cartão no Mercado Pago. */

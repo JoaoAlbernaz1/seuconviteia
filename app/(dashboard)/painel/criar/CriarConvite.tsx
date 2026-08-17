@@ -33,12 +33,12 @@ import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
 import { activeDraftPointerKey, esquecerRascunhoLocal, localDraftKey } from "@/lib/event-editor/local-draft";
-import { eventPublicUrl } from "@/lib/tenant";
+import { eventPublicUrl, rootDomain } from "@/lib/tenant";
 
 // Domínio raiz dos sites de evento. Vem do ambiente como em todo o resto do
 // painel: escrito na mão, o editor mostrava um endereço que não existe (faltava
 // o `.br`) e ignorava o dev, mandando o link de produção em localhost.
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+const ROOT_DOMAIN = rootDomain();
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
