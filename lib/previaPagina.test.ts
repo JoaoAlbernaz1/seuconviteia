@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paginaAlvo, paginaDaPrevia, type TogglesPrevia } from "./previaPagina";
+import { confirmouNaPrevia, paginaAlvo, paginaDaPrevia, type TogglesPrevia } from "./previaPagina";
 
 const TUDO_LIGADO: TogglesPrevia = { rsvp: true, presentes: true, galeria: true, recados: true };
 
@@ -61,5 +61,18 @@ describe("paginaDaPrevia — nunca cai numa pagina desligada", () => {
     expect(paginaDaPrevia(1, "capa", tudoOff)).toBe("inicio");
     expect(paginaDaPrevia(2, "quando", tudoOff)).toBe("evento");
     expect(paginaDaPrevia(6, "capa", tudoOff)).toBe("inicio");
+  });
+});
+
+describe("confirmouNaPrevia — qual resposta a tela de Obrigada mostra", () => {
+  it("só o foco 'obrigada-nao' mostra a mensagem de quem não pode ir", () => {
+    expect(confirmouNaPrevia("obrigada-nao")).toBe(false);
+    expect(confirmouNaPrevia("obrigada-sim")).toBe(true);
+  });
+
+  it("sem foco (ou em qualquer outra seção) mostra a de quem confirma", () => {
+    expect(confirmouNaPrevia(undefined)).toBe(true);
+    expect(confirmouNaPrevia("rsvp")).toBe(true);
+    expect(confirmouNaPrevia("capa")).toBe(true);
   });
 });

@@ -29,6 +29,20 @@ export function paginaAlvo(step: number, foco?: string): string {
   return "inicio";
 }
 
+/**
+ * Na tela de "Obrigada", QUAL das duas respostas a previa mostra.
+ *
+ * `paginaAlvo` devolve "obrigada" tanto para quem confirma quanto para quem
+ * nao vai — o que separa as duas e SO o foco. Sem consultar o foco aqui, a
+ * previa cai no padrao (confirmou) e a "Mensagem para quem nao pode ir" nunca
+ * aparece, por mais que se clique em "Ver: quem nao vai".
+ *
+ * No site publicado quem decide e a query `?vai=0`; aqui e o foco.
+ */
+export function confirmouNaPrevia(foco?: string): boolean {
+  return foco !== "obrigada-nao";
+}
+
 /** A pagina depende de um recurso desligado? (aí ela nao existe pro convidado) */
 function indisponivel(pagina: string, on: TogglesPrevia): boolean {
   if (pagina === "confirmar" || pagina === "obrigada") return !on.rsvp;

@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { InvitationRenderer } from "@/components/invitation-renderer/InvitationRenderer";
 import { PreviewFoco } from "@/components/evt/PreviewFoco";
+import { confirmouNaPrevia } from "@/lib/previaPagina";
 import {
   editorPreviewReadyMessage,
   isEditorPreviewReady,
@@ -39,7 +40,16 @@ export function PreviaConvite() {
 
   return (
     <>
-      <InvitationRenderer document={estado.document} mode="preview" page={estado.page} />
+      {/* `accepted` sai do FOCO: a página "obrigada" é a mesma para as duas
+          respostas, e sem isto a prévia ficava presa no padrão (confirmou) —
+          a "Mensagem para quem não pode ir" nunca aparecia, por mais que se
+          clicasse em "Ver: quem não vai". */}
+      <InvitationRenderer
+        document={estado.document}
+        mode="preview"
+        page={estado.page}
+        accepted={confirmouNaPrevia(estado.focus)}
+      />
       {/* Destaque da seção em edição (anel + etiqueta), o mesmo do preview antigo. */}
       <PreviewFoco sec={estado.focus} />
     </>
