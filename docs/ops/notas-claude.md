@@ -155,3 +155,29 @@ o teste do outro arquivo falha "sem motivo".
 
 Falta, e depende do João: cadastrar o webhook no MP com os eventos de assinatura,
 aplicar a migration em produção e o teste no ar (assinar → webhook → cancelar).
+
+---
+
+## 2026-08-17 (fim do dia) — deploy de producao e o bloqueio dos deploys automaticos
+
+**Producao esta com a linha `claude/editor-foundation`**, incluindo os consertos do editor
+(cor do RSVP, tamanho das letras, rodape, galeria de verdade, presentes/Vitrine na previa,
+recados, tela de modelo e os popups de plano). Deploy feito pela CLI, de uma COPIA do
+worktree **sem `.git`** — e por isso que ele passa.
+
+Banco: as cinco migrations do repo ja estavam aplicadas em `seuconviteia-prod`
+(a ultima, `20260817180000_dados_do_titular`, entrou hoje). O commit do editor **nao tem
+migration** — foi so codigo.
+
+**Por que TODO push para o GitHub virava `BLOCKED` na Vercel:** protecao de autor. Os commits
+saiam assinados como `joaovictoralbernaz95@gmail.com` (conta GitHub `ALJoao`), e a conta da
+Vercel e `joaovictoralbernaz77@gmail.com`. A Vercel recusa deploy de commit cujo autor nao e
+da equipe — nao e erro de build, e recusa antes de construir.
+
+Corrigido no `.git/config` do repo (vale para os dois worktrees):
+`user.email = joaovictoralbernaz77@gmail.com`, o mesmo email da conta da Vercel. 48 commits
+antigos ja usavam esse email. **Commits novos passam; os antigos continuam bloqueados** (o
+autor esta gravado neles), o que nao atrapalha: producao sobe pela CLI.
+
+Lembrete: o deploy pelo GitHub desta branch geraria PREVIEW, nao producao — producao continua
+saindo da CLI ate a branch de producao do projeto apontar para ca.
