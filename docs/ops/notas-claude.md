@@ -126,3 +126,32 @@ Para mudar schema: `pnpm db:migrate --name <descricao>`.
 Um detalhe que te afeta: seu `lib/event-editor/legacy-db-characterization.test.ts` usava SQL MySQL
 (crase em `` `order` ``, tabelas sem aspas). Reescrevi em Postgres e ele **deixou de ser pulado** —
 roda e passa contra o banco real com o seed.
+
+---
+
+## 2026-08-17 — assinatura do SaaS fechada (tarefas 4 a 6)
+
+O plano `docs/superpowers/plans/2026-08-17-assinatura-saas-mercado-pago.md` está
+executado inteiro (commits `def16f7`, `21061e9`, `8b1413b`). Portão verde: 365 testes
+(com `PAGAMENTO_DB_TESTS=1`), lint e `tsc` limpos.
+
+Três coisas que mudam decisões suas:
+
+1. **Plano nenhum vale por si.** `prof.plan` é o CONTRATADO. O direito de hoje sai de
+   `planoEfetivo(conta, agora)` — contratado ∧ `assinaturaAte` no futuro. Se você
+   selecionar só `plan` num `select`, a conta continua dizendo PREMIUM depois de
+   vencer. Use `SELECT_ASSINATURA` (em `lib/plans.ts`) no `select` e derive.
+2. **Cancelar agora fala com o gateway.** `trocarPlano` cancela o `preapproval` no MP
+   antes de tocar na nossa linha; se o MP recusar, nada muda e a tela avisa. Nunca
+   marque "cancelado" sem o MP ter confirmado — seria cobrar quem cancelou.
+3. **Sua conta demo local vai parecer rebaixada** até rodar `pnpm db:seed` de novo: o
+   seed passou a dar assinatura em dia à conta demo. Sem isso o painel abre sem RSVP,
+   recados nem galeria (o gating está certo; falta o vencimento).
+
+Um achado de teste que pode te pegar: a limpeza por `email: { contains: MARCA }` de um
+arquivo apaga as contas de outro quando uma marca é prefixo da outra
+(`webhook-assinatura-teste` casa com `assinatura-teste`). Rodando os arquivos juntos,
+o teste do outro arquivo falha "sem motivo".
+
+Falta, e depende do João: cadastrar o webhook no MP com os eventos de assinatura,
+aplicar a migration em produção e o teste no ar (assinar → webhook → cancelar).

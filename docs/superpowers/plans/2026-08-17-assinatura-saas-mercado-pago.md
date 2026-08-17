@@ -34,7 +34,7 @@
   Campos novos em `Professional`: `mpPreapprovalId`, `assinaturaStatus`, `assinaturaAte`.
   Novo model `CobrancaAssinatura`.
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Em `lib/plans.test.ts`:
 
@@ -75,12 +75,12 @@ describe("planoEfetivo — o plano vale enquanto estiver pago", () => {
 });
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `npx vitest run lib/plans.test.ts`
 Expected: FAIL — `planoEfetivo is not a function`.
 
-- [ ] **Step 3: Implementar `planoEfetivo`**
+- [x] **Step 3: Implementar `planoEfetivo`**
 
 Em `lib/plans.ts`:
 
@@ -108,12 +108,12 @@ export function planoEfetivo(conta: ContaAssinatura, agora: Date): Plan {
 }
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `npx vitest run lib/plans.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Schema + migration**
+- [x] **Step 5: Schema + migration**
 
 Em `prisma/schema.prisma`, no model `Professional`, depois de `plan`:
 
@@ -173,12 +173,12 @@ ALTER TABLE "CobrancaAssinatura" ADD CONSTRAINT "CobrancaAssinatura_professional
   FOREIGN KEY ("professionalId") REFERENCES "Professional"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ```
 
-- [ ] **Step 6: Aplicar e gerar**
+- [x] **Step 6: Aplicar e gerar**
 
 Run: `npx prisma migrate deploy && npx prisma generate && npx prisma migrate status`
 Expected: "Database schema is up to date!".
 
-- [ ] **Step 7: Portão verde e commit**
+- [x] **Step 7: Portão verde e commit**
 
 ```bash
 pnpm test && pnpm lint && npx tsc --noEmit
@@ -198,7 +198,7 @@ git commit -m "feat(assinatura): estado da assinatura no banco + plano efetivo d
 - Consumes: `Plan`, `PLAN_ORDER` de `lib/plans.ts`.
 - Produces: `ehDowngrade(de: Plan, para: Plan): boolean` em `lib/plans.ts`.
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 ```ts
 import { ehDowngrade } from "./plans";
@@ -215,12 +215,12 @@ describe("ehDowngrade", () => {
 });
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `npx vitest run lib/plans.test.ts`
 Expected: FAIL — `ehDowngrade is not a function`.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 ```ts
 /** Descer de plano (inclui cancelar para o Basico). */
@@ -229,11 +229,11 @@ export function ehDowngrade(de: Plan, para: Plan): boolean {
 }
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `npx vitest run lib/plans.test.ts` → PASS.
 
-- [ ] **Step 5: Trancar a action**
+- [x] **Step 5: Trancar a action**
 
 Em `app/(dashboard)/actions.ts`, substituir o corpo de `trocarPlano` depois da validação:
 
@@ -260,12 +260,12 @@ Em `app/(dashboard)/actions.ts`, substituir o corpo de `trocarPlano` depois da v
 
 Importar `ehDowngrade` e `type Plan` de `@/lib/plans`.
 
-- [ ] **Step 6: Verificar no navegador**
+- [x] **Step 6: Verificar no navegador**
 
 Subir o dev (`pnpm dev`), entrar com a conta demo, ir em `/painel/plano`, clicar em "Fazer upgrade" no Premium.
 Expected: o plano **não** muda. Clicar em "Mudar para este" no Básico: muda.
 
-- [ ] **Step 7: Portão verde e commit**
+- [x] **Step 7: Portão verde e commit**
 
 ```bash
 pnpm test && pnpm lint && npx tsc --noEmit
@@ -286,7 +286,7 @@ git commit -m "fix(assinatura): upgrade deixa de ser gratis — subir de plano e
 - Produces:
   `criarAssinaturaMp(input: { plano: Plan; email: string; professionalId: string; backUrl: string }): Promise<{ preapprovalId: string; initPoint: string }>`
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 ```ts
 import { describe, expect, it, vi, afterEach } from "vitest";
@@ -343,12 +343,12 @@ describe("criarAssinaturaMp", () => {
 });
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `npx vitest run lib/pagamentos/assinatura.test.ts`
 Expected: FAIL — módulo não existe.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 `lib/pagamentos/assinatura.ts`:
 
@@ -401,11 +401,11 @@ export async function criarAssinaturaMp(input: {
 }
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `npx vitest run lib/pagamentos/assinatura.test.ts` → PASS (3 testes).
 
-- [ ] **Step 5: Portão verde e commit**
+- [x] **Step 5: Portão verde e commit**
 
 ```bash
 pnpm test && pnpm lint && npx tsc --noEmit
@@ -427,7 +427,7 @@ git commit -m "feat(assinatura): cria preapproval mensal no Mercado Pago sem toc
   - `aplicarStatusAssinatura(preapprovalId: string, status: string): Promise<boolean>`
   - `registrarCobrancaAssinatura(input: { preapprovalId: string; providerId: string; amountCents: number; pagoEm: Date }): Promise<boolean>`
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 ```ts
 // PAGAMENTO_DB_TESTS=1 DATABASE_URL=postgresql://postgres:seuconvite@127.0.0.1:5433/seuconviteia \
@@ -506,12 +506,12 @@ describe("eventos de assinatura", () => {
 });
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `PAGAMENTO_DB_TESTS=1 DATABASE_URL=postgresql://postgres:seuconvite@127.0.0.1:5433/seuconviteia npx vitest run lib/assinaturaCore.test.ts`
 Expected: FAIL — módulo não existe.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 `lib/assinaturaCore.ts`:
 
@@ -588,12 +588,12 @@ export async function registrarCobrancaAssinatura(input: {
 }
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `PAGAMENTO_DB_TESTS=1 DATABASE_URL=postgresql://postgres:seuconvite@127.0.0.1:5433/seuconviteia npx vitest run lib/assinaturaCore.test.ts`
 Expected: 4 testes PASS.
 
-- [ ] **Step 5: Portão verde e commit**
+- [x] **Step 5: Portão verde e commit**
 
 ```bash
 pnpm test && pnpm lint && npx tsc --noEmit
@@ -613,7 +613,7 @@ git commit -m "feat(assinatura): nucleo idempotente dos eventos de assinatura"
 - Consumes: `aplicarStatusAssinatura`, `registrarCobrancaAssinatura` (Task 4); `verificarAssinaturaMp` (já existe).
 - Produces: `tipoDeNotificacao(body: unknown): "pagamento" | "assinatura" | "cobranca-assinatura" | "desconhecido"` em `lib/pagamentos/mercadopago.ts`.
 
-- [ ] **Step 1: Escrever o teste que falha**
+- [x] **Step 1: Escrever o teste que falha**
 
 Em `lib/pagamentos/mercadopago.test.ts`:
 
@@ -633,12 +633,12 @@ describe("tipoDeNotificacao", () => {
 });
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `npx vitest run lib/pagamentos/mercadopago.test.ts`
 Expected: FAIL — `tipoDeNotificacao is not a function`.
 
-- [ ] **Step 3: Implementar a função pura**
+- [x] **Step 3: Implementar a função pura**
 
 Em `lib/pagamentos/mercadopago.ts`:
 
@@ -658,17 +658,17 @@ export function tipoDeNotificacao(
 }
 ```
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `npx vitest run lib/pagamentos/mercadopago.test.ts` → PASS.
 
-- [ ] **Step 5: Ligar no webhook**
+- [x] **Step 5: Ligar no webhook**
 
 Em `app/api/webhooks/mercadopago/route.ts`, **depois** da validação de assinatura já existente (não antes — a segurança continua sendo o HMAC), rotear por tipo. Para `assinatura`, consultar `GET /preapproval/{id}` e aplicar o `status`; para `cobranca-assinatura`, consultar `GET /authorized_payments/{id}` e chamar `registrarCobrancaAssinatura` com `preapproval_id`, `id`, `transaction_amount * 100` e a data. Manter o caminho de `pagamento` exatamente como está.
 
 Regra: **nunca confiar no payload** — reconsultar o MP antes de conceder, igual ao que o fluxo de presente já faz.
 
-- [ ] **Step 6: Verificar o roteamento sem gateway**
+- [x] **Step 6: Verificar o roteamento sem gateway**
 
 Run:
 ```bash
@@ -678,7 +678,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "content-type: application/j
 ```
 Expected: 401 em produção (sem assinatura válida). Em dev sem segredo, 200 e log do tipo reconhecido.
 
-- [ ] **Step 7: Portão verde e commit**
+- [x] **Step 7: Portão verde e commit**
 
 ```bash
 pnpm test && pnpm lint && npx tsc --noEmit
@@ -700,7 +700,7 @@ git commit -m "feat(assinatura): webhook trata preapproval e cobranca mensal"
 - Consumes: `criarAssinaturaMp` (Task 3), `planoEfetivo` (Task 1).
 - Produces: server action `assinarPlano(formData: FormData): Promise<void>` (redireciona para o `init_point`).
 
-- [ ] **Step 1: Implementar a action**
+- [x] **Step 1: Implementar a action**
 
 Em `app/(dashboard)/actions.ts`:
 
@@ -737,24 +737,24 @@ export async function assinarPlano(formData: FormData): Promise<void> {
 }
 ```
 
-- [ ] **Step 2: Trocar o formulário do painel**
+- [x] **Step 2: Trocar o formulário do painel**
 
 Em `app/(dashboard)/painel/plano/page.tsx`, o `<form action={trocarPlano}>` passa a escolher a action pelo sentido da mudança: subir → `assinarPlano`; descer → `trocarPlano`. Usar `ehDowngrade(atual, p.key)`. Quando `?assinatura=ok` estiver na URL, mostrar acima dos cards: "Recebemos sua assinatura. O plano libera assim que o Mercado Pago confirmar o pagamento."
 
-- [ ] **Step 3: Usar o plano efetivo nas leituras**
+- [x] **Step 3: Usar o plano efetivo nas leituras**
 
 Trocar `prof.plan` por `planoEfetivo(prof, new Date())` onde o plano decide direito: `app/(dashboard)/painel/layout.tsx`, `app/(dashboard)/painel/plano/page.tsx` e a criação de evento (`limiteEventos`). Os `select` do Prisma precisam passar a trazer `assinaturaStatus` e `assinaturaAte`.
 
-- [ ] **Step 4: Landing leva o plano escolhido**
+- [x] **Step 4: Landing leva o plano escolhido**
 
 Em `app/(marketing)/page.tsx:332`, o `href` dos cards pagos passa a ser `` `${CADASTRO}?plano=${p.key.toLowerCase()}` ``. O Básico continua como está.
 
-- [ ] **Step 5: Verificar no navegador**
+- [x] **Step 5: Verificar no navegador**
 
 Com `MERCADO_PAGO_ACCESS_TOKEN` de teste no `.env`, subir o dev, entrar, ir em `/painel/plano` e clicar em "Fazer upgrade" no Clássico.
 Expected: redireciona para o checkout do Mercado Pago; ao voltar, o plano **ainda é o antigo** e aparece o aviso de "aguardando confirmação"; a conta tem `mpPreapprovalId` gravado.
 
-- [ ] **Step 6: Portão verde e commit**
+- [x] **Step 6: Portão verde e commit**
 
 ```bash
 pnpm test && pnpm lint && npx tsc --noEmit
@@ -764,8 +764,47 @@ git commit -m "feat(assinatura): botao do painel abre o checkout do MP e landing
 
 ---
 
+## Onde a execução saiu do plano (tarefas 4–6, 17/08)
+
+Tudo o que o plano pedia foi feito. O que ficou **diferente ou a mais**, e por quê:
+
+1. **`registrarCobrancaAssinatura` só engole a duplicata.** O plano tinha
+   `catch { return false }`, que transformaria banco fora do ar em "já registrada" —
+   200 para o MP e uma cobrança perdida para sempre. Agora só `P2002` vira `false`;
+   o resto sobe e o webhook devolve 5xx para o MP reenviar.
+2. **As consultas ao MP viraram funções testáveis** (`consultarAssinaturaMp`,
+   `consultarCobrancaAssinaturaMp` em `lib/pagamentos/assinatura.ts`), em vez de
+   `fetch` solto dentro da rota. O ledger guarda o id da **cobrança**
+   (`authorized_payment`), não o do pagamento: com `recycling` o MP gera pagamento
+   novo para a mesma cobrança, e o mês tem de continuar sendo um só.
+3. **`tests/webhook-assinatura.test.ts` (novo).** O plano mandava conferir o
+   roteamento com um `curl`, que não prova gravação. O teste manda a notificação
+   **assinada** na rota e confere o banco: credita, não credita duas vezes, recusa
+   assinatura inválida antes de consultar, e devolve 5xx quando a consulta falha.
+4. **Cancelar passou a cancelar no gateway** (`cancelarAssinaturaMp`). Isto não
+   estava no plano e é um buraco de dinheiro: sem ele a pessoa cancela no painel e
+   o Mercado Pago segue cobrando todo mês. Se o MP recusar, nada muda aqui.
+5. **`assinarPlano` grava `plan: destino`.** Sem isso, quem assina saindo do Básico
+   nunca receberia o plano — o webhook só escreve status e vencimento, e
+   `planoEfetivo` leria o contratado antigo. Gravar é seguro: sem `assinaturaAte`
+   no futuro, não libera nada.
+6. **A UI ficou "Básico = cancelar, pago = assinar".** Trocar entre dois planos
+   pagos é uma assinatura nova no novo preço (a antiga é cancelada antes), e não
+   uma troca local de linha.
+7. **`planoEfetivo` foi além dos 3 arquivos do plano**: entrou também na taxa do
+   presente (`lib/presentear.ts`), no white-label do e-mail de RSVP
+   (`lib/rsvp.ts`), na prévia e nas duas ações de criar convite. Deixar metade das
+   leituras em `prof.plan` é o tipo de inconsistência que vira bug de direito.
+8. **Seed:** a conta demo ganhou assinatura em dia, senão o dev local abre o painel
+   sem RSVP/recados/galeria.
+
 ## Depois do plano
 
 - Aplicar a migration em produção (tabelas novas, sem dado a migrar) e subir.
 - Teste no ar com a conta real: assinar o Clássico, ver o plano subir **só** depois do webhook, e cancelar.
+- **Cadastrar o webhook no MP com os eventos de assinatura** (`subscription_preapproval`
+  e `subscription_authorized_payment`) — sem isso o plano nunca sobe sozinho.
+- O `?plano=` que a landing passa ainda **não é lido** pelo cadastro (que redireciona
+  para `/entrar?criar=1` e sempre cria a conta no Básico). A pessoa escolhe de novo em
+  `/painel/plano`. Fechar isso é uma tarefa própria.
 - Fica pendente e registrado à parte: 3 dos 4 templates não têm fluxo de presentear.
