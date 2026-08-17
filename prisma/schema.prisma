@@ -88,6 +88,15 @@ model Professional {
   /// Ate quando o plano pago vale. E o que sustenta a carencia: cancelar nao
   /// corta na hora, o vencimento e que corta.
   assinaturaAte    DateTime?
+  /// WhatsApp com DDD, so digitos. Pedido no cadastro: e por onde o suporte
+  /// alcanca quem esta com a festa em cima da hora.
+  telefone     String?
+  /// CPF ou CNPJ do titular, so digitos. Pedido no CHECKOUT (dado de cobranca,
+  /// nao de cadastro) — e o mesmo documento que o MP pede na tela do cartao.
+  documento    String?
+  /// `proprio` (faz a festa dele) | `profissional` (faz para clientes).
+  /// Muda a linguagem do painel e diz para quem estamos vendendo.
+  perfilUso    String?
   avatarUrl    String?
   brandName    String?
   brandLogoUrl String?

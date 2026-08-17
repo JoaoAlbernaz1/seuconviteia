@@ -20,6 +20,18 @@ const MP_API = "https://api.mercadopago.com";
  */
 export const DIAS_TESTE_GRATIS = 7;
 
+/**
+ * Quando cai a PRIMEIRA cobranca — hoje, ou no fim do teste gratis.
+ *
+ * Mora aqui, e nao dentro da tela, porque o React Compiler recusa chamada
+ * impura (`Date.now()`) durante o render — e porque a data que a tela promete
+ * tem de sair da mesma constante que vai para o gateway.
+ */
+export function primeiraCobrancaEm(comTesteGratis: boolean, agora: Date = new Date()): Date {
+  if (!comTesteGratis) return agora;
+  return new Date(agora.getTime() + DIAS_TESTE_GRATIS * 24 * 60 * 60 * 1000);
+}
+
 function tokenMp(): string {
   const t = process.env.MERCADO_PAGO_ACCESS_TOKEN;
   if (!t) throw new Error("MERCADO_PAGO_ACCESS_TOKEN ausente.");

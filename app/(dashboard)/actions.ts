@@ -21,6 +21,7 @@ import { protocoloDe, rootDomain } from "@/lib/tenant";
 import { ehDowngrade, planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
 import { cancelarAssinaturaMp } from "@/lib/pagamentos/assinatura";
 import { iniciarAssinatura, planoPago } from "@/lib/assinarFluxo";
+import { soDigitos, telefoneValido } from "@/lib/documento";
 import { enviarEmail } from "@/lib/email";
 import { MARCA } from "@/lib/email/remetente";
 import { emailBoasVindas } from "@/lib/email/templates";
@@ -33,16 +34,25 @@ import { emailBoasVindas } from "@/lib/email/templates";
 const PLAN_VALUES = ["BASICO", "CLASSICO", "PREMIUM"] as const;
 
 const signupSchema = z.object({
-  name: z.string().trim().min(2, "Informe seu nome.").max(120),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Informe seu nome.")
+    .max(120)
+    // Nome COMPLETO: e o nome que vai no convite, no e-mail e no atendimento.
+    .refine((v) => v.split(/\s+/).filter(Boolean).length >= 2, "Informe nome e sobrenome."),
   email: z.string().trim().toLowerCase().email("E-mail invalido."),
   password: z.string().min(8, "A senha precisa de ao menos 8 caracteres.").max(200),
+  // WhatsApp: e por onde o suporte alcanca quem esta com a festa em cima da hora.
+  telefone: z.string().trim().refine(telefoneValido, "Informe o WhatsApp com DDD."),
+  perfilUso: z.enum(["proprio", "profissional"]).optional().default("proprio"),
   // Plano da CONTA (escolhido no cadastro; herdado pelos eventos). Ausente -> BASICO.
   plan: z.enum(PLAN_VALUES, { message: "Plano invalido." }).optional().default("BASICO"),
 });
 
 export type SignupState = {
   error?: string;
-  fieldErrors?: Partial<Record<"name" | "email" | "password" | "plan", string>>;
+  fieldErrors?: Partial<Record<"name" | "email" | "password" | "telefone" | "plan", string>>;
 };
 
 /**
@@ -60,10 +70,13 @@ export async function cadastrarProfissional(
   formData: FormData,
 ): Promise<SignupState> {
   const planRaw = formData.get("plan");
+  const perfilRaw = formData.get("perfilUso");
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
+    telefone: formData.get("telefone"),
+    perfilUso: typeof perfilRaw === "string" && perfilRaw ? perfilRaw : undefined,
     plan: typeof planRaw === "string" && planRaw ? planRaw : undefined,
   });
 
@@ -74,12 +87,13 @@ export async function cadastrarProfissional(
         name: f.name?.[0],
         email: f.email?.[0],
         password: f.password?.[0],
+        telefone: f.telefone?.[0],
         plan: f.plan?.[0],
       },
     };
   }
 
-  const { name, email, password, plan } = parsed.data;
+  const { name, email, password, telefone, perfilUso, plan } = parsed.data;
 
   const existing = await prisma.professional.findUnique({ where: { email } });
   if (existing) {
@@ -88,7 +102,9 @@ export async function cadastrarProfissional(
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.professional.create({
-    data: { name, email, passwordHash, plan },
+    // Telefone guardado so em digitos: mascara e assunto de tela, e assim a
+    // busca e a comparacao nao dependem de como a pessoa digitou.
+    data: { name, email, passwordHash, plan, telefone: soDigitos(telefone), perfilUso },
   });
 
   // Boas-vindas (transacional). `enviarEmail` engole qualquer falha e NAO propaga:

@@ -5,6 +5,7 @@ import {
   consultarCobrancaAssinaturaMp,
   criarAssinaturaMp,
   DIAS_TESTE_GRATIS,
+  primeiraCobrancaEm,
 } from "./assinatura";
 
 const fetchMock = vi.fn();
@@ -253,5 +254,17 @@ describe("consultarCobrancaAssinaturaMp", () => {
       json: async () => ({ id: 1, transaction_amount: 59, payment: { status: "approved" } }),
     });
     await expect(consultarCobrancaAssinaturaMp("1")).rejects.toThrow(/preapproval/i);
+  });
+});
+
+describe("primeiraCobrancaEm", () => {
+  const agora = new Date("2026-08-17T12:00:00.000Z");
+
+  it("com teste grátis, joga a cobrança para depois dos 7 dias", () => {
+    expect(primeiraCobrancaEm(true, agora).toISOString()).toBe("2026-08-24T12:00:00.000Z");
+  });
+
+  it("sem teste, cobra hoje mesmo", () => {
+    expect(primeiraCobrancaEm(false, agora).toISOString()).toBe(agora.toISOString());
   });
 });

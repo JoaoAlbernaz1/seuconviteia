@@ -14,6 +14,7 @@ import {
 } from "../actions";
 import { INPUT, BTN_PRIMARIO } from "../painel/_ui/estilos";
 import { PLANOS_INFO } from "@/lib/plans";
+import { formatarTelefone } from "@/lib/documento";
 
 function Erro({ msg }: { msg?: string }) {
   if (!msg) return null;
@@ -30,6 +31,8 @@ function CardEntrar() {
   const planoEscolhido = PLANOS_INFO.find(
     (p) => p.key === (params.get("plano") ?? "").toUpperCase() && p.mensalidadeCents > 0,
   )?.key;
+  const [telefone, setTelefone] = useState("");
+  const [perfilUso, setPerfilUso] = useState<"proprio" | "profissional">("proprio");
   const [loginState, loginAction, loginPending] = useActionState<LoginState, FormData>(
     entrarComCredenciais,
     {},
@@ -104,7 +107,7 @@ function CardEntrar() {
               clicou — e não numa tela pedindo para escolher de novo. */}
           {planoEscolhido ? <input type="hidden" name="plan" value={planoEscolhido} /> : null}
           <div>
-            <input name="name" placeholder="Seu nome" autoComplete="name" className={INPUT} />
+            <input name="name" placeholder="Seu nome completo" autoComplete="name" className={INPUT} />
             <Erro msg={signupState.fieldErrors?.name} />
           </div>
           <div>
@@ -119,6 +122,18 @@ function CardEntrar() {
           </div>
           <div>
             <input
+              name="telefone"
+              inputMode="tel"
+              placeholder="WhatsApp com DDD"
+              autoComplete="tel"
+              className={INPUT}
+              value={telefone}
+              onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
+            />
+            <Erro msg={signupState.fieldErrors?.telefone} />
+          </div>
+          <div>
+            <input
               name="password"
               type="password"
               placeholder="Senha (mín. 8 caracteres)"
@@ -126,6 +141,35 @@ function CardEntrar() {
               className={INPUT}
             />
             <Erro msg={signupState.fieldErrors?.password} />
+          </div>
+
+          {/* Para quem estamos vendendo. Muda a linguagem do painel e é a
+              pergunta que todo SaaS faz no cadastro — em uma linha, não num
+              questionário. */}
+          <div>
+            <p className="mb-1.5 text-[12.5px] font-semibold text-scv-muted">Você vai usar para</p>
+            <input type="hidden" name="perfilUso" value={perfilUso} />
+            <div className="flex gap-2">
+              {(
+                [
+                  ["proprio", "Minha própria festa"],
+                  ["profissional", "Festas de clientes"],
+                ] as const
+              ).map(([valor, rotulo]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setPerfilUso(valor)}
+                  className={`flex-1 rounded-[11px] border px-3 py-2.5 text-[12.5px] font-semibold transition ${
+                    perfilUso === valor
+                      ? "border-scv-violet bg-scv-lilac text-scv-violet"
+                      : "border-scv-line text-scv-muted hover:text-scv-ink"
+                  }`}
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
           </div>
           {signupState.error ? (
             <p role="alert" className="text-sm text-red-600">
