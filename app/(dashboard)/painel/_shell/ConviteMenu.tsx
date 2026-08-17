@@ -63,8 +63,10 @@ export function ConviteMenu({
 
   return (
     <div className="relative flex items-center gap-2.5">
+      {/* Editar = editor em 6 passos. "Gerenciar" (publicado) segue na visão
+          geral, que é o acesso a convidados/presentes/cofre. */}
       <Link
-        href={publicado ? `/painel/${fid}` : `/painel/${fid}/detalhes`}
+        href={publicado ? `/painel/${fid}` : `/painel/criar?id=${fid}`}
         className="cursor-pointer rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
       >
         {publicado ? "Gerenciar convite" : "Continuar edição"}

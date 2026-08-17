@@ -64,9 +64,11 @@ export default async function DashboardPage() {
   const primeiro = (prof?.name ?? "").split(" ")[0] || "você";
   const planoPago = (prof?.plan ?? "BASICO") !== "BASICO";
   const temConvite = !!evento;
-  // "Continuar edição" leva direto ao editor de conteúdo ("Editar o site"),
-  // não à tela de publicar/acompanhar (pedido do João).
-  const conviteHref = evento ? `/painel/${evento.id}/detalhes` : "/painel/criar";
+  // "Continuar edição" abre o editor em 6 passos — o mesmo de "Criar meu
+  // convite", agora carregando o convite existente. Antes caía nas telas
+  // avulsas (`/detalhes`), que são outro editor: continuar uma edição levava a
+  // uma tela diferente da que a criou (pedido do João).
+  const conviteHref = evento ? `/painel/criar?id=${evento.id}` : "/painel/criar";
 
   // Números reais do convite em destaque.
   let confirmadas = 0;

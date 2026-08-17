@@ -14,10 +14,10 @@
 // (IA de imagem/texto fica para a próxima fatia — a pedido do João.)
 //
 // Estado 100% local — a gravação no banco é a próxima fatia.
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
-import { publicarDocumentoConvite, salvarDocumentoConvite } from "./acoes";
+import { publicarDocumentoConvite, salvarDocumentoConvite, type SalvarDocumentoResult } from "./acoes";
 import { podeVitrine, type Plan } from "@/lib/plans";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
@@ -32,7 +32,13 @@ import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
-import { activeDraftPointerKey, localDraftKey } from "@/lib/event-editor/local-draft";
+import { activeDraftPointerKey, esquecerRascunhoLocal, localDraftKey } from "@/lib/event-editor/local-draft";
+import { eventPublicUrl } from "@/lib/tenant";
+
+// Domínio raiz dos sites de evento. Vem do ambiente como em todo o resto do
+// painel: escrito na mão, o editor mostrava um endereço que não existe (faltava
+// o `.br`) e ignorava o dev, mandando o link de produção em localhost.
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
@@ -501,7 +507,18 @@ export function CriarConvite({
   };
   // Persistencia: id do convite ja gravado (idempotente), link publico apos
   // publicar, erro da gravacao e estado "gravando".
-  const [eventId, setEventId] = useState<string | null>(initialEventId);
+  const [eventId, setEventIdState] = useState<string | null>(initialEventId);
+  // Espelho síncrono do id. O state do React só chega no próximo render, e dois
+  // saves podem partir no mesmo intervalo (o autosave por debounce e o clique em
+  // "Salvar rascunho"): lendo do state, o segundo ainda enxerga o id antigo e a
+  // recuperação roda duas vezes, criando DOIS convites. O ref fecha essa janela.
+  const eventIdRef = useRef<string | null>(initialEventId);
+  const setEventId = useCallback((id: string | null) => {
+    eventIdRef.current = id;
+    setEventIdState(id);
+  }, []);
+  // Fila de um só: o save em curso, para o próximo esperar em vez de correr junto.
+  const filaGravacao = useRef<Promise<SalvarDocumentoResult> | null>(null);
   const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
@@ -664,14 +681,53 @@ export function CriarConvite({
     });
   const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false, foco: focoDoPasso(n, s.acc) }));
 
-  const linkPublico = pubInfo?.url ?? `https://${S.slug}.seuconvite.orivya.com`;
-  const hostPublico = pubInfo?.host ?? `${S.slug}.seuconvite.orivya.com`;
+  const linkPublico = pubInfo?.url ?? eventPublicUrl(S.slug, ROOT_DOMAIN);
+  const hostPublico = pubInfo?.host ?? `${S.slug}.${ROOT_DOMAIN}`;
 
   const copyLink = () => {
     navigator.clipboard?.writeText(linkPublico).catch(() => {});
     setS((s) => ({ ...s, copied: true }));
     if (copyTimer.current) clearTimeout(copyTimer.current);
     copyTimer.current = setTimeout(() => setS((s) => ({ ...s, copied: false })), 1500);
+  };
+
+  // O `eventId` pode vir do ponteiro do localStorage, que NÃO é validado contra
+  // o servidor (ver o efeito de RESUME). Se o convite foi apagado, esse id está
+  // morto e o servidor responde `not_found` — e, sem tratar, o ponteiro morto
+  // sobrevive e TODO save seguinte falha igual, sem saída pelo produto. Aqui a
+  // primeira falha desse tipo joga o id fora e regrava como convite NOVO, para
+  // que o trabalho em tela nunca fique sem destino.
+  // Os saves são SERIALIZADOS numa fila de um só: se dois partem juntos, o
+  // segundo espera o primeiro e já enxerga o id (e a versão) que ele gravou —
+  // vira UPDATE, e não um segundo convite.
+  const salvarComRecuperacao = (documento: EventEditorDocument): Promise<SalvarDocumentoResult> => {
+    const anterior = filaGravacao.current;
+    const atual = (async () => {
+      if (anterior) await anterior.catch(() => {});
+      const r = await salvarDocumentoConvite({
+        id: eventIdRef.current ?? undefined,
+        expectedVersion: versionRef.current,
+        document: documento,
+      });
+      if (r.ok) {
+        setEventId(r.id);
+        versionRef.current = r.version;
+        return r;
+      }
+      const morto = eventIdRef.current;
+      if (r.kind !== "not_found" || !morto) return r;
+      esquecerRascunhoLocal(morto, storageScope);
+      setEventId(null);
+      versionRef.current = 0;
+      const novo = await salvarDocumentoConvite({ id: undefined, expectedVersion: 0, document: documento });
+      if (novo.ok) {
+        setEventId(novo.id);
+        versionRef.current = novo.version;
+      }
+      return novo;
+    })();
+    filaGravacao.current = atual;
+    return atual;
   };
 
   // Salva o documento canônico e, ao publicar, cria um snapshot imutável.
@@ -683,11 +739,7 @@ export function CriarConvite({
     }
     setErroPub(null);
     iniciarGravacao(async () => {
-      const saved = await salvarDocumentoConvite({
-        id: eventId ?? undefined,
-        expectedVersion: versionRef.current,
-        document: editor.document,
-      });
+      const saved = await salvarComRecuperacao(editor.document);
       if (!saved.ok) {
         setErroPub(saved.error);
         if (saved.kind === "conflict") setS((state) => ({ ...state, sv: "erro" }));
@@ -731,11 +783,7 @@ export function CriarConvite({
       let salvouOk = false;
       setS((s) => ({ ...s, sv: "salvando" }));
       try {
-        const r = await salvarDocumentoConvite({
-          id: eventId ?? undefined,
-          expectedVersion: versionRef.current,
-          document: editor.document,
-        });
+        const r = await salvarComRecuperacao(editor.document);
         if (r.ok) {
           salvouOk = true;
           setSalvarErro("");
@@ -826,7 +874,7 @@ export function CriarConvite({
       }
     } catch {}
     restauradoRef.current = true;
-  }, [initialDraftVersion, initialEventId, storageScope]);
+  }, [initialDraftVersion, initialEventId, setEventId, storageScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Guarda o rascunho no navegador a cada alteração (após restaurar; nunca o demo intocado).
@@ -1997,7 +2045,7 @@ export function CriarConvite({
                   <div className="mb-3.5 mt-1 text-[13px] text-[#6e6e76]">É o link que seus convidados vão receber.</div>
                   <div className="flex items-center overflow-hidden rounded-[11px] border bg-[#F4F4F6]" style={{ borderColor: S.showErr && !slugOk ? "#FF2D8D" : "#E4E4EA" }}>
                     <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
-                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.seuconvite.orivya.com</span>
+                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.{ROOT_DOMAIN}</span>
                   </div>
                   <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
                     <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
@@ -2040,7 +2088,7 @@ export function CriarConvite({
                 device={S.pvMode === "celular" ? "mobile" : "desktop"}
                 onDeviceChange={(device) => upd({ pvMode: device === "mobile" ? "celular" : "desktop" })}
               />
-              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia é o site de verdade · {S.slug}.seuconvite.orivya.com</div>
+              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia é o site de verdade · {hostPublico}</div>
             </div>
           </div>
         </div>
