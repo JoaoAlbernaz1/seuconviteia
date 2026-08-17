@@ -63,10 +63,13 @@ export function ConviteMenu({
 
   return (
     <div className="relative flex items-center gap-2.5">
-      {/* Editar = editor em 6 passos. "Gerenciar" (publicado) segue na visão
-          geral, que é o acesso a convidados/presentes/cofre. */}
+      {/* Publicado ou rascunho, o botão principal abre o MESMO lugar: o editor
+          em 6 passos. Antes, o convite publicado caía na visão geral
+          (`/painel/<id>`) — uma tela diferente da que criou o convite (pedido
+          do João). Convidados, Presentes e Recebimentos não dependem dela: têm
+          link próprio na barra lateral (`abasDoPainel`). */}
       <Link
-        href={publicado ? `/painel/${fid}` : `/painel/criar?id=${fid}`}
+        href={`/painel/criar?id=${fid}`}
         className="cursor-pointer rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
       >
         {publicado ? "Gerenciar convite" : "Continuar edição"}
