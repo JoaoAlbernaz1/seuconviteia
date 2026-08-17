@@ -26,6 +26,7 @@ import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
 import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
+import { ID_CONTRIBUICAO_LIVRE, presentesDoDocumento } from "@/lib/event-editor/render";
 import { protocoloDe, rootDomain } from "@/lib/tenant";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
@@ -447,21 +448,22 @@ async function sincronizarPresentesDoDocumento(eventId: string, document: EventE
   const contributions = await prisma.giftContribution.count({ where: { eventId } });
   const current = await prisma.giftItem.findMany({ where: { eventId }, select: { id: true } });
   const currentIds = new Set(current.map((gift) => gift.id));
-  const incomingIds = document.gifts.items.map((gift) => gift.id).filter(Boolean);
+  // A "contribuicao com valor livre" e um item de verdade da lista (id proprio
+  // por evento) — antes ela vivia so no editor e nunca chegava ao convidado.
+  const presentes = presentesDoDocumento(document, `${eventId}-${ID_CONTRIBUICAO_LIVRE}`);
+  const incomingIds = presentes.map((gift) => gift.id).filter(Boolean);
   const syncPlan = planGiftSync({ existingIds: [...currentIds], incomingIds, contributionCount: contributions });
   if (syncPlan.protectedByLedger) return;
 
-  for (const gift of document.gifts.items) {
-    const cents = brlParaCents(gift.value) ?? 0;
-    const pricingMode = gift.pricingMode === "COTAS" && gift.quotas && cents > 0 ? "COTAS" : cents > 0 ? "FIXO" : "LIVRE";
+  for (const gift of presentes) {
     const data = {
       title: gift.title,
       description: gift.description || null,
       imageUrl: gift.imageUrl || null,
-      priceCents: cents,
+      priceCents: gift.priceCents,
       mode: "PIX" as const,
-      pricingMode: pricingMode as "FIXO" | "COTAS" | "LIVRE",
-      quotaCount: pricingMode === "COTAS" ? gift.quotas ?? null : null,
+      pricingMode: gift.pricingMode as "FIXO" | "COTAS" | "LIVRE",
+      quotaCount: gift.quotaCount,
     };
     if (gift.id && currentIds.has(gift.id)) {
       await prisma.giftItem.update({ where: { id: gift.id }, data });
@@ -472,6 +474,22 @@ async function sincronizarPresentesDoDocumento(eventId: string, document: EventE
 
   const removed = syncPlan.removeIds;
   if (removed.length) await prisma.giftItem.deleteMany({ where: { eventId, id: { in: removed } } });
+}
+
+/**
+ * Album do convite: as fotos da galeria do documento viram linhas `Photo` (a
+ * ordem da UI e a ordem do site). O site publicado le do banco — sem esta
+ * sincronizacao a galeria ficava eternamente em "as fotos chegam em breve".
+ */
+async function sincronizarFotosDoDocumento(eventId: string, document: EventEditorDocument): Promise<void> {
+  const urls = document.gallery.imageUrls.map((url) => url.trim()).filter(Boolean);
+  const atuais = await prisma.photo.findMany({ where: { eventId }, orderBy: { order: "asc" }, select: { url: true, order: true } });
+  const igual = atuais.length === urls.length && atuais.every((foto, i) => foto.url === urls[i] && foto.order === i);
+  if (igual) return;
+  await prisma.photo.deleteMany({ where: { eventId } });
+  if (urls.length) {
+    await prisma.photo.createMany({ data: urls.map((url, order) => ({ eventId, url, order })) });
+  }
 }
 
 /**
@@ -524,6 +542,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
       },
     });
     await sincronizarPresentesDoDocumento(event.id, document);
+    await sincronizarFotosDoDocumento(event.id, document);
     const address = enderecoPublico(event.subdomain);
     return { ok: true, id: event.id, version: 1, savedAt: savedAt.toISOString(), ...address };
   }
@@ -556,6 +575,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     return { ok: false, kind: "conflict", currentVersion: current?.draftVersion ?? expectedVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
   }
   await sincronizarPresentesDoDocumento(id, document);
+  await sincronizarFotosDoDocumento(id, document);
   revalidatePath("/painel");
   const address = enderecoPublico(owned.subdomain);
   return { ok: true, id, version: expectedVersion + 1, savedAt: savedAt.toISOString(), ...address };

@@ -18,12 +18,12 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { publicarDocumentoConvite, salvarDocumentoConvite, type SalvarDocumentoResult } from "./acoes";
-import { podeVitrine, type Plan } from "@/lib/plans";
+import { planoPermite, podeVitrine, rotuloPlano, type Plan } from "@/lib/plans";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
 import { SeletorFontes } from "../_ui/SeletorFontes";
 import { enviarUpload } from "../_ui/Uploads";
-import { paletasSeletor, deriveTemaVars } from "@/lib/temas";
+import { paletasSeletor, deriveTemaVars, corDoConvite } from "@/lib/temas";
 import { fonteTemNegritoNoNome } from "@/lib/fontes";
 import { moverItem } from "@/lib/presentesOrdem";
 import { paginaDaPrevia } from "@/lib/previaPagina";
@@ -34,6 +34,8 @@ import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
 import { activeDraftPointerKey, esquecerRascunhoLocal, localDraftKey } from "@/lib/event-editor/local-draft";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
+import { EscolherModelo } from "./EscolherModelo";
+import { BotaoBloqueado, RecursoBloqueado } from "@/components/plano/RecursoBloqueado";
 
 // Domínio raiz dos sites de evento. Vem do ambiente como em todo o resto do
 // painel: escrito na mão, o editor mostrava um endereço que não existe (faltava
@@ -147,7 +149,15 @@ export function documentoDoEditor(S: State): EventEditorDocument {
       requestDietaryRestrictions: S.rsvpOpts[4],
       allowMessage: S.rsvpOpts[5],
       deadline: S.rsvpDataLimite,
-      buttonColor: /^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao) ? S.rsvpCorBotao : "#CE578B",
+      // "Usar a cor do convite" (S.theme === 0) tem que MUDAR a cor de verdade:
+      // antes o chip so marcava um flag e o botao ficava rosa fixo, mesmo com o
+      // convite noutra paleta (reclamacao do Joao, 17/08).
+      buttonColor:
+        S.theme === 0
+          ? corDoConvite(S.tema, S.corCustom)
+          : /^#[0-9a-fA-F]{6}$/.test(S.rsvpCorBotao)
+            ? S.rsvpCorBotao
+            : corDoConvite(S.tema, S.corCustom),
       confirmationMessage: S.rsvpMsgSim,
       declineMessage: S.rsvpMsgNao,
     },
@@ -176,6 +186,8 @@ export function documentoDoEditor(S: State): EventEditorDocument {
 
 const V = "#7C3AED";
 const MUT = "#6E6E76";
+/** Teto de fotos do álbum (o schema do documento aceita 40; 20 é o que a UI promete). */
+const MAX_FOTOS_GALERIA = 20;
 const STEP_NAMES = ["Capa", "Conteúdo", "Confirmação", "Presentes e Pix", "Galeria e recados", "Revisar e publicar"];
 const RSVP_LABELS = [
   "Permitir acompanhantes",
@@ -282,6 +294,12 @@ export function uiDoEstado(state: State): EditorUiState {
   };
 }
 
+/** A cor do botao de confirmar presenca e a do convite (ou uma escolhida a mao)? */
+export function corBotaoEhDoConvite(document: EventEditorDocument): boolean {
+  const doConvite = corDoConvite(document.appearance.theme, document.appearance.customColor);
+  return document.rsvp.buttonColor.toLowerCase() === doConvite.toLowerCase();
+}
+
 /** View de compatibilidade da UI monolítica. É derivada do documento; nunca é
  * armazenada como uma segunda cópia editável. */
 export function estadoDoDocumento(document: EventEditorDocument, ui: EditorUiState): State {
@@ -374,6 +392,44 @@ function Toggle({ on, onClick, size = "sm", label }: { on: boolean; onClick: () 
     <button type="button" role="switch" aria-label={label} aria-checked={on} onClick={onClick} style={{ width: w, height: h, background: on ? V : "#D5D5DC" }} className="relative shrink-0 cursor-pointer rounded-full transition-colors">
       <span style={{ top: 2.5, left, width: knob, height: knob }} className="absolute rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-all" />
     </button>
+  );
+}
+
+/**
+ * Miniatura do formato da lista de presentes (Painel x Vitrine). Não é a prévia
+ * — é o "desenho" do formato, para a escolha não ser às cegas: o Painel é um
+ * cartão único (foto + linhas) e a Vitrine é uma grade de cards com foto.
+ */
+function MiniModeloLista({ modelo }: { modelo: "painel" | "vitrine" }) {
+  const FOTO = "bg-[linear-gradient(140deg,#F7D8E4,#EFBACB)]";
+  return (
+    <div className="flex h-[74px] items-center justify-center border-b border-[#F0F0F3] bg-[#FBFAFC] p-2.5">
+      {modelo === "painel" ? (
+        <div className="flex h-full w-full max-w-[150px] overflow-hidden rounded-[7px] border border-[#ECECF0] bg-white">
+          <div className={`h-full w-[38%] ${FOTO}`} />
+          <div className="flex flex-1 flex-col justify-center gap-[5px] px-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="h-[3px] flex-1 rounded-full bg-[#E4E4EA]" />
+                <div className="h-[3px] w-3 rounded-full bg-[#CDBDF6]" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="grid h-full w-full max-w-[150px] grid-cols-3 gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex flex-col overflow-hidden rounded-[6px] border border-[#ECECF0] bg-white">
+              <div className={`h-[56%] w-full ${FOTO}`} />
+              <div className="flex flex-1 flex-col justify-center gap-[3px] px-1">
+                <div className="h-[3px] w-full rounded-full bg-[#E4E4EA]" />
+                <div className="h-[3px] w-2/3 rounded-full bg-[#CDBDF6]" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -493,10 +549,12 @@ export function CriarConvite({
   storageScope: string;
 }) {
   const router = useRouter();
-  const [editor, setEditor] = useState(() => ({
-    document: initialDocument ?? withFreshGiftIds(documentoDoEditor(INICIAL)),
-    ui: uiDoEstado(INICIAL),
-  }));
+  const [editor, setEditor] = useState(() => {
+    const document = initialDocument ?? withFreshGiftIds(documentoDoEditor(INICIAL));
+    // "Cor do botao": o chip certo ja vem marcado ao reabrir o convite. Sem isto,
+    // reabrir mostrava "usar a cor do convite" e apagava a cor escolhida a mao.
+    return { document, ui: { ...uiDoEstado(INICIAL), theme: corBotaoEhDoConvite(document) ? 0 : 1 } };
+  });
   const S = estadoDoDocumento(editor.document, editor.ui);
   const setS = (updater: State | ((current: State) => State)) => {
     setEditor((previous) => {
@@ -535,6 +593,16 @@ export function CriarConvite({
   const [monoErro, setMonoErro] = useState("");
   // Busca de prévia do link de loja (presente tipo LINK).
   const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
+  const [fotoGiftErro, setFotoGiftErro] = useState("");
+  const [galEnviando, setGalEnviando] = useState(false);
+  const [galErro, setGalErro] = useState("");
+  // Convite novo (sem id) abre na tela de modelo; reabrir um convite vai direto
+  // para o editor.
+  const [escolhendoModelo, setEscolhendoModelo] = useState(!initialEventId);
+  // Popup do limite de convites do plano (o save volta com kind "limit").
+  const [limitePlano, setLimitePlano] = useState(false);
+  /** Direito de trocar o crédito do rodapé pela marca própria (planos pagos). */
+  const podeMarcaPropria = planoPermite(plano, "whiteLabel");
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cepRequestRef = useRef<AbortController | null>(null);
   // AUTOSAVE (rascunho): refs pra salvar sem fechar sobre estado velho.
@@ -561,14 +629,17 @@ export function CriarConvite({
   // Foto do presente: upload manual -> imageUrl do card (vitrine) / miniatura (painel).
   async function subirFotoGift(i: number, file: File) {
     setSubindoFoto(i);
+    setFotoGiftErro("");
     try {
       const url = await enviarUpload(file);
       setS((s) => ({
         ...s,
         giftList: s.giftList.map((x, j) => (j === i ? { ...x, foto: url } : x)),
       }));
-    } catch {
-      /* ignora */
+    } catch (e) {
+      // Engolir o erro fazia a foto "não funcionar" sem dizer por quê — era só
+      // o arquivo grande demais ou num formato que não aceitamos.
+      setFotoGiftErro(e instanceof Error ? e.message : "Não consegui enviar a foto. Tente de novo.");
     } finally {
       setSubindoFoto(null);
     }
@@ -578,6 +649,26 @@ export function CriarConvite({
     const sec = alvo?.getAttribute("data-foco");
     if (sec) setFoco(sec);
   };
+
+  // Galeria: várias fotos de uma vez. Cada upload entra no fim do álbum e já
+  // aparece na prévia (a galeria e o carrossel do convite leem daqui).
+  async function subirFotosGaleria(files: File[]) {
+    if (!files.length) return;
+    setGalErro("");
+    setGalEnviando(true);
+    try {
+      for (const file of files.slice(0, MAX_FOTOS_GALERIA)) {
+        const url = await enviarUpload(file);
+        setS((s) =>
+          s.galFotos.length >= MAX_FOTOS_GALERIA ? s : { ...s, galFotos: [...s.galFotos, url], gal: true },
+        );
+      }
+    } catch (e) {
+      setGalErro(e instanceof Error ? e.message : "Não consegui enviar a foto. Tente de novo.");
+    } finally {
+      setGalEnviando(false);
+    }
+  }
 
   // Foto da capa → /api/upload (storage local em dev, Blob em prod) → grava a URL.
   const subirCapa = async (file: File | undefined) => {
@@ -793,6 +884,9 @@ export function CriarConvite({
           lastSavedRef.current = snapshot;
           setS((s) => ({ ...s, sv: "salvo" }));
         } else {
+          // Estourou o limite do plano: em vez de uma linha vermelha que a
+          // pessoa não entende, o popup explica o que libera (pedido do João).
+          if (r.kind === "limit") setLimitePlano(true);
           setSalvarErro(r.error || "Não consegui salvar agora.");
           setS((s) => ({ ...s, sv: "erro" }));
         }
@@ -928,7 +1022,6 @@ export function CriarConvite({
     { name: "Localização configurada", ok: req(S.local), note: "" },
     { name: "Confirmação configurada", ok: S.rsvp, note: S.rsvp ? "" : "desativada" },
     { name: "Presentes configurados", ok: S.gifts, note: S.gifts ? `${S.giftList.filter((g) => g.n.trim()).length} presentes` : "desativados" },
-    { name: "QR Code do Pix adicionado", ok: S.gifts, note: "opcional" },
     { name: "Galeria revisada", ok: S.gal, note: "opcional" },
     { name: "Recados configurados", ok: S.rec, note: "opcional" },
   ];
@@ -947,6 +1040,11 @@ export function CriarConvite({
         : "Salvando…";
   const svColor = S.sv === "salvo" ? "#34A177" : S.sv === "erro" ? "#E11D48" : V;
 
+  // Convite NOVO começa pela escolha do modelo — que hoje é um só, e a tela diz
+  // isso na cara em vez de fingir uma vitrine (pedido do João, 17/08).
+  if (escolhendoModelo) {
+    return <EscolherModelo nome={S.nome} onComecar={() => setEscolhendoModelo(false)} />;
+  }
 
   return (
     <div className="flex min-h-full flex-col">
@@ -1198,8 +1296,8 @@ export function CriarConvite({
                 )}
 
                 <div className="my-5 h-px bg-[#F0F0F3]" />
-                <div className="mb-1 text-[13.5px] font-bold">Tamanho dos textos da capa</div>
-                <div className="mb-3 text-[12px] text-[#6e6e76]">Deixa o nome e a idade maiores ou menores juntos — sempre ajustado no celular e no computador.</div>
+                <div className="mb-1 text-[13.5px] font-bold">Tamanho das letras</div>
+                <div className="mb-3 text-[12px] text-[#6e6e76]">Aumenta ou diminui o nome da capa e os títulos do convite inteiro — sempre ajustado no celular e no computador.</div>
                 <Seg value={S.szT} onChange={(i) => upd({ szT: i })} />
                 <div className="my-5 h-px bg-[#F0F0F3]" />
                 {/* data-foco="livre": ao trocar a cor NÃO destaca uma seção só — a
@@ -1673,13 +1771,18 @@ export function CriarConvite({
                                 type="button"
                                 disabled={m.trava}
                                 onClick={() => !m.trava && upd({ listaModelo: m.k })}
-                                className={`rounded-xl border p-3 text-left transition-colors ${ativo ? "border-[#7C3AED] bg-[#F6F3FE]" : "border-[#E4E4EA] bg-white hover:bg-[#FAFAFC]"} ${m.trava ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                                className={`overflow-hidden rounded-xl border text-left transition-colors ${ativo ? "border-[#7C3AED] bg-[#F6F3FE]" : "border-[#E4E4EA] bg-white hover:bg-[#FAFAFC]"} ${m.trava ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
                               >
-                                <div className="flex items-center gap-1.5 text-[13.5px] font-bold text-[#17171B]">
-                                  {m.nome}
-                                  {m.trava && <span className="text-[11px]">🔒</span>}
+                                {/* Miniatura do formato: dá pra ESCOLHER VENDO, sem
+                                    ter que adivinhar pelo nome. */}
+                                <MiniModeloLista modelo={m.k} />
+                                <div className="p-3">
+                                  <div className="flex items-center gap-1.5 text-[13.5px] font-bold text-[#17171B]">
+                                    {m.nome}
+                                    {m.trava && <span className="text-[11px]">🔒</span>}
+                                  </div>
+                                  <div className="mt-0.5 text-[11.5px] text-[#6e6e76]">{m.desc}</div>
                                 </div>
-                                <div className="mt-0.5 text-[11.5px] text-[#6e6e76]">{m.desc}</div>
                               </button>
                             );
                           })}
@@ -1854,6 +1957,10 @@ export function CriarConvite({
                               {g.foto && (
                                 <button type="button" onClick={() => setRow({ foto: "" })} className="text-[11.5px] text-[#A6A6AE] hover:text-[#E11D48]">Remover</button>
                               )}
+                              {fotoGiftErro && subindoFoto === null && (
+                                <span className="text-[11.5px] text-[#E11D48]">{fotoGiftErro}</span>
+                              )}
+                              <span className="text-[11px] text-[#A6A6AE]">JPG, PNG ou WebP · até 6 MB</span>
                             </div>
 
                             {/* Descrição do presente (opcional) — aparece abaixo do nome, na lista */}
@@ -1886,29 +1993,11 @@ export function CriarConvite({
                       <div className="text-[15.5px] font-bold">Dinheiro</div>
                       <div className="mb-4 mt-1 text-[13px] text-[#6e6e76]">Os presentes em dinheiro entram pela plataforma e ficam na sua carteira.</div>
                       <div className="mb-4 rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
-                        <div className="flex items-center justify-between">
+                        <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-[13.5px] font-bold">Mostrar Pix direto no convite</div>
-                            <div className="mt-0.5 text-[12px] text-[#6e6e76]">Permite que o convidado copie sua chave Pix.</div>
+                            <div className="text-[13.5px] font-bold">Contribuição com valor livre</div>
+                            <div className="mt-0.5 text-[12px] text-[#6e6e76]">Entra como um item no fim da lista: o convidado escolhe quanto dar.</div>
                           </div>
-                          <Toggle label="Mostrar Pix" on={S.pixOn} onClick={() => upd({ pixOn: !S.pixOn })} />
-                        </div>
-                        {S.pixOn && (
-                          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div>
-                              <Label>Nome do titular</Label>
-                              <input value={S.pixNome} onChange={inp("pixNome")} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
-                            </div>
-                            <div>
-                              <Label>Chave Pix</Label>
-                              <input value={S.pixChave} onChange={inp("pixChave")} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="mb-4 rounded-2xl border border-[#ECECF0] bg-[#F4F4F6] px-[18px] py-4">
-                        <div className="mb-2 flex items-center justify-between">
-                          <div className="text-[13.5px] font-bold">Contribuição com valor livre</div>
                           <Toggle on={S.free} onClick={() => upd({ free: !S.free })} />
                         </div>
                         {S.free && (
@@ -1944,9 +2033,31 @@ export function CriarConvite({
             {/* STEP 5 — Galeria e recados */}
             {S.step === 5 && (
               <>
-                <div>
-                  <div className="text-[18px] font-bold tracking-[-0.02em]">Galeria e recados</div>
-                  <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">As fotos da festa e os recados dos convidados.</div>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <div className="text-[18px] font-bold tracking-[-0.02em]">Galeria e recados</div>
+                    <div className="mt-1.5 text-[13.5px] text-[#6e6e76]">As fotos da festa e os recados dos convidados.</div>
+                  </div>
+                  {/* As duas páginas moram no mesmo passo: estes botões dizem QUAL
+                      delas a prévia mostra (antes só mudava ao clicar num campo,
+                      e o mural parecia não existir). */}
+                  <div className="flex gap-1.5">
+                    {([["galeria", "Ver: galeria"], ["recados", "Ver: recados"]] as const).map(([f, l]) => {
+                      const on = S.foco === f;
+                      return (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setFoco(f)}
+                          className={`cursor-pointer rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                            on ? "border-[#7C3AED] bg-[#F6F3FE] text-[#6D28D9]" : "border-[#E4E4EA] bg-white text-[#6e6e76] hover:bg-[#FAFAFC]"
+                          }`}
+                        >
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div data-foco="galeria" className={cardCls}>
                   <div className="mb-3.5 flex items-center justify-between">
@@ -1955,17 +2066,74 @@ export function CriarConvite({
                   </div>
                   {S.gal && (
                     <>
-                      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-6">
-                        <div className="relative aspect-square rounded-[10px] bg-[linear-gradient(150deg,#2b2440,#463366)]">
-                          <span className="absolute left-1.5 top-1.5 rounded-full bg-[#7C3AED] px-[7px] py-0.5 text-[9px] font-bold text-white">Destaque</span>
-                        </div>
-                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#3a2d55,#2b2440)]" />
-                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#241f38,#39304f)]" />
-                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#39304f,#241f38)]" />
-                        <div className="aspect-square rounded-[10px] bg-[linear-gradient(150deg,#463366,#2b2440)]" />
-                        <div className="flex aspect-square cursor-pointer items-center justify-center rounded-[10px] border-[1.5px] border-dashed border-[#D5D5DC] bg-[#FBFBFC] text-[22px] text-[#A6A6AE] hover:border-[#7C3AED] hover:text-[#7C3AED]">+</div>
+                      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
+                        {S.galFotos.map((url, i) => (
+                          <div key={`${url}-${i}`} className="group relative aspect-square overflow-hidden rounded-[10px] border border-[#ECECF0]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt={`Foto ${i + 1}`} className="size-full object-cover" />
+                            {i === 0 && (
+                              <span className="absolute left-1.5 top-1.5 rounded-full bg-[#7C3AED] px-[7px] py-0.5 text-[9px] font-bold text-white">Destaque</span>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/45 px-1.5 py-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="flex gap-0.5">
+                                <button
+                                  type="button"
+                                  aria-label="Mover para trás"
+                                  disabled={i === 0}
+                                  onClick={() => upd({ galFotos: moverItem(S.galFotos, i, i - 1) })}
+                                  className="cursor-pointer px-1 text-[11px] leading-none text-white disabled:opacity-30"
+                                >
+                                  ◀
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Mover para frente"
+                                  disabled={i === S.galFotos.length - 1}
+                                  onClick={() => upd({ galFotos: moverItem(S.galFotos, i, i + 1) })}
+                                  className="cursor-pointer px-1 text-[11px] leading-none text-white disabled:opacity-30"
+                                >
+                                  ▶
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                aria-label={`Remover foto ${i + 1}`}
+                                onClick={() => upd({ galFotos: S.galFotos.filter((_, j) => j !== i) })}
+                                className="cursor-pointer px-1 text-[12px] leading-none text-white hover:text-[#FF9BB8]"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {S.galFotos.length < MAX_FOTOS_GALERIA && (
+                          <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-[10px] border-[1.5px] border-dashed border-[#D5D5DC] bg-[#FBFBFC] text-[#A6A6AE] hover:border-[#7C3AED] hover:text-[#7C3AED]">
+                            <span className="text-[22px] leading-none">{galEnviando ? "…" : "+"}</span>
+                            <span className="px-1 text-center text-[10.5px] font-semibold">{galEnviando ? "Enviando" : "Adicionar"}</span>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              multiple
+                              disabled={galEnviando}
+                              className="hidden"
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files ?? []);
+                                e.target.value = "";
+                                void subirFotosGaleria(files);
+                              }}
+                            />
+                          </label>
+                        )}
                       </div>
-                      <div className="mt-2.5 text-[12px] text-[#A6A6AE]">5 de 20 fotos · arraste para reordenar · toque para legenda</div>
+                      <div className="mt-2.5 text-[12px] text-[#A6A6AE]">
+                        {S.galFotos.length} de {MAX_FOTOS_GALERIA} fotos · a primeira é o destaque · use ◀ ▶ para trocar a ordem
+                      </div>
+                      {galErro && <div className="mt-1.5 text-[12px] text-[#E11D48]">{galErro}</div>}
+                      {S.galFotos.length === 0 && (
+                        <div className="mt-2 rounded-xl border border-dashed border-[#E4E4EA] bg-[#FAFAFC] px-4 py-3 text-[12.5px] text-[#6e6e76]">
+                          Sem fotos, o convite mostra “As fotos chegam em breve.” na galeria.
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -2065,6 +2233,40 @@ export function CriarConvite({
                   ))}
                   <div className="mt-2.5 text-[12px] text-[#A6A6AE]">Itens opcionais não bloqueiam a publicação.</div>
                 </div>
+                {/* Rodapé do convite: quem assina publica com a PRÓPRIA marca;
+                    no grátis fica a nossa, e o cadeado explica o que muda. */}
+                <div className={cardCls}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[14.5px] font-bold">Marca no rodapé do convite</div>
+                      <div className="mt-1 text-[12.5px] leading-snug text-[#6e6e76]">
+                        {podeMarcaPropria
+                          ? "O convite sai com a sua marca — o crédito “Feito com seuconviteia” não aparece."
+                          : "Hoje o rodapé mostra “Feito com seuconviteia”. Nos planos pagos, ele mostra a sua marca."}
+                      </div>
+                    </div>
+                    {podeMarcaPropria ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(52,161,119,0.12)] px-3 py-1.5 text-[12px] font-semibold text-[#2E8A66]">
+                        <Ic d={IC.check} size={12} stroke="#2E8A66" width={2.6} /> Sua marca
+                      </span>
+                    ) : (
+                      <BotaoBloqueado
+                        label="Usar a minha marca"
+                        titulo="Sua marca no rodapé do convite"
+                        descricao="Tira o “Feito com seuconviteia” do rodapé e coloca o nome do seu estúdio no lugar. O convite fica com a cara do seu trabalho, não da plataforma."
+                        motivo="plano"
+                        planoNecessario="CLASSICO"
+                        planoAtual={plano}
+                        ganhos={[
+                          "Sua marca no rodapé de todos os convites",
+                          "Convites ilimitados na mesma conta",
+                          "Baixar a lista de convidados em planilha",
+                          "Taxa menor nos presentes",
+                        ]}
+                      />
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -2132,8 +2334,23 @@ export function CriarConvite({
           </div>
         </div>
       )}
+
+      {/* Limite de convites do plano — explica em vez de só recusar o save. */}
+      <RecursoBloqueado
+        aberto={limitePlano}
+        onFechar={() => setLimitePlano(false)}
+        titulo="Você já usou os convites do seu plano"
+        descricao={`O plano ${rotuloPlano(plano)} inclui 1 convite. Para tocar mais de uma festa ao mesmo tempo — ou fazer convite para clientes o ano inteiro — é preciso um plano com convites ilimitados.`}
+        motivo="plano"
+        planoNecessario="CLASSICO"
+        planoAtual={plano}
+        ganhos={[
+          "Convites ilimitados na mesma conta",
+          "Sua marca no lugar da nossa no rodapé",
+          "Baixar a lista de convidados em planilha",
+          "Taxa menor nos presentes",
+        ]}
+      />
     </div>
   );
 }
-
-// Mini QR decorativo (usado no passo "Presentes e Pix" do formulario).

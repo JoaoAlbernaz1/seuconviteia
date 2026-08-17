@@ -284,6 +284,19 @@ export function varsDoTema(tema?: string | null, corCustom?: string | null): Rec
   return { ...TEMAS[chave].vars, "--ev-block": bloco };
 }
 
+/**
+ * Hex do BOTAO do tema (`--ev-framboesa`) — a cor "do convite" quando o cliente
+ * escolhe "usar a cor do convite" (ex.: no botao da confirmacao de presenca).
+ * Sem isto, a tela de confirmar presenca ficava rosa mesmo com o convite azul.
+ */
+export function corDoConvite(tema?: string | null, corCustom?: string | null): string {
+  if (tema === TEMA_CUSTOM && corCustom && /^#[0-9a-fA-F]{6}$/.test(corCustom)) {
+    return deriveTemaVars(corCustom)["--ev-framboesa"];
+  }
+  const escolhido = (tema && TEMAS[tema]) || TEMAS[TEMA_PADRAO];
+  return escolhido.vars["--ev-framboesa"];
+}
+
 /** Hex do acento principal do tema (`--ev-rosa`) — usado p/ derivar particulas. */
 export function acentoDoTema(tema?: string | null, corCustom?: string | null): string {
   if (tema === TEMA_CUSTOM && corCustom) return deriveTemaVars(corCustom)["--ev-rosa"];

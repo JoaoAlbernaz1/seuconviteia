@@ -9,6 +9,8 @@ import { carregarEventoDono, hostDoEvento, urlDoEvento, voltarDe } from "../_car
 import { adicionarConvidado, removerConvidado } from "../../acoes";
 import { CopiarLink } from "../CopiarLink";
 import { BTN_VOLTAR, CARD, INPUT, SUB, TITULO } from "../../_ui/estilos";
+import { planoEfetivo } from "@/lib/plans";
+import { BaixarConvidados } from "./BaixarConvidados";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,13 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Aguardando", cls: "bg-scv-warn-bg text-scv-warn-ink" },
   DECLINED: { label: "Não vai", cls: "bg-scv-soft text-scv-faint" },
 };
+
+const formatadorDia = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** "dd/mm/aaaa" no fuso de Brasília (usado no arquivo da lista). */
+function formatarData(data: Date): string {
+  return formatadorDia.format(data);
+}
 
 /** Iniciais para o avatar (1ª + última palavra do nome). */
 function iniciais(nome: string): string {
@@ -45,6 +54,8 @@ export default async function ConvidadosPage({
     orderBy: { createdAt: "desc" },
   });
 
+  const plano = event.professional ? planoEfetivo(event.professional, new Date()) : "BASICO";
+
   const total = convidados.length;
   const confirmados = convidados.filter((g) => g.status === "CONFIRMED");
   const aguardando = convidados.filter((g) => g.status === "PENDING").length;
@@ -72,14 +83,30 @@ export default async function ConvidadosPage({
             Acompanhe quem confirmou — ou só compartilhe o link e deixe cada um confirmar sozinho.
           </p>
         </div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="hidden items-center gap-1.5 rounded-[11px] border border-scv-line bg-scv-card px-4 py-2.5 text-[13px] font-semibold text-scv-ink transition-colors hover:border-scv-dash hover:bg-scv-field sm:inline-flex"
-        >
-          Ver no site <i className="bi bi-box-arrow-up-right text-[12px]" aria-hidden />
-        </a>
+        <div className="hidden items-center gap-2 sm:flex">
+          {/* Extra de quem assina: a mesma tela, com a lista para levar embora.
+              No plano grátis o botão continua aqui, com cadeado e explicação. */}
+          <BaixarConvidados
+            plano={plano}
+            liberado={plano !== "BASICO"}
+            nomeEvento={event.title}
+            convidados={convidados.map((g) => ({
+              nome: g.name,
+              status: g.status,
+              acompanhantes: g.companions ?? 0,
+              recado: g.message,
+              quando: formatarData(g.createdAt),
+            }))}
+          />
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-[11px] border border-scv-line bg-scv-card px-4 py-2.5 text-[13px] font-semibold text-scv-ink transition-colors hover:border-scv-dash hover:bg-scv-field"
+          >
+            Ver no site <i className="bi bi-box-arrow-up-right text-[12px]" aria-hidden />
+          </a>
+        </div>
       </div>
 
       <div className="mt-7 grid items-start gap-6 lg:grid-cols-[358px_minmax(0,1fr)] lg:gap-7">

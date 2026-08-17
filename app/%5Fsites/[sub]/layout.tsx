@@ -11,7 +11,7 @@ import { carregarEventoFesta } from "@/lib/eventoFestaDb";
 import { comFotosDemo } from "@/lib/demoFotos";
 import { eventoPublico } from "@/lib/event";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO } from "@/lib/temas";
-import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
+import { lerFonteKey, lerFontesCustom, lerTamanhoTexto, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoDoSite, planoPermite } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
@@ -69,7 +69,7 @@ export default async function EventSiteLayout({
   return (
     <div
       className={`evt${fonteCaps}${negrito}${dados.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS}`}
-      style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom) }}
+      style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom, lerTamanhoTexto(event.customization)) }}
     >
       <SiteAtmosphere fotoUrl={dados.fotoUrl} particleColors={particleColors} />
       <SiteNav nome={dados.primeiroNome} logoUrl={dados.logoUrl} monograma={dados.monograma} recursos={recursos} />

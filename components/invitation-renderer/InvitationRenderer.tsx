@@ -12,9 +12,9 @@ import { SiteAtmosphere } from "@/components/evt/SiteAtmosphere";
 import { SiteFooter } from "@/components/evt/SiteFooter";
 import { SiteNav } from "@/components/evt/SiteNav";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
-import { documentToRenderModel } from "@/lib/event-editor/render";
+import { documentToRenderModel, presentearDePrevia } from "@/lib/event-editor/render";
 import { lerEventoFesta } from "@/lib/eventoFesta";
-import { fonteCapsCombinada, fonteTemNegritoNoNome, varsDaFonteCombinada } from "@/lib/fontes";
+import { fonteCapsCombinada, fonteTemNegritoNoNome, tamanhoDaChave, varsDaFonteCombinada } from "@/lib/fontes";
 import { varsDoTema } from "@/lib/temas";
 
 export type InvitationRendererPage = "inicio" | "evento" | "confirmar" | "presentes" | "galeria" | "recados" | "obrigada";
@@ -55,7 +55,20 @@ export function InvitationRenderer({
 
   let body: React.ReactNode;
   if (page === "evento") body = <PaginaEvento evento={evento} nicho={model.nicho} recursos={model.resources} />;
-  else if (page === "presentes") body = <PaginaPresentes evento={evento} nicho={model.nicho} recursos={model.resources} usarVitrine={document.gifts.listModel === "vitrine"} />;
+  else if (page === "presentes") {
+    // A prévia monta a lista interativa a partir do documento (nada foi pago
+    // ainda). É o que faz as FOTOS dos presentes e o modelo "Vitrine"
+    // aparecerem aqui — sem isto a prévia caía sempre no painel sem foto.
+    body = (
+      <PaginaPresentes
+        evento={evento}
+        nicho={model.nicho}
+        recursos={model.resources}
+        presentear={presentearDePrevia(document)}
+        usarVitrine={document.gifts.listModel === "vitrine"}
+      />
+    );
+  }
   else if (page === "galeria") body = <PaginaGaleria evento={evento} nicho={model.nicho} recursos={model.resources} />;
   else if (page === "recados") body = <PaginaRecados evento={evento} nicho={model.nicho} recursos={model.resources} eventId={eventId} preview={mode === "preview"} />;
   else if (page === "confirmar") {
@@ -67,7 +80,10 @@ export function InvitationRenderer({
     <div
       data-invitation-renderer={mode}
       className={`evt${fontCaps}${bold}${document.appearance.animations ? "" : " evt-sem-anim"}${inert} ${EVT_FONTS_CLASS} font-evt-body text-evt-ink flex min-h-full flex-col`}
-      style={{ ...varsDoTema(document.appearance.theme, document.appearance.customColor), ...varsDaFonteCombinada(document.appearance.font) }}
+      style={{
+        ...varsDoTema(document.appearance.theme, document.appearance.customColor),
+        ...varsDaFonteCombinada(document.appearance.font, null, tamanhoDaChave(document.appearance.titleSize)),
+      }}
     >
       <SiteAtmosphere fotoUrl={evento.fotoUrl} />
       {/* Na prévia a barra tem que ler a página MOSTRADA: o pathname aqui é o do

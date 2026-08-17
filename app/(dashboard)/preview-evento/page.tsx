@@ -16,7 +16,7 @@ import { lerEventoFesta } from "@/lib/eventoFesta";
 import { preencherFotosDemo } from "@/lib/demoFotos";
 import { ocasiaoDoNicho } from "@/lib/templates";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey, lerTemaCor } from "@/lib/temas";
-import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
+import { lerFonteKey, lerFontesCustom, lerTamanhoTexto, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
 import { planoEfetivo, planoPermite, podeVitrine, SELECT_ASSINATURA } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
@@ -190,7 +190,7 @@ export default async function PreviewEventoPage({
   return (
     <div
       className={`evt${fonteCaps}${negrito}${evento.animacoes ? "" : " evt-sem-anim"} font-evt-body text-evt-ink flex min-h-full flex-1 flex-col ${EVT_FONTS_CLASS} [&_a]:pointer-events-none [&_button]:pointer-events-none [&_header_a]:pointer-events-auto [&_header_button]:pointer-events-auto`}
-      style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom) }}
+      style={{ ...varsDoTema(tema, temaCor), ...varsDaFonteCombinada(fonteKey, fontesCustom, lerTamanhoTexto(sintetico.customization)) }}
     >
       <SiteAtmosphere fotoUrl={evento.fotoUrl} particleColors={particleColors} />
       <SiteNav

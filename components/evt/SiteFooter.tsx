@@ -34,30 +34,30 @@ export function SiteFooter({
   return (
     <footer data-sec="rodape" className="border-t border-[var(--line)] bg-evt-ivory text-evt-ink">
       <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-6 px-[clamp(1.25rem,5vw,2rem)] py-[clamp(4rem,9vw,5.5rem)] text-center">
-        <p className={`font-evt-script text-[calc(clamp(3rem,9vw,4.2rem)*var(--ev-fonte-fator,1))] leading-none ${nomeCor}`}>
+        <p className={`font-evt-script text-[calc(clamp(3.4rem,10vw,4.8rem)*var(--ev-fonte-fator,1))] leading-none ${nomeCor}`}>
           {nome}
         </p>
 
         <Flourish className="h-4 w-28 text-evt-rosa" />
 
         {linhaInfo && (
-          <p className={`font-evt-util text-[0.62rem] uppercase tracking-[0.3em] ${infoCor}`}>
+          <p className={`font-evt-util text-[0.78rem] uppercase tracking-[0.26em] ${infoCor}`}>
             {linhaInfo}
           </p>
         )}
 
-        <p data-live="rodape-msg" className={`font-evt-body text-base italic ${italicCor}`}>
+        <p data-live="rodape-msg" className={`font-evt-body text-[clamp(1.12rem,4vw,1.3rem)] italic ${italicCor}`}>
           {fecho}
         </p>
 
         {whiteLabel ? (
           brandName ? (
-            <p className={`font-evt-util text-[0.58rem] uppercase tracking-[0.3em] ${creditCor}`}>
+            <p className={`font-evt-util text-[0.7rem] uppercase tracking-[0.26em] ${creditCor}`}>
               por {brandName}
             </p>
           ) : null
         ) : (
-          <p className={`font-evt-util text-[0.58rem] uppercase tracking-[0.3em] ${creditCor}`}>
+          <p className={`font-evt-util text-[0.7rem] uppercase tracking-[0.26em] ${creditCor}`}>
             Feito com{" "}
             <a
               href="https://seuconviteia.com"

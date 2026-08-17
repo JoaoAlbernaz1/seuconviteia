@@ -380,14 +380,52 @@ function customValido(c: FontesCustom | undefined): c is FontesCustom {
   return !!c && !!FONTE_HEADS[c.head] && !!FONTE_CORPOS[c.corpo];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TAMANHO DOS TEXTOS — a opcao "Tamanho dos textos" do editor. Multiplica os
+// fatores calibrados por fonte (capa e demais textos). Sem isto o seletor nao
+// mudava nada no convite (reclamacao do Joao, 17/08).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TamanhoTexto = "pequeno" | "medio" | "grande";
+
+/** Multiplicadores por tamanho: capa (nome/idade) e demais textos do convite. */
+export const FATOR_TAMANHO: Record<TamanhoTexto, { capa: number; texto: number }> = {
+  pequeno: { capa: 0.82, texto: 0.9 },
+  medio: { capa: 1, texto: 1 },
+  grande: { capa: 1.22, texto: 1.12 },
+};
+
+/** Escala do lockup da capa (`capaEscala` do customization) para cada tamanho. */
+export const ESCALA_CAPA: Record<TamanhoTexto, number> = { pequeno: 0.85, medio: 1, grande: 1.18 };
+
+/** Chave do editor ("small"/"medium"/"large") -> tamanho interno. */
+export function tamanhoDaChave(chave?: string | null): TamanhoTexto {
+  if (chave === "small" || chave === "pequeno") return "pequeno";
+  if (chave === "large" || chave === "grande") return "grande";
+  return "medio";
+}
+
+/** Le o tamanho dos textos de um `customization` (JSON do evento). */
+export function lerTamanhoTexto(customization: unknown): TamanhoTexto {
+  if (customization && typeof customization === "object" && "tamanhoTexto" in customization) {
+    return tamanhoDaChave((customization as { tamanhoTexto?: unknown }).tamanhoTexto as string);
+  }
+  return "medio";
+}
+
 /**
  * Variaveis da dupla — se houver combinação custom válida (Premium), usa a
  * cabeça (script+display) + o corpo (body+util) escolhidos; senão, o preset.
+ *
+ * `tamanho` multiplica os fatores calibrados: e o que faz a opcao "Tamanho dos
+ * textos" mudar a letra de verdade, na previa e no site publicado.
  */
 export function varsDaFonteCombinada(
   key?: string | null,
   custom?: FontesCustom | null,
+  tamanho: TamanhoTexto = "medio",
 ): Record<string, string> {
+  const fator = FATOR_TAMANHO[tamanho] ?? FATOR_TAMANHO.medio;
   if (customValido(custom ?? undefined)) {
     const h = FONTE_HEADS[custom!.head];
     const c = FONTE_CORPOS[custom!.corpo];
@@ -397,15 +435,15 @@ export function varsDaFonteCombinada(
       "--ev-font-display": h.display,
       "--ev-font-body": c.body,
       "--ev-font-util": c.util,
-      "--ev-capa-fator": String(dh.capaFator ?? 1),
-      "--ev-fonte-fator": String(dh.fonteFator ?? dh.capaFator ?? 1),
+      "--ev-capa-fator": String((dh.capaFator ?? 1) * fator.capa),
+      "--ev-fonte-fator": String((dh.fonteFator ?? dh.capaFator ?? 1) * fator.texto),
     };
   }
   const d = fonteDupla(key);
   return {
     ...d.vars,
-    "--ev-capa-fator": String(d.capaFator ?? 1),
-    "--ev-fonte-fator": String(d.fonteFator ?? d.capaFator ?? 1),
+    "--ev-capa-fator": String((d.capaFator ?? 1) * fator.capa),
+    "--ev-fonte-fator": String((d.fonteFator ?? d.capaFator ?? 1) * fator.texto),
   };
 }
 

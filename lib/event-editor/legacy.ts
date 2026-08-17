@@ -1,4 +1,5 @@
 import { createDefaultEventDocument, type EventEditorDocument } from "./document";
+import { ESCALA_CAPA, tamanhoDaChave } from "../fontes";
 
 type LegacyGift = {
   id: string;
@@ -47,6 +48,12 @@ function dateParts(date: Date): { date: string; time: string } {
 
 function centsLabel(cents: number | null | undefined): string {
   return cents && cents > 0 ? (cents / 100).toFixed(2).replace(".", ",") : "";
+}
+
+/** `customization.tamanhoTexto` -> a chave que o documento usa. */
+function chaveDoTamanho(valor: unknown): EventEditorDocument["appearance"]["titleSize"] {
+  const t = tamanhoDaChave(typeof valor === "string" ? valor : undefined);
+  return t === "pequeno" ? "small" : t === "grande" ? "large" : "medium";
 }
 
 export function legacyEventToDocument(event: LegacyEditorEvent): EventEditorDocument {
@@ -141,7 +148,7 @@ export function legacyEventToDocument(event: LegacyEditorEvent): EventEditorDocu
       theme: string(customization.tema, "rose"),
       customColor: /^#[0-9a-fA-F]{6}$/.test(string(customization.temaCor)) ? string(customization.temaCor) : "#CE578B",
       font: string(customization.fontes, "classica"),
-      titleSize: "medium",
+      titleSize: chaveDoTamanho(customization.tamanhoTexto),
       bold: boolean(customization.negrito, false),
       overlay: boolean(customization.capaOverlay, false),
       animations: boolean(customization.animacoes, false),
@@ -163,6 +170,10 @@ export function documentToLegacyCustomization(document: EventEditorDocument): Re
     tema: document.appearance.theme,
     temaCor: document.appearance.customColor,
     fontes: document.appearance.font,
+    // Tamanho dos textos: `tamanhoTexto` multiplica os fatores da fonte no site
+    // inteiro e `capaEscala` escala o lockup da capa (nome + idade juntos).
+    tamanhoTexto: tamanhoDaChave(document.appearance.titleSize),
+    capaEscala: ESCALA_CAPA[tamanhoDaChave(document.appearance.titleSize)],
     negrito: document.appearance.bold,
     capaOverlay: document.appearance.overlay,
     animacoes: document.appearance.animations,

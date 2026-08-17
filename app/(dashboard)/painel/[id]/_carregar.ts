@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { rascunhoDoEvento } from "@/lib/previewEvento";
 import { protocoloDe, rootDomain } from "@/lib/tenant";
+import { SELECT_ASSINATURA } from "@/lib/plans";
 
 export const ROOT_DOMAIN = rootDomain();
 
@@ -30,7 +31,10 @@ export async function carregarEventoDono(id: string) {
     include: {
       gifts: { orderBy: { createdAt: "asc" } },
       photos: { orderBy: { order: "asc" } },
-      professional: { select: { plan: true, name: true, brandName: true } },
+      // `assinaturaStatus`/`assinaturaAte` vem junto porque o direito de verdade
+      // e o `planoEfetivo` — a coluna `plan` sozinha continua dizendo PREMIUM
+      // depois da assinatura vencer.
+      professional: { select: { ...SELECT_ASSINATURA, name: true, brandName: true } },
       _count: {
         select: {
           guests: { where: { status: "CONFIRMED" } },

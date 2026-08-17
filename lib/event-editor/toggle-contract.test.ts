@@ -66,15 +66,11 @@ describe("todo toggle muda o que a prévia mostra", () => {
   }
 
   /**
-   * LACUNA CONHECIDA, não fiação faltando: "Contribua com o valor que desejar"
-   * existe no EDITOR (liga/desliga + título + valores sugeridos) mas não existe
-   * como seção do convite — nenhum componente lê `gifts.freeContribution`.
-   * (O modo de preço "LIVRE" do PresentearModal é outra coisa: é por presente.)
-   * Ligar/desligar não tem o que mudar porque a seção nunca foi construída.
-   * Fica afirmado aqui para não se disfarçar de toggle consertado; no dia em
-   * que a seção existir, este teste falha e deve subir para o bloco de cima.
+   * Nao ha mais lacuna: desde 17/08 a "contribuicao com valor livre" entra na
+   * lista como um item de preco LIVRE (ver `presentesDoDocumento`), entao TODO
+   * toggle do registro muda o convite que o convidado veria.
    */
-  const SEM_SECAO_NO_SITE = new Set<string>(["gifts.freeContribution"]);
+  const SEM_SECAO_NO_SITE = new Set<string>();
 
   for (const toggle of TOGGLE_REGISTRY) {
     const esperado = SEM_SECAO_NO_SITE.has(toggle.id)
