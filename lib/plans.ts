@@ -252,8 +252,8 @@ export function planoEfetivo(conta: ContaAssinatura, agora: Date): Plan {
 /**
  * Plano que vale para o SITE PUBLICO daquele convite.
  *
- * O convite NUNCA sai do ar por causa de pagamento — ele vive ate `expiresAt`
- * (90 dias depois da festa). O que a assinatura controla e o que o convite TEM:
+ * O convite NUNCA sai do ar por causa de pagamento — ele vive ate `expiresAt`,
+ * que e logo depois da festa. O que a assinatura controla e o que ele TEM:
  * marca propria, dominio e a taxa menor. Quando a assinatura acaba, o convite
  * volta a ser o gratuito, e como o gratuito e completo o convidado nao perde
  * nada (RSVP, recados e album continuam) — volta a nossa marca no rodape.

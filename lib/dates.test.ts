@@ -1,13 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { calcularExpiracao, dataDeHojeSP, dividirDataHoraSP } from "./dates";
 
-const TRINTA_DIAS_MS = 30 * 24 * 60 * 60 * 1000;
 
 describe("calcularExpiracao", () => {
-  it("adiciona 30 dias a data do evento", () => {
+  it("o convite cai logo depois da festa, nao semanas depois", () => {
+    // 17/08/2026: eram 30 dias, e a sobra virava brecha — a pessoa editava o
+    // MESMO convite para a festa seguinte. Sao ~2 dias porque a festa varre a
+    // madrugada; derrubar no meio dela seria pior que a brecha.
     const eventDate = new Date("2026-01-01T12:00:00Z");
     const exp = calcularExpiracao(eventDate);
-    expect(exp.getTime() - eventDate.getTime()).toBe(TRINTA_DIAS_MS);
+    const dias = (exp.getTime() - eventDate.getTime()) / (24 * 60 * 60 * 1000);
+    expect(dias).toBeGreaterThanOrEqual(1);
+    expect(dias).toBeLessThanOrEqual(3);
   });
 
   it("nao muta o Date de entrada", () => {

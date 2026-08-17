@@ -1,10 +1,21 @@
 /** Utilitarios de data (puros e testaveis). */
 
-/** Quanto tempo o site de um evento fica no ar apos a data do evento. */
-const VALIDADE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+/**
+ * Quanto tempo o convite fica no ar DEPOIS da festa.
+ *
+ * Decisao do Joao em 17/08/2026: o convite cai quando a festa acaba. Antes eram
+ * 30 dias (a landing chegou a prometer 90), e a sobra virava brecha — a pessoa
+ * editava o MESMO convite para a festa seguinte e nunca mais pagava nem gerava
+ * presente novo.
+ *
+ * Nao e "na hora da festa": e o fim do DIA SEGUINTE. A festa comeca as 20h e
+ * varre a madrugada; derrubar o convite no meio dela seria pior do que a brecha.
+ * A lembranca nao some — recados e fotos continuam no painel do dono.
+ */
+const VALIDADE_MS = 2 * 24 * 60 * 60 * 1000; // ate o fim do dia seguinte
 
 /**
- * Calcula quando o site de um evento expira: `eventDate` + 30 dias.
+ * Quando o convite sai do ar: `eventDate` + ~2 dias.
  * Retorna um NOVO `Date` (nao muta a entrada).
  */
 export function calcularExpiracao(eventDate: Date): Date {

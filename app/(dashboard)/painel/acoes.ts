@@ -156,7 +156,7 @@ export async function criarRascunho(
   const plano = planoEfetivo(professional, new Date());
   const limite = limiteEventos(plano);
   if (limite !== null) {
-    const existentes = await prisma.event.count({ where: { professionalId } });
+    const existentes = await prisma.event.count({ where: { professionalId, expiresAt: { gt: new Date() } } });
     if (existentes >= limite) {
       return {
         error: `O plano ${rotuloPlano(plano)} inclui até ${limite} eventos. Exclua um site que não usa mais ou faça upgrade em Plano.`,

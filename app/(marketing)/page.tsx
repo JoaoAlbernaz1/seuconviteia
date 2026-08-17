@@ -37,7 +37,7 @@ const NAV_LINKS = [
 const HERO_CARDS = [
   { t: "No ar em minutos", d: "Preencha os dados e publique. Sem instalar nada." },
   { t: "Um link para todos", d: "Envie no WhatsApp e acompanhe as confirmações." },
-  { t: "Fica de lembrança", d: "Recados e fotos no ar por 90 dias após a festa." },
+  { t: "Fica de lembrança", d: "Depois da festa, os recados e as fotos ficam guardados no seu painel." },
 ] as const;
 
 const NICHOS = ["Debutantes", "Casamentos", "Aniversários", "Corporativo", "Cerimonialistas"] as const;

@@ -32,6 +32,7 @@ import type { EventEditorDocument } from "@/lib/event-editor/document";
 import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
 import { mergeCustomization } from "@/lib/customizationMerge";
 import { planGiftSync } from "@/lib/event-editor/gift-sync";
+import { conviteEncerrado } from "@/lib/event";
 
 export type CriarConviteResult =
   | { ok: true; id: string; subdomain: string; host: string; url: string }
@@ -350,7 +351,7 @@ export async function criarConvite(
     // ── Cria um convite novo ─────────────────────────────────────────────────
     const limite = limiteEventos(plano);
     if (limite !== null) {
-      const existentes = await prisma.event.count({ where: { professionalId } });
+      const existentes = await prisma.event.count({ where: { professionalId, expiresAt: { gt: new Date() } } });
       if (existentes >= limite) {
         return {
           ok: false,
@@ -499,7 +500,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     if (expectedVersion !== 0) return { ok: false, kind: "conflict", currentVersion: 0, error: "O rascunho mudou. Recarregue antes de salvar." };
     const limit = limiteEventos(planoDaConta);
     if (limit !== null) {
-      const count = await prisma.event.count({ where: { professionalId } });
+      const count = await prisma.event.count({ where: { professionalId, expiresAt: { gt: new Date() } } });
       if (count >= limit) return { ok: false, kind: "limit", error: `O plano ${rotuloPlano(planoDaConta)} inclui até ${limit} convite(s).` };
     }
     const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
@@ -527,8 +528,13 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     return { ok: true, id: event.id, version: 1, savedAt: savedAt.toISOString(), ...address };
   }
 
-  const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true } });
+  const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true, status: true, expiresAt: true } });
   if (!owned) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
+  // Convite ENCERRADO nao se edita: senao a mesma linha vira a festa do ano que
+  // vem, e nenhuma festa nova gera presente novo.
+  if (conviteEncerrado(owned, new Date())) {
+    return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
+  }
   if (owned.draftVersion !== expectedVersion) {
     return { ok: false, kind: "conflict", currentVersion: owned.draftVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
   }
@@ -565,9 +571,12 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const professionalId = session.user.id;
   const event = await prisma.event.findFirst({
     where: { id, professionalId },
-    select: { id: true, subdomain: true, draftData: true, draftVersion: true },
+    select: { id: true, subdomain: true, draftData: true, draftVersion: true, status: true, expiresAt: true },
   });
   if (!event) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
+  if (conviteEncerrado(event, new Date())) {
+    return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
+  }
   if (event.draftVersion !== expectedDraftVersion) {
     return { ok: false, kind: "conflict", currentVersion: event.draftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
   }

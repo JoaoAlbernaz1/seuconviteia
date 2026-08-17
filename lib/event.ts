@@ -32,6 +32,21 @@ type EventoVisivel = {
  *  - `expiresAt`   -> ja passou (`< agora`)       -> `expirado`
  *  - caso contrario (PUBLISHED e dentro do prazo) -> `ok: true`
  */
+/**
+ * Convite ENCERRADO: a festa passou e ele saiu do ar.
+ *
+ * Encerrado nao se edita. Sem isso, a mesma linha viraria a festa do ano que
+ * vem — o convite pago (ou o unico do plano gratuito) seria reaproveitado para
+ * sempre, e nenhuma festa nova geraria presente novo.
+ */
+export function conviteEncerrado(
+  ev: { status: string; expiresAt: Date } | null,
+  agora: Date,
+): boolean {
+  if (!ev) return false;
+  return ev.status === "EXPIRED" || ev.expiresAt.getTime() < agora.getTime();
+}
+
 export function eventoPublico(
   ev: EventoVisivel | null,
   agora: Date,
