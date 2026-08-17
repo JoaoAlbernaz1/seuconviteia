@@ -75,3 +75,38 @@ própria e auditoria, conforme o `editor-document-rollout.md`.
 2. **Deploy na Vercel bloqueado** por proteção de autor de commit e SSO (assunto do João).
 3. Reexecutar o `seed` de produção não é necessário — e não deve ser feito com os dados atuais
    sem decisão explícita.
+
+---
+
+# Aplicação da assinatura do SaaS em produção — 2026-08-17
+
+Migration **`20260817040000_assinatura_saas`** aplicada em `seuconviteia-prod`
+(`lhmezkzdaspwltgmlwyk`) e registrada em `_prisma_migrations` com o checksum real do arquivo
+(`52a84809…`, sha256 do `migration.sql`), para `prisma migrate status` continuar limpo.
+
+**Antes:** backup JSON de todas as tabelas fora do repo (contém hash de senha), em
+`scratchpad/backup-prod-2026-08-17-antes-assinatura.json`, com md5 de `customization` e
+`draftData` de cada evento — o SQL é aditivo e não toca neles, e o md5 prova isso depois.
+
+**O que entrou:** 3 colunas nulas em `Professional` (`mpPreapprovalId` único,
+`assinaturaStatus`, `assinaturaAte`) e a tabela `CobrancaAssinatura` (índice único em
+`providerId`, índice em `professionalId`, FK com cascade, **RLS ligada** como as demais).
+Zero `DROP`, zero alteração de coluna legada.
+
+| conferência | resultado |
+| --- | --- |
+| Impressão digital das colunas (md5, 113 col., fora `_prisma_migrations`) | `8dbe9935…` — **igual à do banco local** |
+| Contagens | Professional 2 · Event 3 · GiftItem 5 · Photo 1 · GiftContribution 1 — inalteradas |
+| `customization` / `draftData` de todos os eventos | md5 idêntico ao de antes |
+| RLS em `CobrancaAssinatura` | ligada |
+| Contas existentes | `assinaturaStatus`/`assinaturaAte`/`mpPreapprovalId` nulos |
+
+**Deploy:** branch `claude/editor-foundation` (commit `b3f0ce4`) pelo procedimento do diretório
+sem `.git`. Verificado no ar (via `seuconviteia.vercel.app`, porque a rede local **bloqueia**
+`orivya.com.br`): landing 200 com o CTA novo (`/cadastrar?plano=classico|premium`), `/painel`
+307, e `POST /api/webhooks/mercadopago` sem assinatura válida → **401** (o segredo do webhook
+está configurado; sem ele a rota devolveria 503).
+
+⚠️ **Efeito esperado:** as duas contas de produção ficaram **sem assinatura**, então quem tinha
+`plan = PREMIUM` na linha passa a valer como **Básico** no painel (`planoEfetivo`). Os sites
+publicados não mudam — eles leem `Event.plan`, gravado no evento.
