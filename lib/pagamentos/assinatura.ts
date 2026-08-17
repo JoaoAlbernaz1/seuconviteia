@@ -95,6 +95,25 @@ export async function consultarAssinaturaMp(
   return { preapprovalId: data.id != null ? String(data.id) : preapprovalId, status: data.status };
 }
 
+/**
+ * Cancela a assinatura no MP — o que de fato para de cobrar o cartao.
+ *
+ * Sem isto, "cancelar" no nosso painel so mudaria a nossa linha e o Mercado
+ * Pago continuaria cobrando todo mes: cobrar por algo que a pessoa cancelou.
+ *
+ * NAO mexe em `assinaturaAte`: o mes ja pago continua valendo (ver
+ * `planoEfetivo`). Devolve false se o MP recusou — quem chama decide o que
+ * fazer, mas nunca deve dizer que cancelou sem isto ter dado certo.
+ */
+export async function cancelarAssinaturaMp(preapprovalId: string): Promise<boolean> {
+  const res = await fetch(`${MP_API}/preapproval/${encodeURIComponent(preapprovalId)}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${tokenMp()}`, "content-type": "application/json" },
+    body: JSON.stringify({ status: "cancelled" }),
+  });
+  return res.ok;
+}
+
 export interface CobrancaAssinaturaMp {
   /** Assinatura dona da cobranca — e por ela que achamos a conta. */
   preapprovalId: string;

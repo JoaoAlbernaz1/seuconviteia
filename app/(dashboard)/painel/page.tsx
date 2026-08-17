@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl } from "@/lib/tenant";
 import { TIPO_LABEL } from "@/lib/painelUi";
+import { planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
 import { Ic, IC } from "./_shell/Ic";
 import { CopyLinkButton, ConviteMenu } from "./_shell/ConviteMenu";
 
@@ -53,7 +54,10 @@ export default async function DashboardPage() {
   const uid = session.user.id;
 
   const [prof, evento] = await Promise.all([
-    prisma.professional.findUnique({ where: { id: uid }, select: { name: true, plan: true } }),
+    prisma.professional.findUnique({
+      where: { id: uid },
+      select: { ...SELECT_ASSINATURA, name: true },
+    }),
     prisma.event.findFirst({
       where: { professionalId: uid },
       orderBy: { createdAt: "desc" },
@@ -62,7 +66,8 @@ export default async function DashboardPage() {
   ]);
 
   const primeiro = (prof?.name ?? "").split(" ")[0] || "você";
-  const planoPago = (prof?.plan ?? "BASICO") !== "BASICO";
+  // Plano EFETIVO: assinatura vencida volta a valer como Básico.
+  const planoPago = (prof ? planoEfetivo(prof, new Date()) : "BASICO") !== "BASICO";
   const temConvite = !!evento;
   // "Continuar edição" abre o editor em 6 passos — o mesmo de "Criar meu
   // convite", agora carregando o convite existente. Antes caía nas telas

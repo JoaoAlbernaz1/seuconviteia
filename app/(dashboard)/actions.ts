@@ -18,7 +18,8 @@ import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
 import { protocoloDe } from "@/lib/tenant";
-import { ehDowngrade } from "@/lib/plans";
+import { ehDowngrade, planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
+import { cancelarAssinaturaMp, criarAssinaturaMp } from "@/lib/pagamentos/assinatura";
 import { enviarEmail } from "@/lib/email";
 import { MARCA } from "@/lib/email/remetente";
 import { emailBoasVindas } from "@/lib/email/templates";
@@ -269,16 +270,20 @@ export async function atualizarPerfil(
 // ----------------------------------------------------------------------------
 
 /**
- * Troca o plano da conta — apenas para BAIXO.
+ * Descer de plano — na pratica, CANCELAR a assinatura.
  *
  * Ate 17/08/2026 esta action fazia um `update({ plan })` seco: qualquer conta
- * clicava em "Fazer upgrade" e virava PREMIUM (R$ 149/mes) de graca, e a tela
- * ainda dizia "Mercado Pago", dando a entender que havia cobranca. Quem concede
- * plano pago e o webhook do gateway, nunca um clique nosso.
+ * clicava em "Fazer upgrade" e virava PREMIUM (R$ 149/mes) de graca. Quem
+ * concede plano pago e o webhook do gateway, nunca um clique nosso — subir
+ * agora e com `assinarPlano`.
  *
- * Descer segue direto porque e cancelamento: ninguem precisa de autorizacao do
- * gateway para deixar de pagar. O direito ja comprado nao some junto — quem
- * decide isso e `planoEfetivo()`, pelo vencimento.
+ * Descer nao precisa de autorizacao de gateway, mas precisa AVISAR o gateway:
+ * sem o cancelamento no Mercado Pago, a pessoa cancela aqui e continua sendo
+ * cobrada todo mes la.
+ *
+ * O mes ja pago nao evapora: quando ha prazo corrente, `plan` fica como esta e
+ * quem tira o direito e `planoEfetivo()`, no vencimento. So quando nao ha nada
+ * pago e que a linha desce na hora.
  */
 export async function trocarPlano(formData: FormData) {
   const session = await auth();
@@ -291,15 +296,96 @@ export async function trocarPlano(formData: FormData) {
 
   const prof = await prisma.professional.findUnique({
     where: { id: session.user.id },
-    select: { plan: true },
+    select: { ...SELECT_ASSINATURA, mpPreapprovalId: true },
   });
   if (!prof) return;
-  if (!ehDowngrade(prof.plan, destino)) return;
+  // O que vale e o plano de HOJE (efetivo), o mesmo que a tela mostra.
+  const atual = planoEfetivo(prof, new Date());
+  if (!ehDowngrade(atual, destino)) return;
 
+  // Para de cobrar no MP. Se o gateway recusar, nao mexemos em nada: e melhor a
+  // pessoa tentar de novo do que a gente dizer "cancelado" e seguir cobrando.
+  if (prof.mpPreapprovalId && prof.assinaturaStatus !== "cancelled") {
+    const cancelou = await cancelarAssinaturaMp(prof.mpPreapprovalId).catch((err: unknown) => {
+      console.error("[trocarPlano] cancelamento no Mercado Pago falhou:", err);
+      return false;
+    });
+    if (!cancelou) redirect("/painel/plano?assinatura=erro-cancelar");
+  }
+
+  const temPrazoPago = !!prof.assinaturaAte && prof.assinaturaAte.getTime() > Date.now();
   await prisma.professional.update({
     where: { id: session.user.id },
-    data: { plan: destino },
+    data: {
+      assinaturaStatus: prof.mpPreapprovalId ? "cancelled" : prof.assinaturaStatus,
+      // Com mes pago em curso, o plano contratado segue ate vencer.
+      ...(temPrazoPago ? {} : { plan: destino }),
+    },
   });
   revalidatePath("/painel/plano");
   revalidatePath("/painel");
+}
+
+/**
+ * SUBIR de plano: cria a assinatura no Mercado Pago e manda a pessoa para o
+ * checkout DELES, onde o cartao e digitado.
+ *
+ * O plano NAO muda aqui. A linha so recebe o id da assinatura (`pending`); quem
+ * concede e o webhook, quando o MP confirmar o pagamento. Guardar o id ANTES do
+ * redirect e obrigatorio: e por ele que o webhook acha a conta — sem isso, uma
+ * assinatura autorizada chegaria sem dono.
+ */
+export async function assinarPlano(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) redirect("/entrar");
+  const planRaw = formData.get("plan");
+  if (typeof planRaw !== "string" || !PLAN_VALUES.includes(planRaw as (typeof PLAN_VALUES)[number])) {
+    return;
+  }
+  const destino = planRaw as (typeof PLAN_VALUES)[number];
+
+  const prof = await prisma.professional.findUnique({
+    where: { id: session.user.id },
+    select: { ...SELECT_ASSINATURA, email: true, mpPreapprovalId: true },
+  });
+  if (!prof) return;
+  // O Basico nao se assina — sair de um plano pago e cancelamento (`trocarPlano`).
+  if (destino === "BASICO") return;
+
+  // Trocando de assinatura: para a antiga antes de criar a nova, senao o MP
+  // cobraria as duas. O mes ja pago continua valendo (`assinaturaAte` intacto).
+  if (prof.mpPreapprovalId && prof.assinaturaStatus !== "cancelled") {
+    await cancelarAssinaturaMp(prof.mpPreapprovalId).catch((err: unknown) => {
+      console.error("[assinarPlano] nao consegui cancelar a assinatura anterior:", err);
+      return false;
+    });
+  }
+
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+  // Gateway fora do ar ou sem token configurado: a pessoa volta para a tela com
+  // um aviso, em vez de bater na tela de erro do Next.
+  const criada = await criarAssinaturaMp({
+    plano: destino,
+    email: prof.email,
+    professionalId: session.user.id,
+    backUrl: `${protocoloDe(root)}://${root}/painel/plano?assinatura=ok`,
+  }).catch((err: unknown) => {
+    console.error("[assinarPlano] Mercado Pago recusou:", err);
+    return null;
+  });
+  if (!criada) redirect("/painel/plano?assinatura=erro");
+
+  // `plan` = plano CONTRATADO, e o contrato e este agora. Gravar aqui nao
+  // libera nada: `planoEfetivo` so concede com `assinaturaAte` no futuro, e essa
+  // data quem escreve e o webhook, depois de o MP confirmar o pagamento.
+  await prisma.professional.update({
+    where: { id: session.user.id },
+    data: {
+      plan: destino,
+      mpPreapprovalId: criada.preapprovalId,
+      assinaturaStatus: "pending",
+    },
+  });
+
+  redirect(criada.initPoint);
 }

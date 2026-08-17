@@ -215,6 +215,19 @@ export type ContaAssinatura = {
 };
 
 /**
+ * Campos MINIMOS que um `select` do Prisma precisa trazer para o plano efetivo
+ * ser calculado: `select: { ...SELECT_ASSINATURA, name: true }`.
+ *
+ * Selecionar so `plan` e o erro classico — a linha continua dizendo PREMIUM
+ * depois de a assinatura vencer.
+ */
+export const SELECT_ASSINATURA = {
+  plan: true,
+  assinaturaStatus: true,
+  assinaturaAte: true,
+} as const;
+
+/**
  * Plano que a conta REALMENTE tem agora.
  *
  * A coluna `plan` sozinha mente: ela guarda o plano CONTRATADO, e o direito

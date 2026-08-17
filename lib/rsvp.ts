@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { eventoPublico } from "@/lib/event";
 import { enviarEmail } from "@/lib/email";
 import { montarRemetente } from "@/lib/email/remetente";
+import { planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
 import { emailNotificacaoRsvp } from "@/lib/email/templates";
 import { validateGuests, montarGuestRow, type GuestInput } from "@/lib/rsvpFesta";
 
@@ -22,7 +23,7 @@ async function notificarDonoRsvp(
   try {
     const dono = await prisma.professional.findUnique({
       where: { id: event.professionalId },
-      select: { email: true, name: true, plan: true },
+      select: { ...SELECT_ASSINATURA, email: true, name: true },
     });
     if (!dono?.email) return;
 
@@ -37,7 +38,9 @@ async function notificarDonoRsvp(
       to: dono.email,
       subject,
       html,
-      fromName: montarRemetente(dono.plan, dono.name),
+      // White-label do remetente é direito do plano EFETIVO: assinatura vencida
+      // volta a mandar como a marca da plataforma.
+      fromName: montarRemetente(planoEfetivo(dono, new Date()), dono.name),
     });
   } catch (err) {
     console.error("[rsvp] falha ao notificar o dono do evento:", err);

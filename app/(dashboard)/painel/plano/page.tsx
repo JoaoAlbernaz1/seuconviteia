@@ -1,25 +1,52 @@
 // Seu plano (mockup DARK): 3 cards — o atual em destaque teal, o popular em
-// violeta. Preços vêm de lib/plans (PLANOS_INFO.preco) e ficam em branco até o
-// dono definir (mostramos "Assinatura mensal"). Trocar plano segue o STUB
-// existente (sem cobrança real ainda — Mercado Pago depois).
+// violeta. Preços vêm de lib/plans (PLANOS_INFO.preco).
+//
+// SUBIR de plano abre o checkout do Mercado Pago (`assinarPlano`); DESCER é
+// cancelamento e segue direto (`trocarPlano`). O plano mostrado como "seu" é o
+// EFETIVO: vencida a assinatura, a conta aparece no Básico mesmo com PREMIUM
+// gravado na linha.
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { PLANOS_INFO, rotuloPlano, type Plan } from "@/lib/plans";
-import { trocarPlano } from "../../actions";
+import { planoEfetivo, PLANOS_INFO, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
+import { assinarPlano, trocarPlano } from "../../actions";
 import { BTN_PRIMARIO, COLUNA, SUB, TITULO } from "../_ui/estilos";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlanoPage() {
+export default async function PlanoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ assinatura?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
 
-  const prof = await prisma.professional.findUnique({
-    where: { id: session.user.id },
-    select: { plan: true },
-  });
-  const atual = (prof?.plan ?? "BASICO") as Plan;
+  const [prof, { assinatura }] = await Promise.all([
+    prisma.professional.findUnique({
+      where: { id: session.user.id },
+      select: SELECT_ASSINATURA,
+    }),
+    searchParams,
+  ]);
+  const agora = new Date();
+  const atual = prof ? planoEfetivo(prof, agora) : "BASICO";
+  // Estado da assinatura em uma linha — sem isso, quem cancela não vê nada
+  // mudar na tela (o plano continua até vencer, de propósito) e acha quebrado.
+  const venceEm =
+    prof?.assinaturaAte && prof.assinaturaAte > agora
+      ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" }).format(
+          prof.assinaturaAte,
+        )
+      : null;
+  const aviso =
+    prof?.assinaturaStatus === "cancelled" && venceEm
+      ? `Assinatura cancelada — você continua no ${rotuloPlano(atual)} até ${venceEm}.`
+      : prof?.assinaturaStatus === "pending" && !venceEm
+        ? "Assinatura criada. O plano libera assim que o Mercado Pago confirmar o pagamento."
+        : venceEm
+          ? `Assinatura ativa — próxima cobrança em ${venceEm}.`
+          : null;
 
   return (
     <div className={`${COLUNA} scv-fade py-11 pb-20`}>
@@ -28,6 +55,28 @@ export default async function PlanoPage() {
         Uma assinatura, eventos sem limite. Troque quando quiser — hoje você está
         no <strong className="font-semibold text-scv-ink">{rotuloPlano(atual)}</strong>.
       </p>
+
+      {aviso ? <p className={`mt-1.5 ${SUB}`}>{aviso}</p> : null}
+
+      {assinatura === "ok" ? (
+        <p className="mt-5 rounded-[12px] border border-teal/25 bg-teal/5 px-4 py-3 text-[13px] text-scv-text2">
+          <i className="bi bi-check-circle-fill mr-2 text-scv-teal" aria-hidden />
+          Recebemos sua assinatura. O plano libera assim que o Mercado Pago
+          confirmar o pagamento — pode levar alguns minutos.
+        </p>
+      ) : assinatura === "erro" ? (
+        <p className="mt-5 rounded-[12px] border border-scv-line bg-scv-card px-4 py-3 text-[13px] text-scv-text2">
+          <i className="bi bi-exclamation-circle mr-2 text-scv-violet" aria-hidden />
+          Não conseguimos abrir o checkout agora. Tente de novo em instantes — nada
+          foi cobrado.
+        </p>
+      ) : assinatura === "erro-cancelar" ? (
+        <p className="mt-5 rounded-[12px] border border-scv-line bg-scv-card px-4 py-3 text-[13px] text-scv-text2">
+          <i className="bi bi-exclamation-circle mr-2 text-scv-violet" aria-hidden />
+          Não conseguimos cancelar no Mercado Pago agora, então nada foi alterado
+          aqui — sua assinatura continua como estava. Tente de novo em instantes.
+        </p>
+      ) : null}
 
       <div className="mt-7 grid items-stretch gap-4 md:grid-cols-3">
         {PLANOS_INFO.map((p) => {
@@ -67,7 +116,7 @@ export default async function PlanoPage() {
                 </div>
               ) : (
                 <div className="mt-2 font-display text-[19px] font-semibold text-scv-muted">
-                  Assinatura mensal
+                  Grátis
                 </div>
               )}
 
@@ -86,7 +135,10 @@ export default async function PlanoPage() {
               </ul>
 
               {!ehAtual ? (
-                <form action={trocarPlano} className="mt-5">
+                // Ir para o Básico é CANCELAR a assinatura (para de cobrar no
+                // MP); qualquer plano pago é assinar — inclusive trocar de um
+                // pago para outro, que é uma assinatura nova no novo preço.
+                <form action={p.key === "BASICO" ? trocarPlano : assinarPlano} className="mt-5">
                   <input type="hidden" name="plan" value={p.key} />
                   <button
                     type="submit"
@@ -96,10 +148,7 @@ export default async function PlanoPage() {
                         : "w-full rounded-[11px] bg-scv-btn py-3 text-[13.5px] font-semibold text-scv-btn-ink transition hover:opacity-90"
                     }
                   >
-                    {PLANOS_INFO.findIndex((x) => x.key === p.key) >
-                    PLANOS_INFO.findIndex((x) => x.key === atual)
-                      ? "Fazer upgrade"
-                      : "Mudar para este"}
+                    {p.key === "BASICO" ? "Cancelar assinatura" : "Assinar"}
                   </button>
                 </form>
               ) : (
@@ -113,8 +162,9 @@ export default async function PlanoPage() {
       </div>
 
       <p className="mt-5 text-xs text-scv-faint">
-        A troca de plano ainda não cobra de verdade — a assinatura entra com o
-        Mercado Pago. O upgrade vale para todos os seus eventos.
+        Assinatura mensal no cartão, cobrada pelo Mercado Pago — o cartão é
+        digitado lá, nunca aqui. Você pode cancelar quando quiser e continua com
+        o plano até o fim do mês já pago. O plano vale para todos os seus eventos.
       </p>
     </div>
   );

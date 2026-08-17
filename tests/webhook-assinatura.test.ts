@@ -16,7 +16,7 @@ import { POST } from "@/app/api/webhooks/mercadopago/route";
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
 
-const MARCA = "webhook-assinatura-teste";
+const MARCA = "webhook-mp-teste";
 const SEGREDO = "segredo-do-webhook";
 const URL_WEBHOOK = "https://seuconvite.orivya.com.br/api/webhooks/mercadopago";
 

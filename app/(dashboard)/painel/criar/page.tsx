@@ -4,7 +4,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
-import type { Plan } from "@/lib/plans";
+import { planoEfetivo, SELECT_ASSINATURA, type Plan } from "@/lib/plans";
 import { legacyEventToDocument } from "@/lib/event-editor/legacy";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
@@ -22,9 +22,9 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
   if (session?.user?.id) {
     const prof = await prisma.professional.findUnique({
       where: { id: session.user.id },
-      select: { plan: true },
+      select: SELECT_ASSINATURA,
     });
-    if (prof) plano = prof.plan;
+    if (prof) plano = planoEfetivo(prof, new Date());
 
     if (id) {
       const event = await prisma.event.findFirst({

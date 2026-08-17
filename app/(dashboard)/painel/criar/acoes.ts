@@ -24,7 +24,7 @@ import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
-import { limiteEventos, podeVitrine, rotuloPlano } from "@/lib/plans";
+import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
 import { protocoloDe } from "@/lib/tenant";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
@@ -212,9 +212,12 @@ export async function criarConvite(
 
   const prof = await prisma.professional.findUnique({
     where: { id: professionalId },
-    select: { plan: true },
+    select: SELECT_ASSINATURA,
   });
   if (!prof) return { ok: false, error: "Conta nao encontrada." };
+  // Direito de hoje = plano contratado + vencimento. Quem parou de pagar cria
+  // convite como Basico.
+  const plano = planoEfetivo(prof, new Date());
 
   const parsed = payloadSchema.safeParse(input);
   if (!parsed.success) {
@@ -274,7 +277,7 @@ export async function criarConvite(
   // Combinação personalizada de fontes: SÓ no plano PREMIUM (o mais caro) e com
   // cabeça+corpo válidos; senão não grava (usa a dupla `fontes`).
   const fontesCustom =
-    prof.plan === "PREMIUM" &&
+    plano === "PREMIUM" &&
     d.fontesCustom &&
     d.fontesCustom.head in FONTE_HEADS &&
     d.fontesCustom.corpo in FONTE_CORPOS
@@ -312,7 +315,7 @@ export async function criarConvite(
     pixNome: txt(d.pixNome),
     pixChave: txt(d.pixChave),
     presentesTexto: txt(d.presentesTexto),
-    listaModelo: podeVitrine(prof.plan) ? d.listaModelo ?? "painel" : "painel",
+    listaModelo: podeVitrine(plano) ? d.listaModelo ?? "painel" : "painel",
     programacao: (() => {
       const p = (d.programacao ?? []).filter((x) => x.hora.trim() || x.titulo.trim());
       return p.length ? p : undefined;
@@ -345,13 +348,13 @@ export async function criarConvite(
     subdomain = ev.subdomain;
   } else {
     // ── Cria um convite novo ─────────────────────────────────────────────────
-    const limite = limiteEventos(prof.plan);
+    const limite = limiteEventos(plano);
     if (limite !== null) {
       const existentes = await prisma.event.count({ where: { professionalId } });
       if (existentes >= limite) {
         return {
           ok: false,
-          error: `O plano ${rotuloPlano(prof.plan)} inclui ate ${limite} convite(s). Exclua um que nao usa mais ou faca upgrade em Plano.`,
+          error: `O plano ${rotuloPlano(plano)} inclui ate ${limite} convite(s). Exclua um que nao usa mais ou faca upgrade em Plano.`,
         };
       }
     }
@@ -371,7 +374,7 @@ export async function criarConvite(
         eventDate,
         expiresAt,
         status: publicar ? "PUBLISHED" : "DRAFT",
-        plan: prof.plan,
+        plan: plano,
         customization: mesclar({}, patch),
       },
     });
@@ -483,8 +486,9 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
 
   const { id, expectedVersion, document } = parsed.data;
   const professionalId = session.user.id;
-  const professional = await prisma.professional.findUnique({ where: { id: professionalId }, select: { plan: true } });
+  const professional = await prisma.professional.findUnique({ where: { id: professionalId }, select: SELECT_ASSINATURA });
   if (!professional) return { ok: false, kind: "auth", error: "Conta não encontrada." };
+  const planoDaConta = planoEfetivo(professional, new Date());
 
   const eventDate = dataDoDocumento(document);
   const expiresAt = calcularExpiracao(eventDate);
@@ -493,10 +497,10 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
 
   if (!id) {
     if (expectedVersion !== 0) return { ok: false, kind: "conflict", currentVersion: 0, error: "O rascunho mudou. Recarregue antes de salvar." };
-    const limit = limiteEventos(professional.plan);
+    const limit = limiteEventos(planoDaConta);
     if (limit !== null) {
       const count = await prisma.event.count({ where: { professionalId } });
-      if (count >= limit) return { ok: false, kind: "limit", error: `O plano ${rotuloPlano(professional.plan)} inclui até ${limit} convite(s).` };
+      if (count >= limit) return { ok: false, kind: "limit", error: `O plano ${rotuloPlano(planoDaConta)} inclui até ${limit} convite(s).` };
     }
     const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
       Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
@@ -511,7 +515,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
         eventDate,
         expiresAt,
         status: "DRAFT",
-        plan: professional.plan,
+        plan: planoDaConta,
         customization,
         draftData: jsonDoDocumento(document),
         draftVersion: 1,

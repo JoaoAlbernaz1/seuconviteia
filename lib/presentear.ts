@@ -16,6 +16,7 @@ import { prisma } from "@/lib/db";
 import { eventoPublico } from "@/lib/event";
 import { getPaymentProvider } from "@/lib/pagamentos";
 import { calcularTaxaCents, calcularLiquidoCents } from "@/lib/pagamentos/taxa";
+import { planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
 import { valorDaContribuicao, type GiftPricing } from "@/lib/pagamentos/contribuicao";
 import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
 
@@ -63,9 +64,11 @@ export async function iniciarPresente(input: IniciarPresenteInput): Promise<Inic
 
   // Re-resolve o evento e valida visibilidade (não confia no cliente).
   // O plano da CONTA define a taxa (lib/pagamentos/taxa) — por isso o include.
+  // Vale o plano EFETIVO: a taxa menor e um direito da assinatura, e acaba com
+  // ela (ver planoEfetivo em lib/plans).
   const event = await prisma.event.findUnique({
     where: { id: dados.eventId },
-    include: { professional: { select: { plan: true } } },
+    include: { professional: { select: SELECT_ASSINATURA } },
   });
   const visivel = eventoPublico(event, new Date());
   if (!event || !visivel.ok) {
@@ -101,7 +104,7 @@ export async function iniciarPresente(input: IniciarPresenteInput): Promise<Inic
     }
   }
 
-  const plano = event.professional?.plan ?? null;
+  const plano = event.professional ? planoEfetivo(event.professional, new Date()) : null;
   const feeCents = calcularTaxaCents(valor.brutoCents, plano);
   const netCents = calcularLiquidoCents(valor.brutoCents, plano);
   const provider = getPaymentProvider();

@@ -153,6 +153,7 @@ const NUMEROS: { ate: number; sufixo: string; decimais?: number; t: string; s: s
 // taxa cheia; o Classico derruba a taxa em 2,5 pontos por R$ 59 (se paga com
 // pouco mais de uma festa); o Premium so compensa pra quem faz volume.
 const PLANOS = PLANOS_INFO.map((info) => ({
+  key: info.key,
   nome: info.label,
   para: info.paraQuem,
   preco: info.preco ?? "Grátis",
@@ -329,7 +330,13 @@ export default function MarketingHome() {
                   <div className="p-sob">Sob consulta</div>
                 )}
 
-                <a className={p.destaque ? "p-cta grad" : "p-cta"} href={p.destaque ? CADASTRO : ENTRAR}>
+                {/* Todo card leva ao CADASTRO carregando o plano escolhido — quem
+                    clicou em "Assinar" no Premium não pode cair numa tela de
+                    login sem memória do que escolheu. */}
+                <a
+                  className={p.destaque ? "p-cta grad" : "p-cta"}
+                  href={p.key === "BASICO" ? CADASTRO : `${CADASTRO}?plano=${p.key.toLowerCase()}`}
+                >
                   {p.cta}
                 </a>
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  cancelarAssinaturaMp,
   consultarAssinaturaMp,
   consultarCobrancaAssinaturaMp,
   criarAssinaturaMp,
@@ -114,6 +115,26 @@ describe("consultarAssinaturaMp", () => {
     process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
     fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
     await expect(consultarAssinaturaMp("pre-9")).rejects.toThrow(/500/);
+  });
+});
+
+describe("cancelarAssinaturaMp", () => {
+  it("manda o MP PARAR de cobrar — cancelar só na nossa linha seguiria cobrando", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+
+    expect(await cancelarAssinaturaMp("pre-9")).toBe(true);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.mercadopago.com/preapproval/pre-9");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ status: "cancelled" });
+  });
+
+  it("recusa do gateway devolve false — ninguém pode dizer que cancelou sem isso", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
+    expect(await cancelarAssinaturaMp("pre-9")).toBe(false);
   });
 });
 

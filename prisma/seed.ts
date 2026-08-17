@@ -54,11 +54,20 @@ function templateConfig(accent: string) {
 
 async function main() {
   // 1) Professional (tenant) — keyed por email unico.
+  // A assinatura da conta demo precisa estar EM DIA: desde que o direito passou
+  // a ser derivado (`planoEfetivo` = plano contratado + vencimento), PREMIUM sem
+  // `assinaturaAte` no futuro vale como Basico — e o dev abriria o painel sem
+  // RSVP, recados, galeria nem vitrine, sem entender por que.
+  const assinaturaDemo = {
+    assinaturaStatus: "authorized",
+    assinaturaAte: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+  };
   const professional = await prisma.professional.upsert({
     where: { email: "demo@seuconviteia.com" },
     update: {
       name: "Estudio Demo Eventos",
       plan: Plan.PREMIUM,
+      ...assinaturaDemo,
       passwordHash: DEMO_PASSWORD_HASH,
       // Sem marca de agência -> o convite-demo (premium) fica sem crédito no
       // rodapé, igual ao site real da festa.
@@ -67,6 +76,7 @@ async function main() {
     create: {
       name: "Estudio Demo Eventos",
       plan: Plan.PREMIUM,
+      ...assinaturaDemo,
       email: "demo@seuconviteia.com",
       passwordHash: DEMO_PASSWORD_HASH,
       brandName: null,

@@ -23,7 +23,7 @@ import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
 import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
 import { TEMPLATES, TEMPLATE_PADRAO } from "@/lib/templates";
-import { limiteEventos, podeVitrine, rotuloPlano } from "@/lib/plans";
+import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
 import {
   TEMA_KEYS,
   montarMapsUrls,
@@ -148,17 +148,18 @@ export async function criarRascunho(
 
   const professional = await prisma.professional.findUnique({
     where: { id: professionalId },
-    select: { plan: true },
+    select: SELECT_ASSINATURA,
   });
   if (!professional) redirect("/entrar");
 
-  // Limite de eventos do plano (Basico e limitado; Classico+ ilimitado).
-  const limite = limiteEventos(professional.plan);
+  // Limite de eventos do plano EFETIVO (assinatura vencida volta ao Basico).
+  const plano = planoEfetivo(professional, new Date());
+  const limite = limiteEventos(plano);
   if (limite !== null) {
     const existentes = await prisma.event.count({ where: { professionalId } });
     if (existentes >= limite) {
       return {
-        error: `O plano ${rotuloPlano(professional.plan)} inclui até ${limite} eventos. Exclua um site que não usa mais ou faça upgrade em Plano.`,
+        error: `O plano ${rotuloPlano(plano)} inclui até ${limite} eventos. Exclua um site que não usa mais ou faça upgrade em Plano.`,
       };
     }
   }
@@ -223,7 +224,7 @@ export async function criarRascunho(
       eventDate: dh.eventDate,
       expiresAt: dh.expiresAt,
       status: "DRAFT",
-      plan: professional.plan,
+      plan: plano,
       customization,
     },
   });
@@ -421,13 +422,14 @@ export async function salvarPresentes(
   }
   const { pixNome, pixChave, pixQrUrl, presentesTexto } = parsed.data;
 
-  // Modelo da lista (painel/vitrine). A vitrine é gateada pelo plano REAL do dono.
+  // Modelo da lista (painel/vitrine). A vitrine é gateada pelo plano EFETIVO do
+  // dono — quem parou de pagar volta ao modelo do Básico.
   const prof = await prisma.professional.findUnique({
     where: { id: event.professionalId },
-    select: { plan: true },
+    select: SELECT_ASSINATURA,
   });
   const listaModelo =
-    str(formData, "listaModelo") === "vitrine" && prof && podeVitrine(prof.plan)
+    str(formData, "listaModelo") === "vitrine" && prof && podeVitrine(planoEfetivo(prof, new Date()))
       ? "vitrine"
       : "painel";
 

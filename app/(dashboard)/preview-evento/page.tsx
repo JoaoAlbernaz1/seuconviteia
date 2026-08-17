@@ -18,7 +18,7 @@ import { ocasiaoDoNicho } from "@/lib/templates";
 import { acentoDoTema, varsDoTema, TEMA_PADRAO, lerTemaKey, lerTemaCor } from "@/lib/temas";
 import { lerFonteKey, lerFontesCustom, varsDaFonteCombinada, fonteCapsCombinada, fonteTemNegritoNoNome } from "@/lib/fontes";
 import { coresParticulas } from "@/lib/cor";
-import { planoPermite, podeVitrine } from "@/lib/plans";
+import { planoEfetivo, planoPermite, podeVitrine, SELECT_ASSINATURA } from "@/lib/plans";
 import { recursosDoSite } from "@/lib/recursos";
 
 import { SiteAtmosphere } from "@/components/evt/SiteAtmosphere";
@@ -45,12 +45,14 @@ export default async function PreviewEventoPage({
   const session = await auth();
   if (!session?.user) redirect("/entrar");
 
-  // O plano que gateia o preview e o REAL da conta (nunca vem do cliente).
+  // O plano que gateia o preview e o EFETIVO da conta (nunca vem do cliente):
+  // o que a pessoa ve aqui e o que o convidado veria hoje.
   const prof = await prisma.professional.findUnique({
     where: { id: session.user.id },
-    select: { plan: true, name: true, brandName: true },
+    select: { ...SELECT_ASSINATURA, name: true, brandName: true },
   });
   if (!prof) redirect("/entrar");
+  const planoDaConta = planoEfetivo(prof, new Date());
 
   const { s, p, f } = await searchParams;
   const SECOES_OK = [
@@ -81,8 +83,8 @@ export default async function PreviewEventoPage({
     ? ` evt-negrito${fonteTemNegritoNoNome(fonteKey, fontesCustom) ? " evt-negrito-nome" : ""}`
     : "";
 
-  const recursos = recursosDoSite(prof.plan, sintetico.customization);
-  const whiteLabel = planoPermite(prof.plan, "whiteLabel");
+  const recursos = recursosDoSite(planoDaConta, sintetico.customization);
+  const whiteLabel = planoPermite(planoDaConta, "whiteLabel");
 
   const pagina =
     p === "evento" || p === "presentes" || p === "galeria" || p === "confirmar" || p === "recados" || p === "obrigada"
@@ -91,7 +93,7 @@ export default async function PreviewEventoPage({
 
   // Presentear na PRÉVIA: reflete os modos (fixo/cotas/a partir de) do rascunho.
   // Nada arrecadado ainda (é preview) e os botões ficam inertes no preview.
-  const usarVitrinePreview = rascunho.listaModelo === "vitrine" && podeVitrine(prof.plan);
+  const usarVitrinePreview = rascunho.listaModelo === "vitrine" && podeVitrine(planoDaConta);
   const presentearPreview = {
     eventId: "preview",
     simulado: true,
