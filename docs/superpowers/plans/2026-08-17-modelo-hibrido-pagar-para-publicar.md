@@ -1,78 +1,67 @@
-# Modelo híbrido: grátis até publicar — plano de execução
+# Modelo de negócio: convite grátis, receita na taxa — plano e estado
 
-**Decisão do João (17/08/2026), depois de a assinatura mensal ficar pronta.**
+**Decisões do João em 17/08/2026**, depois de a assinatura mensal ficar pronta e de o
+mercado ser levantado. Este documento substitui a ideia inicial de "pagar R$ 129 para
+publicar", que a pesquisa derrubou.
 
-## Por que mudar
+## O mercado (levantado em 17/08/2026)
 
-Assinatura mensal serve para quem usa todo mês. A mãe da debutante não usa: monta o
-convite, a festa acontece, ela cancela. Cobrar mensalidade de uso pontual gera churn alto,
-arrependimento e chargeback — e **nenhum concorrente direto faz isso**: iCasei, Wedy e
-Casar.com vendem **por evento, pagamento único**, e ganham de verdade na taxa dos presentes.
+| Concorrente | Site do evento | Cobra o quê | Taxa | Saque |
+| --- | --- | --- | --- | --- |
+| FestaLab | **grátis**, com RSVP, recados, lista e mapa | R$ 14,90–19,90 só pela **arte** | **3,69%** | **30 dias** + R$ 3,67 por saque |
+| Wedy | **grátis** (Free) | plano Premium (valor não publicado) | 5,99% free · 4,95% premium | 1 dia útil |
+| iCasei | Basic grátis por 6 meses | Classic R$ 79,90/3 meses · Black R$ 149,90/3 meses | 3,69%–3,89% | — |
+| Conviter / Convitin | grátis | R$ 9,90 pela arte / plano único | — | — |
 
-O segundo erro era o cartão antes do produto. Wix, Canva e Webflow — que vendem "site
-pronto" — fazem o contrário: monta de graça, paga para **publicar**. O paywall depois do
-trabalho feito converte muito mais, e de quebra mata o vazamento do teste grátis (sem pagar,
-não publica).
+**Ninguém cobra pelo site.** Todos ganham na taxa dos presentes. Cobrar para publicar nos
+tirava do jogo; e a nossa taxa de entrada (5,90%) era a pior da tabela, empatada com o Wedy
+gratuito.
 
 ## O modelo
 
-Todo mundo monta o convite de graça, sem cartão, e vê a prévia completa. O paywall fica no
-botão **Publicar**, e o caminho se divide pelo que a pessoa já respondeu no cadastro
-(`perfilUso`):
-
-| Quem | Como paga | Preço | Taxa nos presentes |
+| | Preço | Taxa | Para quem |
 | --- | --- | --- | --- |
-| Faz a própria festa | **uma vez**, por convite | **R$ 129** | 5,9% |
-| idem, com marca própria e domínio | uma vez | **R$ 229** | 3,4% |
-| Cerimonialista / estúdio | assinatura mensal (ilimitada) | R$ 59 / R$ 149 | 3,4% / 2,6% |
+| **Grátis** | R$ 0 | **3,5%** | convite completo: RSVP, recados, álbum, presentes com Pix |
+| **Sem marca** | R$ 29 uma vez, por convite | 2,9% | quem quer o site sem a nossa assinatura |
+| **Profissional** | R$ 59/mês | 2,9% | cerimonialista: ilimitado + marca própria |
+| **Estúdio** | R$ 149/mês | 2,5% | domínio próprio do cliente, atendimento em 1 dia útil |
 
-A assinatura mensal (com 7 dias grátis e cartão) **já está pronta** e continua servindo o
-lado profissional. O que entra agora é a compra única.
+Regras que sustentam isso:
 
-## Regras (uma frase cada)
+1. **O gratuito é completo.** Tirar RSVP/recados/álbum dele perde na primeira comparação.
+2. **O que se vende é escala e marca**, não recurso.
+3. **A taxa é o único número que o cliente compara** — por isso 3,5% no gratuito, abaixo do
+   melhor plano dos concorrentes. Há teste que quebra se alguém subir disso.
+4. **Nada de plano concedido por clique**: quem concede é o webhook do gateway.
+5. **Preços em um arquivo só** (`lib/plans.ts` e `lib/pagamentos/taxa.ts`).
 
-1. **Publicar exige pagamento:** compra paga naquele convite **ou** assinatura ativa na conta.
-2. **O que o site mostra** = plano da COMPRA quando ela existe; senão, plano efetivo da conta.
-   Assim o convite comprado nunca degrada (mesmo sem assinatura), e o do assinante segue a
-   assinatura — que é o que fecha o vazamento.
-3. **A compra vale para aquele convite**, sem prazo próprio: o convite já sai do ar sozinho em
-   `expiresAt` (90 dias após a festa).
-4. **Nada de plano concedido por clique**: quem marca `pagoEm` é o webhook do gateway.
-5. **Preços moram em um arquivo só** (`lib/pacotes.ts` para compra única, `lib/plans.ts` para
-   assinatura). Nunca escritos em tela.
+## Estado
 
----
+### ✅ Feito e no ar (17/08)
 
-### Fatia 1 — a regra e o gate (sem gateway ainda)
+- Taxa 3,5% / 2,9% / 2,5% (`lib/pagamentos/taxa.ts`), com teste de posicionamento.
+- Gratuito com o convite completo (`recursosDoPlano`), vitrine de presentes liberada para
+  todos — cobrar pela lista bonita era cobrar para ganhar dinheiro.
+- Planos renomeados: **Grátis · Profissional · Estúdio**, com as listas falando de escala e
+  marca.
+- Landing reescrita: três cards, o gratuito levando ao cadastro e os pagos ao checkout com 7
+  dias grátis, e a comparação de taxa em número no rodapé da seção.
+- Assinatura mensal completa (checkout próprio, teste de 7 dias, webhook idempotente,
+  cancelamento que cancela no gateway) — serve o lado profissional.
 
-- `lib/pacotes.ts`: `PACOTES_CONVITE` (CONVITE R$ 129 → plano CLASSICO; CONVITE_MARCA R$ 229 →
-  PREMIUM), com teste de que o preço sai daqui.
-- `Event.pagoEm DateTime?` + tabela `CompraConvite` (`providerId` único, como o ledger de
-  presentes) + migration aditiva.
-- `lib/licenca.ts` PURO: `compraPaga(event)`, `planoDoSite(event, planoDaConta)`,
-  `podePublicar(event, conta, agora)`, `assinaturaAtiva(conta, agora)`.
-- Site público (`app/%5Fsites/[sub]/*`) passa a usar `planoDoSite` em vez de `event.plan` cru.
-- Publicar (painel e editor) passa a exigir `podePublicar`; sem isso, manda para o pagamento.
+### ⏳ Próxima fatia — o "Sem marca" de R$ 29
 
-### Fatia 2 — a compra no Mercado Pago
+- `lib/pacotes.ts`: `PACOTES_CONVITE` (SEM_MARCA R$ 29 → libera `whiteLabel` naquele convite).
+- `Event.pagoEm` + tabela `CompraConvite` (`providerId` único, como o ledger de presentes).
+- `criarCompraConviteMp`: `POST /checkout/preferences` (Checkout Pro — cartão, Pix e boleto na
+  mesma tela), `external_reference` = id do convite, `back_urls` **sem query** (o MP recusa).
+- Webhook `type=payment` passa a reconhecer a compra do convite além da contribuição de
+  presente, reconsultando no MP antes de gravar.
+- Tela de compra no nosso padrão de checkout (resumo do pedido + dados de cobrança).
 
-- `criarCompraConviteMp`: `POST /checkout/preferences` (Checkout Pro — cartão, Pix e boleto
-  na mesma tela hospedada), `external_reference` = id do convite, `back_urls` sem query.
-- Webhook `type=payment`: além da contribuição de presente, reconhece a compra do convite,
-  reconsulta no MP e grava `CompraConvite` + `Event.pagoEm`/`plan` de forma idempotente.
-- Tela `/publicar/<id>`: resumo do pedido no nosso padrão (o que inclui, preço, "vale até 90
-  dias depois da festa") e o botão que abre o Checkout Pro.
+### ⚠️ Dívida que a landing torna urgente
 
-### Fatia 3 — as telas
-
-- Landing: seção de preços com os dois públicos ("Vou fazer minha festa" × "Trabalho com
-  eventos"), pagamento único de um lado e assinatura do outro.
-- Painel: o botão Publicar leva ao pagamento quando não há direito; estado "convite pago"
-  visível no card do convite.
-- Cadastro já pergunta o perfil — passa a decidir o que a pessoa vê primeiro.
-
-## Depois do plano
-
-- A taxa sobre presentes segue por `Event.plan` (compra) ou pela conta (assinatura) — conferir
-  que `lib/presentear.ts` usa a mesma regra do site.
-- Contas antigas (`joaovictoralbernaz@gmail.com`) continuam com assinatura de cortesia.
+**O saque não existe** (`transferir()` em `lib/pagamentos/mercadopago.ts` lança erro). A
+promessa da landing foi escrita em cima do que é verdade hoje ("sem taxa de saque") e **não**
+em "dinheiro em 1 dia útil". Quando o payout for implementado, a frase pode crescer — e aí
+vira vantagem direta sobre a FestaLab, que segura 30 dias e cobra R$ 3,67 por saque.
