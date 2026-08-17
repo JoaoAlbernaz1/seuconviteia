@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "node:crypto";
-import { mapMpStatus, verificarAssinaturaMp, webhookDesprotegido } from "./mercadopago";
+import {
+  mapMpStatus,
+  tipoDeNotificacao,
+  verificarAssinaturaMp,
+  webhookDesprotegido,
+} from "./mercadopago";
 
 describe("mapMpStatus", () => {
   it("mapeia os status do Mercado Pago", () => {
@@ -74,5 +79,26 @@ describe("webhookDesprotegido — trava de producao", () => {
 
   it("nao atrapalha o provedor simulado (dev)", () => {
     expect(webhookDesprotegido("fake", undefined)).toBe(false);
+  });
+});
+
+describe("tipoDeNotificacao", () => {
+  it("separa pagamento avulso de assinatura", () => {
+    expect(tipoDeNotificacao({ type: "payment", data: { id: "1" } })).toBe("pagamento");
+    expect(tipoDeNotificacao({ type: "subscription_preapproval", data: { id: "pre-1" } })).toBe(
+      "assinatura",
+    );
+    expect(
+      tipoDeNotificacao({ type: "subscription_authorized_payment", data: { id: "pay-1" } }),
+    ).toBe("cobranca-assinatura");
+  });
+
+  it("aceita o campo `topic`, que o MP usa em algumas notificacoes", () => {
+    expect(tipoDeNotificacao({ topic: "payment", data: { id: "1" } })).toBe("pagamento");
+  });
+
+  it("o que nao conhecemos e ignorado explicitamente", () => {
+    expect(tipoDeNotificacao({ type: "plan", data: { id: "x" } })).toBe("desconhecido");
+    expect(tipoDeNotificacao(null)).toBe("desconhecido");
   });
 });

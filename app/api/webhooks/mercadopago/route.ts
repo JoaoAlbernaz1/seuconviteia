@@ -1,12 +1,23 @@
-// Webhook do Mercado Pago: recebe a notificação de pagamento, VALIDA a assinatura
-// e RE-CONSULTA o status real no MP (nunca confia só no payload) antes de confirmar
-// a contribuição. Idempotente. Sem auth de sessão — a segurança é a assinatura.
+// Webhook do Mercado Pago: recebe a notificação, VALIDA a assinatura e
+// RE-CONSULTA o estado real no MP (nunca confia só no payload) antes de conceder
+// qualquer coisa. Idempotente. Sem auth de sessão — a segurança é a assinatura.
 //
-// Configuração no painel do MP: URL = https://<seu-dominio>/api/webhooks/mercadopago
-// (evento "Pagamentos"). Segredo -> MERCADO_PAGO_WEBHOOK_SECRET.
+// Dois negócios chegam AQUI, no mesmo endpoint:
+//  - `payment` .................. Pix do convidado presenteando (contribuição);
+//  - `subscription_preapproval` . assinatura do SaaS que o profissional paga;
+//  - `subscription_authorized_payment` .. a cobrança mensal dessa assinatura.
+//
+// Configuração no painel do MP: URL = https://<seu-dominio>/api/webhooks/mercadopago,
+// eventos "Pagamentos" + "Assinaturas". Segredo -> MERCADO_PAGO_WEBHOOK_SECRET.
+import { aplicarStatusAssinatura, registrarCobrancaAssinatura } from "@/lib/assinaturaCore";
 import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
-import { verificarAssinaturaMp, webhookDesprotegido } from "@/lib/pagamentos/mercadopago";
+import { consultarAssinaturaMp, consultarCobrancaAssinaturaMp } from "@/lib/pagamentos/assinatura";
+import {
+  tipoDeNotificacao,
+  verificarAssinaturaMp,
+  webhookDesprotegido,
+} from "@/lib/pagamentos/mercadopago";
 import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
 
 export const dynamic = "force-dynamic";
@@ -56,25 +67,45 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("assinatura inválida", { status: 401 });
   }
 
-  // 2) Só notificações de pagamento importam.
-  if (type !== "payment" || !dataId) {
+  // 2) Que negócio é este? (`type` já traz `topic` e query string normalizados).
+  const tipo = tipoDeNotificacao({ type });
+  if (tipo === "desconhecido" || !dataId) {
     return new Response("ignorado", { status: 200 });
   }
 
-  // 3) Provider precisa estar ativo (token setado).
+  // 3) Provider precisa estar ativo (token setado) — sem token não há como
+  //    re-consultar, e conceder sem consultar é justamente o que não fazemos.
   const provider = getPaymentProvider();
   if (provider.nome !== "mercadopago") {
     return new Response("provider inativo", { status: 200 });
   }
 
   try {
-    // 4) Re-consulta o status REAL no MP (fonte da verdade).
-    const { status } = await provider.consultarCobranca(dataId);
-    if (status === "PAID") {
-      const contrib = await prisma.giftContribution.findFirst({
-        where: { providerChargeId: dataId },
-      });
-      if (contrib) await confirmarContribuicaoPaga(contrib.id);
+    // 4) Re-consulta o estado REAL no MP (fonte da verdade) e aplica.
+    if (tipo === "pagamento") {
+      const { status } = await provider.consultarCobranca(dataId);
+      if (status === "PAID") {
+        const contrib = await prisma.giftContribution.findFirst({
+          where: { providerChargeId: dataId },
+        });
+        if (contrib) await confirmarContribuicaoPaga(contrib.id);
+      }
+    } else if (tipo === "assinatura") {
+      // Mudou o estado da assinatura (autorizou, pausou, cancelou).
+      const assinatura = await consultarAssinaturaMp(dataId);
+      await aplicarStatusAssinatura(assinatura.preapprovalId, assinatura.status);
+    } else {
+      // Cobrança mensal. Só o pagamento aprovado empurra o vencimento; tentativa
+      // recusada não vira mês pago.
+      const cobranca = await consultarCobrancaAssinaturaMp(dataId);
+      if (cobranca.pago) {
+        await registrarCobrancaAssinatura({
+          preapprovalId: cobranca.preapprovalId,
+          providerId: cobranca.providerId,
+          amountCents: cobranca.amountCents,
+          pagoEm: cobranca.pagoEm,
+        });
+      }
     }
   } catch (err) {
     console.error("[webhook mercadopago] erro:", err);

@@ -7,8 +7,15 @@
 // servidor, o que nos mantem inteiramente fora do escopo PCI — a mesma
 // conclusao que matou a digitacao de cartao no projeto do eletroposto.
 import { PLANOS_INFO, type Plan } from "@/lib/plans";
+import { mapMpStatus } from "./mercadopago";
 
 const MP_API = "https://api.mercadopago.com";
+
+function tokenMp(): string {
+  const t = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+  if (!t) throw new Error("MERCADO_PAGO_ACCESS_TOKEN ausente.");
+  return t;
+}
 
 export interface AssinaturaCriada {
   /** Id do `preapproval` no MP — e por ele que o webhook acha o dono. */
@@ -29,8 +36,7 @@ export async function criarAssinaturaMp(input: {
   professionalId: string;
   backUrl: string;
 }): Promise<AssinaturaCriada> {
-  const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-  if (!token) throw new Error("MERCADO_PAGO_ACCESS_TOKEN ausente.");
+  const token = tokenMp();
 
   const info = PLANOS_INFO.find((p) => p.key === input.plano);
   if (!info || info.mensalidadeCents <= 0) {
@@ -66,4 +72,83 @@ export async function criarAssinaturaMp(input: {
     throw new Error("Resposta do Mercado Pago sem id/init_point.");
   }
   return { preapprovalId: data.id, initPoint: data.init_point };
+}
+
+/**
+ * Estado REAL da assinatura no MP.
+ *
+ * O webhook nunca confia no corpo que recebeu — ele diz apenas QUE algo mudou;
+ * quem diz O QUE mudou e esta consulta. Mesma regra do fluxo de presente.
+ */
+export async function consultarAssinaturaMp(
+  preapprovalId: string,
+): Promise<{ preapprovalId: string; status: string }> {
+  const res = await fetch(`${MP_API}/preapproval/${encodeURIComponent(preapprovalId)}`, {
+    headers: { Authorization: `Bearer ${tokenMp()}` },
+  });
+  if (!res.ok) throw new Error(`Mercado Pago: consulta da assinatura falhou (HTTP ${res.status}).`);
+
+  const data = (await res.json()) as { id?: unknown; status?: unknown };
+  if (typeof data.status !== "string") {
+    throw new Error("Resposta do Mercado Pago sem status da assinatura.");
+  }
+  return { preapprovalId: data.id != null ? String(data.id) : preapprovalId, status: data.status };
+}
+
+export interface CobrancaAssinaturaMp {
+  /** Assinatura dona da cobranca — e por ela que achamos a conta. */
+  preapprovalId: string;
+  /** Id da COBRANCA mensal no MP. Vira o `providerId` unico do ledger. */
+  providerId: string;
+  amountCents: number;
+  /** So `true` quando o pagamento foi mesmo aprovado. */
+  pago: boolean;
+  pagoEm: Date;
+}
+
+/**
+ * Cobranca mensal da assinatura (`authorized_payment`), consultada no MP.
+ *
+ * Guardamos o id da COBRANCA, nao o do pagamento: quando o cartao recusa, o MP
+ * tenta de novo (`recycling`) gerando um pagamento novo para a MESMA cobranca —
+ * e o mes tem de continuar sendo um so no nosso ledger.
+ */
+export async function consultarCobrancaAssinaturaMp(
+  authorizedPaymentId: string,
+): Promise<CobrancaAssinaturaMp> {
+  const res = await fetch(
+    `${MP_API}/authorized_payments/${encodeURIComponent(authorizedPaymentId)}`,
+    { headers: { Authorization: `Bearer ${tokenMp()}` } },
+  );
+  if (!res.ok) throw new Error(`Mercado Pago: consulta da cobranca falhou (HTTP ${res.status}).`);
+
+  const data = (await res.json()) as {
+    id?: unknown;
+    preapproval_id?: unknown;
+    transaction_amount?: unknown;
+    payment?: { status?: unknown; date_approved?: unknown } | null;
+    date_created?: unknown;
+  };
+
+  // Sem a assinatura dona nao ha a quem creditar o mes. Falha alto para o MP
+  // reenviar, em vez de descartar uma cobranca paga em silencio.
+  if (typeof data.preapproval_id !== "string" || !data.preapproval_id) {
+    throw new Error("Cobrança do Mercado Pago sem preapproval_id.");
+  }
+
+  const valor = typeof data.transaction_amount === "number" ? data.transaction_amount : 0;
+  const dataPagamento =
+    typeof data.payment?.date_approved === "string"
+      ? data.payment.date_approved
+      : typeof data.date_created === "string"
+        ? data.date_created
+        : null;
+
+  return {
+    preapprovalId: data.preapproval_id,
+    providerId: data.id != null ? String(data.id) : authorizedPaymentId,
+    amountCents: Math.round(valor * 100),
+    pago: mapMpStatus(typeof data.payment?.status === "string" ? data.payment.status : undefined) === "PAID",
+    pagoEm: dataPagamento ? new Date(dataPagamento) : new Date(),
+  };
 }

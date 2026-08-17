@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { criarAssinaturaMp } from "./assinatura";
+import {
+  consultarAssinaturaMp,
+  consultarCobrancaAssinaturaMp,
+  criarAssinaturaMp,
+} from "./assinatura";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
@@ -88,5 +92,79 @@ describe("criarAssinaturaMp", () => {
     await expect(
       criarAssinaturaMp({ plano: "CLASSICO", email: "a@b.com", professionalId: "p", backUrl: "https://x/y" }),
     ).rejects.toThrow(/init_point/);
+  });
+});
+
+describe("consultarAssinaturaMp", () => {
+  it("lê o status REAL no MP, não o que o webhook disse", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "pre-9", status: "authorized", external_reference: "prof-1" }),
+    });
+
+    const r = await consultarAssinaturaMp("pre-9");
+
+    expect(r).toEqual({ preapprovalId: "pre-9", status: "authorized" });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.mercadopago.com/preapproval/pre-9");
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer APP_USR-teste");
+  });
+
+  it("consulta que falha vira erro — o webhook precisa responder 5xx e ser reenviado", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    await expect(consultarAssinaturaMp("pre-9")).rejects.toThrow(/500/);
+  });
+});
+
+describe("consultarCobrancaAssinaturaMp", () => {
+  it("traz a assinatura dona, o valor em centavos e se foi mesmo paga", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 4477,
+        preapproval_id: "pre-9",
+        transaction_amount: 59,
+        status: "processed",
+        payment: { id: 99, status: "approved", date_approved: "2026-08-17T12:00:00.000-03:00" },
+      }),
+    });
+
+    const r = await consultarCobrancaAssinaturaMp("4477");
+
+    expect(r.preapprovalId).toBe("pre-9");
+    // O id da COBRANÇA mensal (não o do pagamento): é o que a notificação
+    // repete quando o MP entrega duas vezes, e é o que o índice único guarda.
+    expect(r.providerId).toBe("4477");
+    expect(r.amountCents).toBe(5900);
+    expect(r.pago).toBe(true);
+    expect(r.pagoEm.toISOString()).toBe("2026-08-17T15:00:00.000Z");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.mercadopago.com/authorized_payments/4477");
+  });
+
+  it("cobrança que o cartão recusou NÃO conta como paga", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 4478,
+        preapproval_id: "pre-9",
+        transaction_amount: 59,
+        status: "recycling",
+        payment: { id: 100, status: "rejected" },
+      }),
+    });
+
+    expect((await consultarCobrancaAssinaturaMp("4478")).pago).toBe(false);
+  });
+
+  it("cobrança sem assinatura dona não passa em silêncio", async () => {
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 1, transaction_amount: 59, payment: { status: "approved" } }),
+    });
+    await expect(consultarCobrancaAssinaturaMp("1")).rejects.toThrow(/preapproval/i);
   });
 });

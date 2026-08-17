@@ -155,3 +155,25 @@ export function verificarAssinaturaMp(params: {
 export function webhookDesprotegido(providerNome: string, secret: string | undefined): boolean {
   return providerNome === "mercadopago" && !secret?.trim();
 }
+
+/** O que o MP notificou. Ver `tipoDeNotificacao`. */
+export type TipoNotificacaoMp = "pagamento" | "assinatura" | "cobranca-assinatura" | "desconhecido";
+
+/**
+ * Que tipo de notificacao o Mercado Pago mandou.
+ *
+ * O MESMO endpoint recebe dois negocios diferentes: o Pix avulso do convidado
+ * presenteando (`payment`) e a assinatura do SaaS que o profissional paga
+ * (`subscription_*`). Separar isso numa funcao pura mantem o roteamento do
+ * webhook testavel sem gateway.
+ *
+ * Alguns eventos chegam em `topic` em vez de `type` (notificacao antiga do MP).
+ */
+export function tipoDeNotificacao(body: unknown): TipoNotificacaoMp {
+  const b = body as { type?: unknown; topic?: unknown } | null;
+  const tipo = typeof b?.type === "string" ? b.type : typeof b?.topic === "string" ? b.topic : null;
+  if (tipo === "payment") return "pagamento";
+  if (tipo === "subscription_preapproval") return "assinatura";
+  if (tipo === "subscription_authorized_payment") return "cobranca-assinatura";
+  return "desconhecido";
+}
