@@ -18,6 +18,7 @@ import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
 import { protocoloDe } from "@/lib/tenant";
+import { ehDowngrade } from "@/lib/plans";
 import { enviarEmail } from "@/lib/email";
 import { MARCA } from "@/lib/email/remetente";
 import { emailBoasVindas } from "@/lib/email/templates";
@@ -264,9 +265,21 @@ export async function atualizarPerfil(
 
 
 // ----------------------------------------------------------------------------
-// Plano (assinatura) — troca de plano. STUB: sem cobranca real ainda.
+// Plano (assinatura) — DESCER de plano. Subir passa pelo Mercado Pago.
 // ----------------------------------------------------------------------------
 
+/**
+ * Troca o plano da conta — apenas para BAIXO.
+ *
+ * Ate 17/08/2026 esta action fazia um `update({ plan })` seco: qualquer conta
+ * clicava em "Fazer upgrade" e virava PREMIUM (R$ 149/mes) de graca, e a tela
+ * ainda dizia "Mercado Pago", dando a entender que havia cobranca. Quem concede
+ * plano pago e o webhook do gateway, nunca um clique nosso.
+ *
+ * Descer segue direto porque e cancelamento: ninguem precisa de autorizacao do
+ * gateway para deixar de pagar. O direito ja comprado nao some junto — quem
+ * decide isso e `planoEfetivo()`, pelo vencimento.
+ */
 export async function trocarPlano(formData: FormData) {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
@@ -274,9 +287,18 @@ export async function trocarPlano(formData: FormData) {
   if (typeof planRaw !== "string" || !PLAN_VALUES.includes(planRaw as (typeof PLAN_VALUES)[number])) {
     return;
   }
+  const destino = planRaw as (typeof PLAN_VALUES)[number];
+
+  const prof = await prisma.professional.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true },
+  });
+  if (!prof) return;
+  if (!ehDowngrade(prof.plan, destino)) return;
+
   await prisma.professional.update({
     where: { id: session.user.id },
-    data: { plan: planRaw as (typeof PLAN_VALUES)[number] },
+    data: { plan: destino },
   });
   revalidatePath("/painel/plano");
   revalidatePath("/painel");

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recursosDoPlano, planoPermite, PLANOS_INFO, rotuloPlano, limiteEventos } from "./plans";
+import { recursosDoPlano, planoPermite, PLANOS_INFO, rotuloPlano, limiteEventos, planoEfetivo, ehDowngrade } from "./plans";
 
 describe("recursosDoPlano — gating por plano (assinatura)", () => {
   it("BASICO -> so a base (sem RSVP/recados/galeria/white-label/dominio)", () => {
@@ -86,5 +86,64 @@ describe("escada de planos — o desenho comercial (12/08/2026)", () => {
   it("preco sobe junto com o plano", () => {
     const cents = PLANOS_INFO.map((p) => p.mensalidadeCents);
     for (let i = 1; i < cents.length; i++) expect(cents[i]).toBeGreaterThan(cents[i - 1]);
+  });
+});
+
+/**
+ * O plano EFETIVO é derivado na leitura, e não rebaixado por cron: assim não
+ * existe janela em que a linha diz PREMIUM e o direito já venceu.
+ */
+describe("planoEfetivo — o plano vale enquanto estiver pago", () => {
+  const AGORA = new Date("2026-08-17T12:00:00Z");
+
+  it("autorizado e dentro do prazo mantém o plano pago", () => {
+    expect(
+      planoEfetivo(
+        { plan: "PREMIUM", assinaturaStatus: "authorized", assinaturaAte: new Date("2026-09-17T12:00:00Z") },
+        AGORA,
+      ),
+    ).toBe("PREMIUM");
+  });
+
+  it("cancelado, mas dentro do prazo já pago, MANTÉM o plano", () => {
+    // Quem cancelou já pagou o mês corrente — cortar na hora seria tomar o que
+    // a pessoa comprou.
+    expect(
+      planoEfetivo(
+        { plan: "PREMIUM", assinaturaStatus: "cancelled", assinaturaAte: new Date("2026-09-17T12:00:00Z") },
+        AGORA,
+      ),
+    ).toBe("PREMIUM");
+  });
+
+  it("prazo vencido cai para Básico, mesmo com PREMIUM gravado na linha", () => {
+    expect(
+      planoEfetivo(
+        { plan: "PREMIUM", assinaturaStatus: "authorized", assinaturaAte: new Date("2026-08-01T12:00:00Z") },
+        AGORA,
+      ),
+    ).toBe("BASICO");
+  });
+
+  it("sem assinatura nenhuma é Básico", () => {
+    expect(planoEfetivo({ plan: "PREMIUM", assinaturaStatus: null, assinaturaAte: null }, AGORA)).toBe("BASICO");
+  });
+
+  it("Básico nunca depende de assinatura", () => {
+    expect(planoEfetivo({ plan: "BASICO", assinaturaStatus: null, assinaturaAte: null }, AGORA)).toBe("BASICO");
+  });
+});
+
+describe("ehDowngrade", () => {
+  it("descer de plano é downgrade (inclui cancelar para o Básico)", () => {
+    expect(ehDowngrade("PREMIUM", "BASICO")).toBe(true);
+    expect(ehDowngrade("PREMIUM", "CLASSICO")).toBe(true);
+    expect(ehDowngrade("CLASSICO", "BASICO")).toBe(true);
+  });
+
+  it("subir e ficar no mesmo não são", () => {
+    expect(ehDowngrade("BASICO", "PREMIUM")).toBe(false);
+    expect(ehDowngrade("BASICO", "CLASSICO")).toBe(false);
+    expect(ehDowngrade("CLASSICO", "CLASSICO")).toBe(false);
   });
 });

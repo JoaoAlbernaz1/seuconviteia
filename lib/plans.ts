@@ -206,3 +206,33 @@ export const PLANOS_INFO: PlanoInfo[] = [
 export function rotuloPlano(plan: Plan): string {
   return PLANOS_INFO.find((p) => p.key === plan)?.label ?? plan;
 }
+
+/** O que a conta precisa expor para o plano efetivo ser calculado. */
+export type ContaAssinatura = {
+  plan: Plan;
+  assinaturaStatus: string | null;
+  assinaturaAte: Date | null;
+};
+
+/**
+ * Plano que a conta REALMENTE tem agora.
+ *
+ * A coluna `plan` sozinha mente: ela guarda o plano CONTRATADO, e o direito
+ * acaba quando o periodo pago vence. Derivar na leitura — em vez de rebaixar
+ * por cron — elimina a janela em que o banco diz PREMIUM e a pessoa ja nao
+ * paga. Toda decisao de direito (limite de eventos, vitrine, white-label)
+ * deve passar por aqui, nao por `prof.plan`.
+ *
+ * Cancelar NAO corta na hora: quem cancelou ja pagou o mes corrente e fica ate
+ * `assinaturaAte`. O que corta e o VENCIMENTO, nao o status.
+ */
+export function planoEfetivo(conta: ContaAssinatura, agora: Date): Plan {
+  if (conta.plan === "BASICO") return "BASICO";
+  if (!conta.assinaturaAte) return "BASICO";
+  return conta.assinaturaAte.getTime() > agora.getTime() ? conta.plan : "BASICO";
+}
+
+/** Descer de plano (inclui cancelar, que e descer para o Basico). */
+export function ehDowngrade(de: Plan, para: Plan): boolean {
+  return PLAN_ORDER.indexOf(para) < PLAN_ORDER.indexOf(de);
+}

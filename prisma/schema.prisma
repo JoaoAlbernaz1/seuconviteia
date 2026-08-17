@@ -77,7 +77,17 @@ model Professional {
   name         String
   email        String   @unique
   passwordHash String?
+  /// Plano CONTRATADO. Sozinho ele mente: quem diz o direito de hoje e
+  /// `planoEfetivo()` (contratado + vencimento). Ver lib/plans.ts.
   plan         Plan     @default(BASICO)
+  /// Assinatura no Mercado Pago (`preapproval`). UNICO: duas contas nao podem
+  /// apontar para a mesma assinatura — e por ele que o webhook acha o dono.
+  mpPreapprovalId  String?   @unique
+  /// Espelha o MP: `pending` | `authorized` | `paused` | `cancelled`.
+  assinaturaStatus String?
+  /// Ate quando o plano pago vale. E o que sustenta a carencia: cancelar nao
+  /// corta na hora, o vencimento e que corta.
+  assinaturaAte    DateTime?
   avatarUrl    String?
   brandName    String?
   brandLogoUrl String?
@@ -85,7 +95,27 @@ model Professional {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  events Event[]
+  events    Event[]
+  cobrancas CobrancaAssinatura[]
+}
+
+/// Cobranca mensal da ASSINATURA do SaaS (o profissional pagando a plataforma).
+///
+/// Nao reusa `Transaction`: aquela e amarrada a um `Event` por FK, e assinatura
+/// e da CONTA, nao do evento.
+model CobrancaAssinatura {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  amountCents    Int
+  status         String
+  /// Id do pagamento no MP. UNICO: o webhook pode entregar a mesma notificacao
+  /// duas vezes, e o banco tem de recusar a segunda.
+  providerId     String       @unique
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([professionalId])
 }
 
 /// Evento (site de convite) pertencente a um Professional.
