@@ -56,7 +56,10 @@ export async function iniciarAssinatura(plano: Plan): Promise<InicioAssinatura> 
     plano,
     email: prof.email,
     professionalId: session.user.id,
-    backUrl: `${protocoloDe(root)}://${root}/painel/plano?assinatura=ok`,
+    // SEM query string: o Mercado Pago recusa o `back_url` com `?` ("Invalid
+    // value for back_url"). A tela nao precisa da marca na URL — ela ja avisa
+    // "aguardando confirmacao" olhando o status `pending` da propria conta.
+    backUrl: `${protocoloDe(root)}://${root}/painel/plano`,
     comTesteGratis: !prof.mpPreapprovalId,
   }).catch((err: unknown) => {
     console.error("[assinatura] Mercado Pago recusou:", err);

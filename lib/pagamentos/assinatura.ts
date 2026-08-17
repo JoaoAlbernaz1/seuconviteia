@@ -96,7 +96,10 @@ export async function criarAssinaturaMp(input: {
       .filter(Boolean)
       .join(" · ");
     throw new Error(
-      `Mercado Pago recusou a assinatura (${res.status})${detalhe ? `: ${detalhe}` : ""}`,
+      `Mercado Pago recusou a assinatura (${res.status})${detalhe ? `: ${detalhe}` : ""}` +
+        // O que foi ENVIADO, para o log não obrigar a adivinhar de onde veio um
+        // campo inválido (o back_url é montado a partir de uma env var).
+        ` [back_url=${input.backUrl}]`,
     );
   }
 
