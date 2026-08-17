@@ -179,6 +179,19 @@ function CardEntrar() {
           <button type="submit" disabled={signupPending} className={`${BTN_PRIMARIO} mt-1 w-full`}>
             {signupPending ? "Criando…" : "Criar minha conta"}
           </button>
+          {/* LGPD: a conta passou a guardar telefone (e o checkout guarda
+              CPF/CNPJ). Consentimento tem de estar à vista de quem envia. */}
+          <p className="text-center text-[11.5px] leading-relaxed text-scv-faint">
+            Ao criar a conta você aceita os{" "}
+            <a href="/termos" className="underline hover:text-scv-ink">
+              Termos de uso
+            </a>{" "}
+            e a{" "}
+            <a href="/privacidade" className="underline hover:text-scv-ink">
+              Política de Privacidade
+            </a>
+            .
+          </p>
         </form>
       ) : (
         <form action={loginAction} className="flex flex-col gap-3 text-left">
