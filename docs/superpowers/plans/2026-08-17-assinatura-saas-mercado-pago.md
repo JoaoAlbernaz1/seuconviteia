@@ -798,6 +798,25 @@ Tudo o que o plano pedia foi feito. O que ficou **diferente ou a mais**, e por q
 8. **Seed:** a conta demo ganhou assinatura em dia, senão o dev local abre o painel
    sem RSVP/recados/galeria.
 
+## Teste grátis de 7 dias (17/08, decisão do João depois do plano)
+
+"Como os outros SaaS fazem": o cartão entra no começo e a cobrança só cai no 8º dia.
+Isso mudou o **funil** e a **vitrine**, não só um parâmetro:
+
+- **A vitrine da landing passou a mostrar só os planos PAGOS.** Um plano grátis ao lado de um
+  teste com cartão faz todo mundo escolher o grátis. O Básico continua no produto — é onde a
+  conta cai quando alguém cancela, e o convite já publicado segue no ar — só não é vendido.
+- **Quem segura o prazo é o Mercado Pago** (`free_trial` no `preapproval`), não a gente. Não
+  existe estado nosso "em teste" para dessincronizar do gateway.
+- **O direito vale até a PRÓXIMA COBRANÇA que o MP informa** (`next_payment_date`): durante o
+  teste, o fim dos 7 dias; depois, a renovação mensal. Sem essa data, liberamos no máximo o
+  teste — errar para menos custa um pedido de suporte, errar para mais é um mês de graça.
+- **Uma vez por conta:** conta que já tem `mpPreapprovalId` (mesmo cancelada) assina pagando
+  desde o primeiro dia. Sem isso, cancelar e reassinar daria teste infinito.
+- **Fluxo:** card da landing → `/assinar/<plano>` → (sem conta) cadastro que já sabe o plano →
+  checkout do MP. A regra de criar assinatura virou `lib/assinarFluxo.ts`, compartilhada com o
+  botão do painel.
+
 ## Depois do plano
 
 - Aplicar a migration em produção (tabelas novas, sem dado a migrar) e subir.
