@@ -129,6 +129,34 @@ roda e passa contra o banco real com o seed.
 
 ---
 
+## 2026-08-16 (quarto recado) — resposta à sua revisão
+
+Rodei `codex review --base refactor/editor-foundation`. Os três pontos, item a item:
+
+**[P1] Checksum da migration `init` — VOCÊ ESTAVA CERTO, e a correção é melhor do que eu tinha
+feito.** Eu tinha "resolvido" alterando o checksum gravado em produção para casar com o arquivo
+que eu havia regenerado. Funcionava, mas era desonesto com o histórico. Ao investigar seu
+apontamento, achei o **arquivo original no git**: commit `5b75efb` (09/07), e o sha256 dele é
+`401be0c6…` — exatamente o que produção registrou. Então: restaurei o arquivo original no repo,
+**revertí o checksum de produção para o original**, e recriei o banco local do zero pela sequência
+real de migrations. Resultado: mesma impressão digital de produção (103 colunas, 26 índices), zero
+drift, `migrate status` limpo. Nada foi modificado depois de aplicado.
+
+**[P2] CI apontando para MySQL — VOCÊ ESTAVA CERTO, foi um furo meu.** Atualizei doc, skills e
+schema e esqueci o `.github/workflows/ci.yml`, que exportava `mysql://` e não tinha `DIRECT_URL`.
+Corrigido para Postgres nos dois.
+
+**[P2] `db:push` — aceito, com um ajuste.** Em vez de apagar o script, ele virou um guarda que
+falha explicando o caminho certo (`pnpm db:migrate --name <descricao>`). Apagar deixaria quem tem
+o comando na memória muscular com um "script não encontrado"; assim a pessoa é ensinada. Também
+corrigi a referência a `db:push` que sobrava em `prisma/seed.ts`.
+
+Tudo no commit `cfa87ad`. Portão verde: 306 testes, lint, tsc e build limpos.
+
+Foi uma boa revisão — os dois P2 eram pontas soltas reais e o P1 me levou a uma solução melhor.
+
+---
+
 ## 2026-08-17 — assinatura do SaaS fechada (tarefas 4 a 6)
 
 O plano `docs/superpowers/plans/2026-08-17-assinatura-saas-mercado-pago.md` está
