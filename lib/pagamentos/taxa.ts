@@ -2,11 +2,16 @@
 // Modelo: o dono assume a taxa (liquido = bruto - taxa). Gancho futuro:
 // repassar ao convidado (bruto + taxa) fica na Fatia 4.
 //
-// A taxa CAI conforme o plano da conta — e o principal degrau da assinatura
-// (mesmo desenho da Wedy, que vai de 5,99% no gratuito para 4,95% no pago).
-// Decisao do Joao em 12/08/2026: taxas maiores que a proposta inicial, com a
-// queda concentrada do Basico para o Classico, pra que o plano do MEIO seja o
-// obviamente melhor negocio.
+// A taxa CAI conforme o plano da conta. Os numeros sao decisao do Joao em
+// 17/08/2026, depois de levantar o mercado — e a taxa e o UNICO numero que o
+// cliente compara de verdade, porque o site todo mundo da de graca:
+//
+//   FestaLab .. 3,69% + R$ 3,67 por saque, e o dinheiro so 30 dias depois
+//   iCasei .... 3,69% a 3,89% (regressiva)
+//   Wedy ...... 5,99% no gratuito, 4,95% no pago
+//
+// Por isso o GRATUITO daqui entra em 3,5%: abaixo do melhor plano deles. Antes
+// era 5,90%, o pior lugar da tabela — empatado com o Wedy gratuito.
 //
 // Custo do trilho: Pix do Mercado Pago ~0,99% (0,49% com volume). Por isso a
 // taxa nunca desce abaixo de ~1,5%: abaixo disso ela nao paga o proprio custo.
@@ -14,9 +19,9 @@ import type { Plan } from "../plans";
 
 /** Taxa por plano, em basis points (100 bps = 1%). */
 export const TAXA_BPS_POR_PLANO: Record<Plan, number> = {
-  BASICO: 590, // 5,90%
-  CLASSICO: 340, // 3,40%
-  PREMIUM: 260, // 2,60%
+  BASICO: 350, // 3,50% — o gratuito, ja menor que a taxa do melhor plano deles
+  CLASSICO: 290, // 2,90% — profissional
+  PREMIUM: 250, // 2,50% — estudio
 };
 
 /** Plano usado quando a conta ainda nao foi resolvida (o mais caro em taxa). */

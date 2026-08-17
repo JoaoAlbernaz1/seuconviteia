@@ -1,13 +1,18 @@
-// Planos da plataforma (ASSINATURA) + FEATURE GATING (fonte unica de verdade).
+// Planos da plataforma + FEATURE GATING (fonte unica de verdade).
 //
-// Modelo: o profissional ASSINA um plano; o evento HERDA o plano da conta. Os
-// recursos liberam por NIVEL do plano (nao sao compras avulsas). A base do
-// convite (capa, convite, evento, lista de presentes) e sempre visivel.
+// MODELO DE NEGOCIO (17/08/2026): o convite e GRATIS e completo, e a plataforma
+// ganha na taxa dos presentes. A assinatura existe para o PROFISSIONAL, que
+// precisa de escala (convites ilimitados) e da propria marca.
 //
-// Matriz (atualizada em 12/08/2026 — o RSVP saiu do Basico por decisao do dono):
-//   BASICO   -> base (convite, evento, contador, programacao, presentes + Pix).
-//   CLASSICO -> base + RSVP + recados + galeria (album).
-//   PREMIUM  -> tudo do CLASSICO + white-label + dominio proprio.
+// Matriz:
+//   BASICO   -> o GRATUITO: convite COMPLETO (RSVP, recados, album, presentes).
+//   CLASSICO -> profissional: o mesmo convite + convites ilimitados + marca propria.
+//   PREMIUM  -> estudio: tudo + dominio proprio do cliente.
+//
+// Decisao do Joao em 17/08/2026, depois do levantamento de mercado: FestaLab,
+// Wedy e Conviter entregam o site do evento INTEIRO de graca e ganham na taxa
+// dos presentes. Tirar RSVP ou album do gratuito nos tirava do jogo na primeira
+// comparacao. O que se vende agora e ESCALA (ilimitado) e MARCA, nao recurso.
 
 export type Plan = "BASICO" | "CLASSICO" | "PREMIUM";
 
@@ -65,11 +70,12 @@ export function recursosDoPlano(plan: Plan): RecursosPlano {
     case "BASICO":
     default:
       return {
-        // Confirmacao de presenca saiu do Basico (12/08/2026): e o recurso que
-        // o profissional mais pede, e vira o motivo forte pra subir pro Classico.
-        rsvp: false,
-        recados: false,
-        galeria: false,
+        // O convite gratuito e COMPLETO (17/08/2026). Antes RSVP/recados/album
+        // eram pagos, e isso perdia a comparacao com a FestaLab e a Wedy, que
+        // dao os tres de graca. Quem paga, paga por escala e marca.
+        rsvp: true,
+        recados: true,
+        galeria: true,
         whiteLabel: false,
         dominioProprio: false,
       };
@@ -86,9 +92,16 @@ export function planoPermite(plan: Plan, recurso: Recurso): boolean {
  * PLACEHOLDER de negocio (decisao do dono — ajustar aqui quando ele definir);
  * Classico/Premium sao ilimitados, como anunciado em PLANOS_INFO.
  */
-/** Modelo VITRINE (grade de cards) da lista de presentes: só nos planos pagos. */
-export function podeVitrine(plan: Plan): boolean {
-  return plan !== "BASICO";
+/**
+ * Modelo VITRINE (grade de cards com foto) da lista de presentes.
+ *
+ * Liberado para TODOS desde 17/08/2026: a lista bonita e o que faz o convidado
+ * presentear, e presente e a receita da plataforma — cobrar por ela era cobrar
+ * para ganhar dinheiro. A funcao fica como ponto de extensao caso um dia a
+ * vitrine volte a ser degrau de plano.
+ */
+export function podeVitrine(_plan: Plan): boolean {
+  return true;
 }
 
 export function limiteEventos(plan: Plan): number | null {
@@ -124,27 +137,18 @@ export interface PlanoInfo {
 /** Ordem de exibicao dos planos (do menor para o maior). */
 export const PLAN_ORDER: readonly Plan[] = ["BASICO", "CLASSICO", "PREMIUM"] as const;
 
-/** Metadados dos tres planos para o cadastro e o painel. */
 /**
- * Metadados dos tres planos.
+ * Metadados dos planos, para a landing e o painel.
  *
- * DESENHO DA ESCADA (decisao do Joao, 12/08/2026): o plano do MEIO tem que ser
- * o obviamente melhor negocio. Por isso a queda de taxa e assimetrica —
- * Basico -> Classico cai 2,5 pontos (a assinatura se paga com pouco mais de uma
- * festa), Classico -> Premium cai so 0,8 ponto (so compensa pra quem faz
- * volume). O Basico e gratis de proposito: enche a base e a plataforma ganha na
- * taxa desde o primeiro convite.
+ * DESENHO (decisao do Joao, 17/08/2026, com o mercado na mesa): o GRATUITO
+ * entrega o convite inteiro — e o que FestaLab, Wedy e Conviter fazem, e quem
+ * cobra pelo site perde na primeira comparacao. A receita vem da taxa (3,5%,
+ * abaixo dos 3,69% do melhor plano deles).
  *
- * Precos sao DECISAO DE NEGOCIO — mexer aqui muda a UI inteira e o calculo de
- * "se paga com". As taxas moram em `lib/pagamentos/taxa.ts`.
- */
-/**
- * Metadados dos tres planos.
- *
- * DESENHO DA ESCADA (decisao do Joao, 12/08/2026): o plano do MEIO tem que ser
- * o obviamente melhor negocio. A queda de taxa e assimetrica — Basico ->
- * Classico cai 2,5 pontos, Classico -> Premium cai so 0,8. Somado ao limite de
- * 1 convite no Basico, quem faz festa com frequencia sobe pro Classico.
+ * O que se vende: ESCALA e MARCA. O cerimonialista assina porque precisa de
+ * convites ilimitados e da marca dele no site do cliente — nao porque falta
+ * recurso no gratuito. Por isso as listas dos pagos falam de ilimitado, marca e
+ * dominio, e nao de RSVP ou album.
  *
  * As listas tem o MESMO numero de itens de proposito: cards do mesmo tamanho
  * comparam melhor. A taxa sai da lista e vira `taxaLinha`, no rodape do card.
@@ -154,50 +158,50 @@ export const PLAN_ORDER: readonly Plan[] = ["BASICO", "CLASSICO", "PREMIUM"] as 
 export const PLANOS_INFO: PlanoInfo[] = [
   {
     key: "BASICO",
-    label: "Básico",
-    descricaoCurta: "Comece de graça. Você só paga quando recebe presente.",
-    paraQuem: "Para quem está fazendo o primeiro convite.",
+    label: "Grátis",
+    descricaoCurta: "Seu convite completo, de graça. Você só paga quando recebe presente.",
+    paraQuem: "Para quem está fazendo a própria festa.",
     mensalidadeCents: 0,
-    taxaLinha: "Taxa de 5,9% sobre os presentes",
+    taxaLinha: "Taxa de 3,5% sobre os presentes",
     inclui: [
-      "1 convite",
-      "Convite digital completo",
-      "Contagem regressiva e programação",
-      "Lista de presentes e recebimento por Pix",
-      "Endereço próprio (subdomínio)",
+      "1 convite completo",
+      "Confirmação de presença",
+      "Mural de recados e álbum de fotos",
+      "Lista de presentes com Pix",
+      "Recebimento por Pix, sem taxa de saque",
     ],
   },
   {
     key: "CLASSICO",
-    label: "Clássico",
-    descricaoCurta: "Convites ilimitados e a taxa quase pela metade.",
-    paraQuem: "Para quem faz festa o ano inteiro.",
+    label: "Profissional",
+    descricaoCurta: "Convites ilimitados com a sua marca no lugar da nossa.",
+    paraQuem: "Para cerimonialista que faz festa o ano inteiro.",
     preco: "R$ 59",
     mensalidadeCents: 5_900,
-    taxaLinha: "Taxa de 3,4% sobre os presentes",
+    taxaLinha: "Taxa de 2,9% sobre os presentes",
     inclui: [
-      "Tudo do Básico",
-      "Confirmação de presença",
       "Convites ilimitados",
-      "Mural de recados",
-      "Álbum de fotos",
+      "Sua marca no lugar da nossa",
+      "Painel com todos os eventos",
+      "Taxa menor nos presentes",
+      "Tudo do plano grátis",
     ],
     destaque: true,
   },
   {
     key: "PREMIUM",
-    label: "Premium",
-    descricaoCurta: "Sua marca no lugar da nossa, e a menor taxa da plataforma.",
+    label: "Estúdio",
+    descricaoCurta: "Domínio próprio do cliente e a menor taxa da plataforma.",
     paraQuem: "Para estúdio com time e clientes de alto padrão.",
     preco: "R$ 149",
     mensalidadeCents: 14_900,
-    taxaLinha: "Taxa de 2,6% sobre os presentes",
+    taxaLinha: "Taxa de 2,5% sobre os presentes",
     inclui: [
-      "Tudo do Clássico",
-      "Sua marca no lugar da nossa",
+      "Tudo do Profissional",
       "Domínio próprio do cliente",
       "Suporte prioritário",
       "Atendimento em até 1 dia útil",
+      "A menor taxa da plataforma",
     ],
   },
 ];

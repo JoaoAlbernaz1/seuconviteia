@@ -2,11 +2,14 @@ import { describe, it, expect } from "vitest";
 import { recursosDoPlano, planoPermite, PLANOS_INFO, rotuloPlano, limiteEventos, planoEfetivo, ehDowngrade } from "./plans";
 
 describe("recursosDoPlano — gating por plano (assinatura)", () => {
-  it("BASICO -> so a base (sem RSVP/recados/galeria/white-label/dominio)", () => {
+  it("BASICO (gratuito) -> convite COMPLETO; so marca e dominio ficam de fora", () => {
+    // 17/08/2026: FestaLab, Wedy e Conviter dao RSVP, recados e album de graca.
+    // Se este teste voltar a esperar `false`, alguem tirou do gratuito um
+    // recurso que o mercado inteiro entrega — e perdemos na comparacao.
     expect(recursosDoPlano("BASICO")).toEqual({
-      rsvp: false,
-      recados: false,
-      galeria: false,
+      rsvp: true,
+      recados: true,
+      galeria: true,
       whiteLabel: false,
       dominioProprio: false,
     });
@@ -34,11 +37,15 @@ describe("recursosDoPlano — gating por plano (assinatura)", () => {
 });
 
 describe("planoPermite", () => {
-  it("Básico não permite RSVP nem recados (só a base do convite)", () => {
-    expect(planoPermite("BASICO", "rsvp")).toBe(false);
-    expect(planoPermite("BASICO", "recados")).toBe(false);
+  it("o gratuito permite RSVP e recados — é o convite completo", () => {
+    expect(planoPermite("BASICO", "rsvp")).toBe(true);
+    expect(planoPermite("BASICO", "recados")).toBe(true);
   });
-  it("confirmação de presença começa no Clássico", () => {
+  it("o que o gratuito NÃO tem é marca própria e domínio", () => {
+    expect(planoPermite("BASICO", "whiteLabel")).toBe(false);
+    expect(planoPermite("BASICO", "dominioProprio")).toBe(false);
+  });
+  it("confirmação de presença também nos pagos", () => {
     expect(planoPermite("CLASSICO", "rsvp")).toBe(true);
     expect(planoPermite("PREMIUM", "rsvp")).toBe(true);
   });
@@ -54,7 +61,7 @@ describe("PLANOS_INFO / rotuloPlano", () => {
     expect(PLANOS_INFO.find((p) => p.key === "CLASSICO")?.destaque).toBe(true);
   });
   it("rotuloPlano traduz", () => {
-    expect(rotuloPlano("PREMIUM")).toBe("Premium");
+    expect(rotuloPlano("PREMIUM")).toBe("Estúdio");
   });
 });
 

@@ -11,9 +11,9 @@ import { PLAN_ORDER } from "../plans";
 
 describe("taxa por plano", () => {
   it("as taxas decididas (12/08/2026)", () => {
-    expect(TAXA_BPS_POR_PLANO.BASICO).toBe(590);
-    expect(TAXA_BPS_POR_PLANO.CLASSICO).toBe(340);
-    expect(TAXA_BPS_POR_PLANO.PREMIUM).toBe(260);
+    expect(TAXA_BPS_POR_PLANO.BASICO).toBe(350);
+    expect(TAXA_BPS_POR_PLANO.CLASSICO).toBe(290);
+    expect(TAXA_BPS_POR_PLANO.PREMIUM).toBe(250);
   });
 
   it("a taxa SEMPRE cai conforme sobe o plano", () => {
@@ -41,31 +41,31 @@ describe("taxa por plano", () => {
   });
 
   it("rotulo em pt-BR", () => {
-    expect(taxaLabel("BASICO")).toBe("5,9%");
-    expect(taxaLabel("CLASSICO")).toBe("3,4%");
-    expect(taxaLabel("PREMIUM")).toBe("2,6%");
+    expect(taxaLabel("BASICO")).toBe("3,5%");
+    expect(taxaLabel("CLASSICO")).toBe("2,9%");
+    expect(taxaLabel("PREMIUM")).toBe("2,5%");
   });
 });
 
 describe("calculo da taxa", () => {
-  it("5,9% de R$100,00 no Basico", () => {
-    expect(calcularTaxaCents(10_000, "BASICO")).toBe(590);
-    expect(calcularLiquidoCents(10_000, "BASICO")).toBe(9_410);
+  it("3,5% de R$100,00 no gratuito", () => {
+    expect(calcularTaxaCents(10_000, "BASICO")).toBe(350);
+    expect(calcularLiquidoCents(10_000, "BASICO")).toBe(9_650);
   });
 
-  it("3,4% de R$100,00 no Classico", () => {
-    expect(calcularTaxaCents(10_000, "CLASSICO")).toBe(340);
-    expect(calcularLiquidoCents(10_000, "CLASSICO")).toBe(9_660);
+  it("2,9% de R$100,00 no Classico", () => {
+    expect(calcularTaxaCents(10_000, "CLASSICO")).toBe(290);
+    expect(calcularLiquidoCents(10_000, "CLASSICO")).toBe(9_710);
   });
 
-  it("2,6% de R$100,00 no Premium", () => {
-    expect(calcularTaxaCents(10_000, "PREMIUM")).toBe(260);
-    expect(calcularLiquidoCents(10_000, "PREMIUM")).toBe(9_740);
+  it("2,5% de R$100,00 no Premium", () => {
+    expect(calcularTaxaCents(10_000, "PREMIUM")).toBe(250);
+    expect(calcularLiquidoCents(10_000, "PREMIUM")).toBe(9_750);
   });
 
   it("arredonda para o centavo", () => {
-    // 5,9% de 199 = 11.741 -> 12
-    expect(calcularTaxaCents(199, "BASICO")).toBe(12);
+    // 3,5% de 199 = 6.965 -> 7
+    expect(calcularTaxaCents(199, "BASICO")).toBe(7);
   });
 
   it("valores invalidos -> taxa 0", () => {
@@ -83,15 +83,24 @@ describe("calculo da taxa", () => {
   });
 });
 
-describe("presentesParaSePagar — o argumento do card de plano", () => {
-  it("Classico (R$59) se paga com R$2.360 em presentes", () => {
-    expect(presentesParaSePagar(5_900, "CLASSICO", "BASICO")).toBe(236_000);
+describe("posicionamento — a taxa e o unico numero que o cliente compara", () => {
+  it("o GRATUITO cobra menos que o melhor plano dos concorrentes", () => {
+    // Levantamento de 17/08/2026: FestaLab e iCasei 3,69% (o iCasei chega a
+    // 3,89%), Wedy 5,99% no gratuito. Se este teste quebrar, alguem subiu a
+    // taxa acima do mercado — e a comparacao da landing virou mentira.
+    expect(TAXA_BPS_POR_PLANO.BASICO).toBeLessThan(369);
   });
 
-  it("Premium exige MUITO mais volume que o Classico (protege o plano do meio)", () => {
-    const meio = presentesParaSePagar(5_900, "CLASSICO", "BASICO")!;
-    const topo = presentesParaSePagar(9_000, "PREMIUM", "CLASSICO")!;
-    expect(topo).toBeGreaterThan(meio * 3);
+  it("a taxa so cai conforme o plano sobe", () => {
+    expect(TAXA_BPS_POR_PLANO.CLASSICO).toBeLessThan(TAXA_BPS_POR_PLANO.BASICO);
+    expect(TAXA_BPS_POR_PLANO.PREMIUM).toBeLessThan(TAXA_BPS_POR_PLANO.CLASSICO);
+  });
+});
+
+describe("presentesParaSePagar — quanto em presentes cobre a mensalidade", () => {
+  it("conta a diferenca de taxa entre os dois planos", () => {
+    // R$ 59 / (3,5% - 2,9%) = R$ 9.833,34 em presentes.
+    expect(presentesParaSePagar(5_900, "CLASSICO", "BASICO")).toBe(983_334);
   });
 
   it("sem queda de taxa ou sem mensalidade -> nao promete nada", () => {

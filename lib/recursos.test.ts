@@ -35,15 +35,22 @@ describe("lerToggles", () => {
 });
 
 describe("recursosDoSite (ativo = plano permite ∩ toggle)", () => {
-  it("BASICO: RSVP/recados/galeria ficam OFF mesmo com toggle ligado", () => {
+  it("BASICO (gratuito): o convite vem COMPLETO, nada fica OFF por plano", () => {
     const r = recursosDoSite("BASICO", {});
-    // Confirmacao de presenca saiu do Basico em 12/08/2026 (ver lib/plans).
-    expect(r.rsvp).toBe(false);
+    // 17/08/2026: o gratuito entrega RSVP, recados e album — como o mercado.
+    expect(r.rsvp).toBe(true);
     expect(r.presentes).toBe(true);
     expect(r.contador).toBe(true);
     expect(r.programacao).toBe(true);
-    expect(r.recados).toBe(false);
+    expect(r.recados).toBe(true);
+    expect(r.galeria).toBe(true);
+  });
+
+  it("BASICO com toggle desligado: o toggle continua vencendo", () => {
+    const r = recursosDoSite("BASICO", { recursos: { rsvp: false, galeria: false } });
+    expect(r.rsvp).toBe(false);
     expect(r.galeria).toBe(false);
+    expect(r.recados).toBe(true);
   });
 
   it("CLASSICO com toggle desligado: o toggle vence", () => {

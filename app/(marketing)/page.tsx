@@ -151,30 +151,22 @@ const NUMEROS: { ate: number; sufixo: string; decimais?: number; t: string; s: s
 // Planos da LANDING — derivados de `lib/plans.ts` + `lib/pagamentos/taxa.ts`,
 // pra a vitrine nunca divergir do que o produto cobra de verdade.
 //
-// A vitrine mostra só os planos PAGOS, e cada um leva ao checkout com 7 dias
-// gratis (cartao na hora, cobranca no 8o dia). O Basico continua existindo no
-// produto — e onde a conta cai quando alguem cancela, e os convites publicados
-// seguem no ar — mas nao e vendido aqui: plano gratis ao lado de teste com
-// cartao faz todo mundo escolher o gratis, e a escada de planos morre.
+// A vitrine mostra os TRES: o convite gratuito (que e o produto, e o que traz
+// volume) e as duas assinaturas do profissional. Levantamento de 17/08/2026:
+// FestaLab, Wedy e Conviter entregam o site de graca e ganham na taxa — quem
+// cobra pelo site perde na primeira comparacao.
 //
-// A escada segue desenhada pro plano do MEIO ganhar: o Classico derruba a taxa
-// em 2,5 pontos por R$ 59 (se paga com pouco mais de uma festa); o Premium so
-// compensa pra quem faz volume.
-const PLANOS = PLANOS_INFO.filter((info) => info.mensalidadeCents > 0).map((info) => ({
+// O gratuito leva ao cadastro; os pagos vao para o checkout com 7 dias gratis.
+const PLANOS = PLANOS_INFO.map((info) => ({
   key: info.key,
   nome: info.label,
   para: info.paraQuem,
   preco: info.preco ?? "Grátis",
-  ciclo: "/ mês depois do teste",
+  ciclo: info.preco ? "/ mês depois do teste" : "para sempre",
   taxaLinha: info.taxaLinha,
-  cta: "Testar 7 dias grátis",
+  cta: info.preco ? "Testar 7 dias grátis" : "Criar meu convite grátis",
   destaque: !!info.destaque,
-  // "Tudo do Básico" ficou órfão quando o Básico saiu da vitrine — quem lê não
-  // tem mais como saber o que é o Básico. Na landing, vira o que ele de fato é.
-  itens: info.inclui.map((t) => ({
-    t: t === "Tudo do Básico" ? "Convite digital completo" : t,
-    off: false,
-  })),
+  itens: info.inclui.map((t) => ({ t, off: false })),
 }));
 
 /**
@@ -232,7 +224,7 @@ export default function MarketingHome() {
             </p>
 
             <div className="cta-row" data-rv="" style={{ "--d": "210ms" } as CSSProperties}>
-              <a className="btn grad" href="#precos">Testar 7 dias grátis</a>
+              <a className="btn grad" href="#precos">Criar meu convite grátis</a>
               <a className="btn ghost" href="#como">Ver como funciona</a>
             </div>
 
@@ -314,13 +306,13 @@ export default function MarketingHome() {
         <section id="precos" className="sec">
           <div style={{ textAlign: "center" }}>
             <div className="kicker" data-rv="">Preços</div>
-            <h2 className="h2" data-rv="" style={{ margin: "14px auto 0", maxWidth: 600, "--d": "60ms" } as CSSProperties}>
-              Teste 7 dias grátis
+            <h2 className="h2" data-rv="" style={{ margin: "14px auto 0", maxWidth: 640, "--d": "60ms" } as CSSProperties}>
+              O convite é grátis. Você só paga quando recebe presente.
             </h2>
             <p className="lead" data-rv="" style={{ margin: "16px auto 0", maxWidth: 560, "--d": "110ms" } as CSSProperties}>
-              Escolha o plano, cadastre o cartão e use tudo por 7 dias sem pagar nada.
-              A primeira cobrança só acontece no 8º dia — e você cancela quando quiser,
-              em dois cliques, direto no painel.
+              Sem cartão, sem prazo: confirmação de presença, mural de recados, álbum e lista
+              de presentes com Pix já vêm no convite gratuito. A assinatura é para quem faz
+              festa dos outros o ano inteiro.
             </p>
           </div>
 
@@ -349,7 +341,10 @@ export default function MarketingHome() {
                     assinatura no Mercado Pago e redireciona. Quem ainda não tem
                     conta passa pelo cadastro no meio do caminho e volta para cá
                     sozinho — sem ter de escolher o plano de novo. */}
-                <a className={p.destaque ? "p-cta grad" : "p-cta"} href={assinarUrl(p.key)}>
+                <a
+                  className={p.destaque ? "p-cta grad" : "p-cta"}
+                  href={p.key === "BASICO" ? CADASTRO : assinarUrl(p.key)}
+                >
                   {p.cta}
                 </a>
 
@@ -367,8 +362,8 @@ export default function MarketingHome() {
 
           {MOSTRAR_GARANTIA ? (
             <p className="p-note" data-rv="">
-              Nada é cobrado nos 7 primeiros dias. Cancelou dentro do teste? Não paga
-              nada — e o convite que você já publicou continua no ar.
+              Taxa de 3,5% sobre os presentes — as principais plataformas cobram de 3,69% a
+              5,99%. E aqui não existe taxa de saque: o que você recebe é seu.
             </p>
           ) : null}
         </section>
@@ -412,9 +407,9 @@ export default function MarketingHome() {
             <div className="in">
               <Image src="/brand/monograma.png" alt="" width={793} height={615} />
               <h2>Comece hoje o convite do seu evento</h2>
-              <p>7 dias grátis para testar tudo. Cancele quando quiser.</p>
+              <p>O convite é grátis e fica pronto em minutos. Sem cartão.</p>
               <div className="cta-row">
-                <a className="btn grad" href="#precos">Começar o teste grátis</a>
+                <a className="btn grad" href="#precos">Criar meu convite grátis</a>
                 <a className="btn ghost" href={CONTATO}>Falar com a gente</a>
               </div>
             </div>

@@ -589,12 +589,13 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0) sc
 .mkt .stat .s { font-size: 13px; color: var(--faint); margin-top: 4px; }
 
 /* ── Preços ─────────────────────────────────────────────────────────────── */
-/* Colunas do tamanho do conteudo e CENTRALIZADAS: a vitrine passou a ter dois
-   planos (o Basico saiu), e com `repeat(3, 1fr)` fixo sobrava uma coluna vazia
-   jogando os cards para a esquerda. `auto-fit` serve 2 ou 3 sem tocar aqui. */
+/* `auto-fit` em vez de `repeat(3, 1fr)` fixo: a vitrine ja teve 2 e voltou a ter
+   3 planos, e o numero pode mudar de novo. Com coluna fixa, 2 cards deixavam um
+   buraco a direita; com largura maxima fixa, 3 cards nao cabiam e o terceiro
+   caia sozinho numa segunda linha. `1fr` resolve os dois casos. */
 .mkt .plans {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   justify-content: center;
   gap: 20px; margin-top: 48px; align-items: start;
 }
