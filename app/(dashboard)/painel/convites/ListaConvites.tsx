@@ -165,13 +165,13 @@ export function ListaConvites({ items }: { items: ItemConvite[] }) {
 
               {!modo && (
                 <div className="mt-4 flex items-center gap-2.5 pt-1">
-                  {/* Abre o editor em 6 passos — o mesmo que criou o convite.
-                      Antes caía em `/painel/<id>` (a visão geral), que é outra
-                      tela; o ícone de lápis já prometia edição. Convidados,
-                      Presentes e Recebimentos seguem na barra lateral, e a
-                      exclusão continua no menu "⋯" do convite. */}
+                  {/* GERENCIAR = a tela do convite (`/painel/<id>`), nao o
+                      editor. Sao coisas diferentes: gerenciar e ver quem
+                      confirmou, quanto entrou e mexer nas partes do site;
+                      editar e o assistente de 6 passos, que continua no
+                      "Editar o site" de dentro dela. */}
                   <Link
-                    href={`/painel/criar?id=${ev.id}`}
+                    href={`/painel/${ev.id}`}
                     className="flex flex-1 items-center justify-center gap-2 rounded-[11px] bg-[#7C3AED] px-4 py-2.5 text-[13.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
                   >
                     <Ic d={IC.edit} size={14} stroke="#fff" width={2} />

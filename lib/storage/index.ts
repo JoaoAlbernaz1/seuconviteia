@@ -3,12 +3,12 @@
 // O painel faz upload via `app/api/upload` -> `getStorageProvider().salvar(file, dir)`.
 //
 // Selecao por ambiente (seam p/ producao):
-//   - `BLOB_READ_WRITE_TOKEN` setado -> Vercel Blob (TODO: implementar com
-//     `@vercel/blob` `put()`); ainda nao construido nesta fase.
+//   - `BLOB_READ_WRITE_TOKEN` setado -> Vercel Blob.
 //   - sem token (dev/local)          -> disco local em `public/uploads/<dir>/...`.
 //
 // As funcoes de disco usam APIs de Node; a rota de upload roda no runtime Node.
 
+import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -81,15 +81,25 @@ class LocalDiskStorage implements StorageProvider {
 }
 
 /**
- * TODO(Fase Blob): implementar com `@vercel/blob`:
- *   const { url } = await put(`${dir}/${nome}`, file, { access: "public" });
- * Selecionado quando `BLOB_READ_WRITE_TOKEN` estiver presente.
+ * Storage em Vercel Blob — o de PRODUCAO. Disco local nao serve la: o sistema
+ * de arquivos da funcao e efemero e nao e compartilhado entre instancias, entao
+ * a foto sumiria no proximo request.
+ *
+ * `addRandomSuffix: false` porque o nome ja e um UUID; deixar a Vercel somar
+ * outro sufixo tornaria a URL imprevisivel sem ganho nenhum.
  */
 class VercelBlobStorage implements StorageProvider {
-  async salvar(): Promise<SalvarResult> {
-    throw new Error(
-      "Vercel Blob ainda nao implementado — rode sem BLOB_READ_WRITE_TOKEN (storage local) em dev.",
-    );
+  async salvar(file: File, dir: string): Promise<SalvarResult> {
+    const safe = dirSeguro(dir);
+    const nome = `${randomUUID()}.${extDeImagem(file.type, file.name)}`;
+    const caminho = safe ? `${safe}/${nome}` : nome;
+
+    const { url } = await put(caminho, file, {
+      access: "public",
+      contentType: file.type || undefined,
+      addRandomSuffix: false,
+    });
+    return { url };
   }
 }
 

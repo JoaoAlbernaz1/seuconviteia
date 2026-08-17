@@ -63,13 +63,12 @@ export function ConviteMenu({
 
   return (
     <div className="relative flex items-center gap-2.5">
-      {/* Publicado ou rascunho, o botão principal abre o MESMO lugar: o editor
-          em 6 passos. Antes, o convite publicado caía na visão geral
-          (`/painel/<id>`) — uma tela diferente da que criou o convite (pedido
-          do João). Convidados, Presentes e Recebimentos não dependem dela: têm
-          link próprio na barra lateral (`abasDoPainel`). */}
+      {/* Publicado -> tela do convite (gerenciar: quem confirmou, quanto
+          entrou, partes do site). Rascunho -> editor de 6 passos, que e onde
+          ele parou. Sao dois verbos diferentes e nao devem cair no mesmo
+          lugar. */}
       <Link
-        href={`/painel/criar?id=${fid}`}
+        href={publicado ? `/painel/${fid}` : `/painel/criar?id=${fid}`}
         className="cursor-pointer rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
       >
         {publicado ? "Gerenciar convite" : "Continuar edição"}
