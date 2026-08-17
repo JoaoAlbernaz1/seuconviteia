@@ -222,7 +222,11 @@ model Transaction {
   amountCents Int
   kind        String // ex.: "GIFT_PIX", "EVENT_FEE"
   status      String   @default("PENDING")
-  providerId  String?
+  /// Id da cobranca no gateway. UNICO: e a rede de seguranca do ledger — se
+  /// duas confirmacoes escaparem do compare-and-set, o banco recusa a segunda
+  /// em vez de lancar o mesmo pagamento duas vezes. Nulo e permitido varias
+  /// vezes no Postgres (lancamentos sem gateway).
+  providerId  String?  @unique
   createdAt   DateTime @default(now())
 
   @@index([eventId])
@@ -245,7 +249,10 @@ model GiftContribution {
   netCents         Int
   status           PayStatus @default(PENDING)
   provider         String    @default("fake")
-  providerChargeId String?
+  /// UNICO: uma cobranca do gateway pertence a UMA contribuicao. Sem isto,
+  /// um reenvio do webhook com outro `contributionId` poderia duplicar o
+  /// recebimento do mesmo Pix.
+  providerChargeId String?   @unique
   pixCode          String?   @db.Text
   pixQrUrl         String?   @db.Text
   paidAt           DateTime?
