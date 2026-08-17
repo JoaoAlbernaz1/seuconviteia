@@ -139,6 +139,8 @@ export async function cadastrarProfissional(
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-mail invalido."),
   password: z.string().min(1, "Informe sua senha."),
+  /** Plano que a pessoa clicou na landing antes de cair aqui. */
+  plan: z.string().optional(),
 });
 
 export type LoginState = { error?: string };
@@ -150,17 +152,22 @@ export async function entrarComCredenciais(
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    plan: formData.get("plan") ?? undefined,
   });
 
   if (!parsed.success) {
     return { error: "Informe um e-mail e uma senha validos." };
   }
 
+  // Quem clicou num plano na landing e JA TINHA conta entrava por aqui e caia
+  // no painel, perdendo a escolha no meio do caminho — o cadastro levava o
+  // plano adiante, o login nao. Agora os dois terminam no mesmo lugar.
+  const pago = planoPago(String(parsed.data.plan ?? "").toUpperCase());
   try {
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
-      redirectTo: "/painel",
+      redirectTo: pago ? `/assinar/${pago.toLowerCase()}` : "/painel",
     });
   } catch (error) {
     // Credenciais invalidas viram AuthError; o redirect de sucesso deve subir.

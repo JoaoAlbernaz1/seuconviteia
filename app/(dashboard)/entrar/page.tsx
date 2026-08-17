@@ -195,6 +195,9 @@ function CardEntrar() {
         </form>
       ) : (
         <form action={loginAction} className="flex flex-col gap-3 text-left">
+          {/* Mesmo plano da aba de cadastro: quem ja tem conta tambem tem de
+              terminar no checkout, e nao no painel. */}
+          {planoEscolhido ? <input type="hidden" name="plan" value={planoEscolhido} /> : null}
           <input
             name="email"
             type="email"
