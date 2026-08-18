@@ -50,7 +50,15 @@ export async function POST(req: Request) {
   // Foto com QR CODE nao entra: o presente em dinheiro e pago pelo proprio site
   // (com a taxa da plataforma), e um QR na foto e o atalho para desviar isso —
   // basta o convidado escanear. Ver `lib/imagemQr.ts`.
-  if (await contemQrCode(await parsed.data.arrayBuffer())) {
+  // A leitura do arquivo entra no `try` junto: falhar ao ler o `File` não pode
+  // virar erro 500 num módulo que promete falhar ABERTO.
+  let temQr = false;
+  try {
+    temQr = await contemQrCode(await parsed.data.arrayBuffer());
+  } catch {
+    temQr = false;
+  }
+  if (temQr) {
     return NextResponse.json({ error: ERRO_QR }, { status: 400 });
   }
 

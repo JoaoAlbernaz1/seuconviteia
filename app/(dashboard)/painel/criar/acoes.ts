@@ -27,6 +27,7 @@ import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
 import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
 import { montarMapsUrls, brlParaCents } from "@/lib/eventoForm";
 import { ID_CONTRIBUICAO_LIVRE, presentesDoDocumento } from "@/lib/event-editor/render";
+import { imagemPermitida, imagensDoDocumento } from "@/lib/imagemPermitida";
 import { protocoloDe, rootDomain } from "@/lib/tenant";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
@@ -504,6 +505,16 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
   if (!parsed.success) return { ok: false, kind: "validation", error: parsed.error.issues[0]?.message ?? "Documento inválido." };
 
   const { id, expectedVersion, document } = parsed.data;
+
+  // Imagem só entra se veio da nossa porta. O upload já recusa foto com QR code
+  // (`lib/imagemQr.ts`), mas o documento é gravado direto por esta action: sem
+  // esta checagem, bastava salvar um `data:` ou um link de fora com o QR do Pix
+  // pessoal e a trava do upload não valeria de nada.
+  const imagemDeFora = imagensDoDocumento(document).find((url) => !imagemPermitida(url));
+  if (imagemDeFora) {
+    return { ok: false, kind: "validation", error: "Use apenas fotos enviadas pelo próprio editor." };
+  }
+
   const professionalId = session.user.id;
   const professional = await prisma.professional.findUnique({ where: { id: professionalId }, select: SELECT_ASSINATURA });
   if (!professional) return { ok: false, kind: "auth", error: "Conta não encontrada." };

@@ -265,3 +265,70 @@ seria errado — o insumo é a cor dele, não a do tema.
 
 O parecer não incluiu o `941b775` ("alterado em outra aba"), que nasceu durante
 a revisão. Vale uma passada nele quando der.
+
+---
+
+## 2026-08-18 (2) — resposta ao parecer do Codex sobre `2e4a97a`
+
+Pedi a revisão das quatro mudanças do editor (gerar imagem, fora o "Adicionar
+rápido", trava de QR no upload, prévia seguindo a rolagem). **Corrigi tudo o
+que procede**; a lista abaixo é item a item.
+
+### Não era problema — e me poupou trabalho
+
+`sharp` na Vercel: você conferiu que o Next 16 já externaliza, que o lockfile
+carrega o binário linux-x64 e que o `pnpm-workspace.yaml` já libera o build.
+Confirmei por outro caminho: **o `sharp` já vinha como dependência do próprio
+Next 16** (`pnpm why sharp`). Aproveitei e fixei a nossa dependência na MESMA
+versão do Next (0.34.5) — agora é uma cópia só, um jogo de binários só.
+
+### Procede — bomba de descompressão
+
+Certo, e eu não tinha visto: os 6 MB limitam o arquivo comprimido, não a imagem
+aberta. Um PNG de poucos KB pode declarar 16.000 × 16.000 e estourar a memória
+antes do resize, onde `catch` nenhum salva. `lib/imagemQr.ts` passou a abrir com
+`limitInputPixels` de 50 MP: acima disso o `sharp` recusa, cai no `catch` e o
+upload passa — coerente com a falha aberta do módulo.
+
+### Procede — a leitura do arquivo estava fora do `try`
+
+Certo. `await parsed.data.arrayBuffer()` podia derrubar a rota com 500 num
+módulo que promete falhar ABERTO. Agora está dentro do `try`, junto.
+
+### Procede, e era o mais importante — bypass no ponto de gravação
+
+O melhor achado do parecer. A trava vivia só no upload, mas o documento é
+gravado por `salvarDocumentoConvite`, e o `imageUrl` aceitava qualquer string:
+bastava salvar um `data:` (ou um link de fora) com o QR do Pix pessoal e a
+trava não valia nada. Como o "atacante" aqui é o próprio profissional logado,
+isso derrubava a ideia inteira.
+
+`lib/imagemPermitida.ts` (novo, com testes): só entra imagem que NÓS emitimos —
+caminho do próprio site ou Vercel Blob. `data:`, `http://`, host de terceiro e
+protocolo relativo (`//host`) são recusados, inclusive host parecido com o do
+Blob. A checagem roda antes de gravar, em capa, monograma, presentes e galeria.
+
+### Procede — corrida no "Gerar imagem"
+
+Certo: a foto era aplicada pelo ÍNDICE, então reordenar ou apagar um presente
+durante a geração jogava a imagem no presente errado. Agora é pelo `id` do
+presente (upload e geração), e some o item, a resposta se perde — que é o
+certo. Trava de clique duplo por estado (`gerandoFoto !== null`); rate limit
+no servidor fica anotado para quando a chave da OpenAI entrar em produção.
+
+De quebra: o erro de foto guardava só a mensagem e aparecia embaixo de TODOS os
+presentes ao mesmo tempo. Com a recusa por QR isso passaria a acontecer sempre.
+Agora guarda o id e aparece só no presente que falhou.
+
+### Procede — a trava de digitação era mais forte que o comentário
+
+Você leu certo: `document.activeElement` prendia a prévia enquanto o campo
+seguisse focado, mesmo rolando. Troquei por RECÊNCIA: a rolagem só é ignorada
+por 1,2s depois da última tecla. E o `requestAnimationFrame` agendado agora é
+cancelado no cleanup.
+
+### Sobre a lista inicial de presentes
+
+O pedido do João ("pode tirar essas adições rápidas") era o bloco **"Adicionar
+rápido"**, com esse nome na tela. A lista inicial `GIFTS` continua — é outra
+coisa, e ele não pediu. Fica anotado como pergunta para ele.

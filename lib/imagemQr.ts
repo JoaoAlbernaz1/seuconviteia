@@ -19,6 +19,17 @@ import sharp from "sharp";
 const LADO_MAX = 1000;
 
 /**
+ * Teto de pixels da imagem ORIGINAL (~50 megapixels).
+ *
+ * Os 6 MB do upload limitam o arquivo COMPRIMIDO, não a imagem aberta: um PNG
+ * de poucos KB pode declarar 16.000 × 16.000 e virar ~1 GB em memória na hora
+ * de decodificar. Isso derruba a função inteira, e o `catch` não salva de um
+ * estouro de memória. Acima deste teto o `sharp` recusa a imagem, o erro cai no
+ * `catch` e o upload PASSA (falha aberta) — coerente com o resto do módulo.
+ */
+const PIXELS_MAX = 50_000_000;
+
+/**
  * A imagem contém um QR code legível?
  *
  * Analisa a imagem inteira, reduzida para no máximo `LADO_MAX` — um QR que não
@@ -27,7 +38,7 @@ const LADO_MAX = 1000;
 export async function contemQrCode(dados: ArrayBuffer | Uint8Array): Promise<boolean> {
   try {
     const bytes = dados instanceof Uint8Array ? dados : new Uint8Array(dados);
-    const { data, info } = await sharp(Buffer.from(bytes))
+    const { data, info } = await sharp(Buffer.from(bytes), { limitInputPixels: PIXELS_MAX })
       .rotate() // respeita a orientação do EXIF (foto de celular deitada)
       .resize({ width: LADO_MAX, height: LADO_MAX, fit: "inside", withoutEnlargement: true })
       .ensureAlpha()

@@ -575,9 +575,12 @@ export function CriarConvite({
   const [monoEnviando, setMonoEnviando] = useState(false);
   const [monoErro, setMonoErro] = useState("");
   // Busca de prévia do link de loja (presente tipo LINK).
-  const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
-  const [gerandoFoto, setGerandoFoto] = useState<number | null>(null);
-  const [fotoGiftErro, setFotoGiftErro] = useState("");
+  const [subindoFoto, setSubindoFoto] = useState<string | null>(null);
+  const [gerandoFoto, setGerandoFoto] = useState<string | null>(null);
+  // O erro guarda O PRESENTE que falhou: sem o id, a mensagem aparecia
+  // embaixo de TODOS os presentes da lista ao mesmo tempo. Com a recusa de
+  // foto com QR code isso passaria a acontecer sempre.
+  const [fotoGiftErro, setFotoGiftErro] = useState<{ id: string; msg: string } | null>(null);
   const [galEnviando, setGalEnviando] = useState(false);
   const [galErro, setGalErro] = useState("");
   // Convite novo (sem id) abre na tela de modelo; reabrir um convite vai direto
@@ -614,13 +617,21 @@ export function CriarConvite({
   // Gera a foto do presente a partir do NOME que a pessoa acabou de escrever
   // (IA quando configurada; senão a foto temática do catálogo — /api/gerar-foto).
   // Sempre por CLIQUE: gerar a cada tecla queimaria uma imagem por letra.
-  async function gerarFotoGift(i: number, titulo: string) {
+  // A foto é aplicada pelo ID do presente, nunca pela POSIÇÃO. Enquanto a
+  // imagem sobe (ou é gerada), a pessoa pode reordenar ou apagar um item — pelo
+  // índice, a foto cairia no presente errado. Some o item? A resposta se perde,
+  // que é o certo.
+  const aplicarFoto = (id: string, url: string) =>
+    setS((s) => ({ ...s, giftList: s.giftList.map((x) => (x.id === id ? { ...x, foto: url } : x)) }));
+
+  async function gerarFotoGift(id: string, titulo: string) {
     if (titulo.trim().length < 2) {
-      setFotoGiftErro("Escreva o nome do presente primeiro.");
+      setFotoGiftErro({ id, msg: "Escreva o nome do presente primeiro." });
       return;
     }
-    setGerandoFoto(i);
-    setFotoGiftErro("");
+    if (gerandoFoto) return; // uma geração por vez: cada uma custa dinheiro
+    setGerandoFoto(id);
+    setFotoGiftErro(null);
     try {
       const r = await fetch("/api/gerar-foto", {
         method: "POST",
@@ -629,29 +640,22 @@ export function CriarConvite({
       });
       const data = (await r.json()) as { url?: string; error?: string };
       if (!data.url) throw new Error(data.error || "Não consegui criar a imagem agora.");
-      setS((s) => ({
-        ...s,
-        giftList: s.giftList.map((x, j) => (j === i ? { ...x, foto: data.url! } : x)),
-      }));
+      aplicarFoto(id, data.url);
     } catch (e) {
-      setFotoGiftErro(e instanceof Error ? e.message : "Não consegui criar a imagem agora.");
+      setFotoGiftErro({ id, msg: e instanceof Error ? e.message : "Não consegui criar a imagem agora." });
     } finally {
       setGerandoFoto(null);
     }
   }
-  async function subirFotoGift(i: number, file: File) {
-    setSubindoFoto(i);
-    setFotoGiftErro("");
+  async function subirFotoGift(id: string, file: File) {
+    setSubindoFoto(id);
+    setFotoGiftErro(null);
     try {
-      const url = await enviarUpload(file);
-      setS((s) => ({
-        ...s,
-        giftList: s.giftList.map((x, j) => (j === i ? { ...x, foto: url } : x)),
-      }));
+      aplicarFoto(id, await enviarUpload(file));
     } catch (e) {
       // Engolir o erro fazia a foto "não funcionar" sem dizer por quê — era só
-      // o arquivo grande demais ou num formato que não aceitamos.
-      setFotoGiftErro(e instanceof Error ? e.message : "Não consegui enviar a foto. Tente de novo.");
+      // o arquivo grande demais, um formato que não aceitamos, ou o QR code.
+      setFotoGiftErro({ id, msg: e instanceof Error ? e.message : "Não consegui enviar a foto. Tente de novo." });
     } finally {
       setSubindoFoto(null);
     }
@@ -671,6 +675,7 @@ export function CriarConvite({
   // Digitar SEMPRE ganha da rolagem: se o cursor está num campo de outra seção,
   // a rolagem não rouba o foco (senão a prévia pularia enquanto se escreve).
   const colunaRef = useRef<HTMLDivElement>(null);
+  const ultimaTeclaRef = useRef(0);
   useEffect(() => {
     const raiz = colunaRef.current;
     if (!raiz) return;
@@ -678,11 +683,13 @@ export function CriarConvite({
     if (alvos.length < 2) return; // uma seção só: nada a escolher
 
     let agendado = false;
+    let quadro = 0;
     const conferir = () => {
       agendado = false;
-      // Digitar SEMPRE ganha da rolagem: com o cursor num campo, a prévia não
-      // pula sozinha enquanto a pessoa escreve.
-      if (document.activeElement?.closest?.("[data-foco]")) return;
+      // Digitar ganha da rolagem por um instante — e só por um instante.
+      // Antes a trava era "existe um campo focado", o que prendia a prévia à
+      // seção anterior enquanto a pessoa rolava com o cursor ainda no campo.
+      if (Date.now() - ultimaTeclaRef.current < 1200) return;
       const sec = secaoEmLeitura(
         alvos.map((el) => {
           const r = el.getBoundingClientRect();
@@ -695,7 +702,7 @@ export function CriarConvite({
     const aoRolar = () => {
       if (agendado) return;
       agendado = true;
-      requestAnimationFrame(conferir);
+      quadro = requestAnimationFrame(conferir);
     };
     conferir();
     // `capture: true` no documento: dependendo do tamanho da tela quem rola é a
@@ -704,6 +711,7 @@ export function CriarConvite({
     document.addEventListener("scroll", aoRolar, { passive: true, capture: true });
     window.addEventListener("resize", aoRolar);
     return () => {
+      cancelAnimationFrame(quadro);
       document.removeEventListener("scroll", aoRolar, { capture: true });
       window.removeEventListener("resize", aoRolar);
     };
@@ -1166,7 +1174,13 @@ export function CriarConvite({
           {/* ===================== FORM COLUMN ===================== */}
           {/* onFocus/onClick borbulham: ao tocar num campo com `data-foco`, a
               prévia rola até aquela seção do site ("vai para onde estou mexendo"). */}
-          <div ref={colunaRef} className="flex flex-col gap-4" onFocus={onFocoCampo} onClick={onFocoCampo}>
+          <div
+            ref={colunaRef}
+            className="flex flex-col gap-4"
+            onFocus={onFocoCampo}
+            onClick={onFocoCampo}
+            onKeyDown={() => { ultimaTeclaRef.current = Date.now(); }}
+          >
             {/* STEP 1 — Capa (o nome da debutante mora aqui) */}
             {S.step === 1 && (
               <div data-foco="capa" className={cardCls}>
@@ -2002,23 +2016,23 @@ export function CriarConvite({
                                 <img src={g.foto} alt="" className="h-11 w-11 flex-none rounded-lg border border-[#ECECF0] object-cover" />
                               )}
                               <label className="cursor-pointer rounded-[10px] border border-[#DCCDFB] bg-[#F6F3FE] px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#EFE7FE]">
-                                {subindoFoto === i ? "Enviando…" : g.foto ? "Trocar foto" : "Adicionar foto (opcional)"}
-                                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) subirFotoGift(i, f); e.target.value = ""; }} />
+                                {subindoFoto === g.id ? "Enviando…" : g.foto ? "Trocar foto" : "Adicionar foto (opcional)"}
+                                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) subirFotoGift(g.id, f); e.target.value = ""; }} />
                               </label>
                               <button
                                 type="button"
-                                onClick={() => gerarFotoGift(i, g.n)}
-                                disabled={gerandoFoto === i}
+                                onClick={() => gerarFotoGift(g.id, g.n)}
+                                disabled={gerandoFoto !== null}
                                 title="Cria uma imagem a partir do nome do presente"
                                 className="cursor-pointer rounded-[10px] border border-[#DCCDFB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#F6F3FE] disabled:cursor-wait disabled:opacity-60"
                               >
-                                {gerandoFoto === i ? "Criando…" : g.foto ? "Gerar outra" : "Gerar imagem"}
+                                {gerandoFoto === g.id ? "Criando…" : g.foto ? "Gerar outra" : "Gerar imagem"}
                               </button>
                               {g.foto && (
                                 <button type="button" onClick={() => setRow({ foto: "" })} className="text-[11.5px] text-[#A6A6AE] hover:text-[#E11D48]">Remover</button>
                               )}
-                              {fotoGiftErro && subindoFoto === null && (
-                                <span className="text-[11.5px] text-[#E11D48]">{fotoGiftErro}</span>
+                              {fotoGiftErro?.id === g.id && (
+                                <span className="text-[11.5px] text-[#E11D48]">{fotoGiftErro.msg}</span>
                               )}
                               <span className="text-[11px] text-[#A6A6AE]">Envie a sua ou gere pelo nome · JPG, PNG ou WebP · até 6 MB</span>
                             </div>
