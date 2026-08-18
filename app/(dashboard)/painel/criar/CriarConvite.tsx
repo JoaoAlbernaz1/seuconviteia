@@ -32,7 +32,7 @@ import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
-import { activeDraftPointerKey, esquecerRascunhoLocal, localDraftKey } from "@/lib/event-editor/local-draft";
+import { activeDraftPointerKey, esquecerRascunhoLocal, localDraftKey, versaoInicialDoRascunho } from "@/lib/event-editor/local-draft";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
 import { EscolherModelo } from "./EscolherModelo";
 import { BotaoBloqueado, RecursoBloqueado } from "@/components/plano/RecursoBloqueado";
@@ -798,6 +798,26 @@ export function CriarConvite({
         versionRef.current = r.version;
         return r;
       }
+      // CONFLITO: o banco está numa versão diferente da que mandamos. Antes
+      // isso parava o editor com "Este convite foi alterado em outra aba.
+      // Recarregue para continuar." — e recarregar não resolvia, porque a
+      // versão velha voltava do navegador. Como quem edita é UMA pessoa no seu
+      // próprio convite, o que está na tela é a verdade: adotamos a versão do
+      // servidor e regravamos UMA vez. Se conflitar de novo (aí sim há outra
+      // aba escrevendo), a mensagem aparece e mandar de novo seria briga.
+      if (r.kind === "conflict") {
+        versionRef.current = r.currentVersion;
+        const denovo = await salvarDocumentoConvite({
+          id: eventIdRef.current ?? undefined,
+          expectedVersion: r.currentVersion,
+          document: documento,
+        });
+        if (denovo.ok) {
+          setEventId(denovo.id);
+          versionRef.current = denovo.version;
+        }
+        return denovo;
+      }
       const morto = eventIdRef.current;
       if (r.kind !== "not_found" || !morto) return r;
       esquecerRascunhoLocal(morto, storageScope);
@@ -954,10 +974,11 @@ export function CriarConvite({
           setS((state) => ({ ...state, ...saved.S, sv: "salvo", showErr: false }));
         }
         if (saved?.eventId) setEventId(saved.eventId);
-        if (typeof saved?.draftVersion === "number") {
-          versionRef.current = saved.draftVersion;
-          setDraftVersion(saved.draftVersion);
-        }
+        // A versão NUNCA sai do navegador quando o servidor carregou o convite
+        // — era daí que vinha o "alterado em outra aba" sem outra aba nenhuma.
+        const versao = versaoInicialDoRascunho({ initialEventId, initialDraftVersion, salvo: saved });
+        versionRef.current = versao;
+        setDraftVersion(versao);
       }
     } catch {}
     restauradoRef.current = true;
