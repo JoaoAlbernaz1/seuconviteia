@@ -32,7 +32,13 @@ export function valorDaContribuicao(item: ItemConfig, escolha: EscolhaConvidado)
     const q = escolha.quotas ?? 0;
     if (total < 1) return { ok: false, erro: "Item sem cotas configuradas." };
     if (!Number.isInteger(q) || q < 1 || q > total) return { ok: false, erro: "Escolha 1 ou mais cotas." };
-    return { ok: true, brutoCents: valorDaCotaCents(item.priceCents, total) * q, quotas: q };
+    // A cota e um arredondamento (`priceCents / total`): item barato dividido em
+    // muitas cotas pode zerar (R$ 0,01 em 3 cotas). Cobranca de R$ 0,00 nao
+    // existe — o item esta mal configurado, e falhar aqui e melhor que gerar um
+    // Pix vazio.
+    const bruto = valorDaCotaCents(item.priceCents, total) * q;
+    if (bruto <= 0) return { ok: false, erro: "Cota sem valor. Fale com quem fez o convite." };
+    return { ok: true, brutoCents: bruto, quotas: q };
   }
   // LIVRE
   //

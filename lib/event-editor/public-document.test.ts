@@ -34,4 +34,38 @@ describe("seleção do documento público", () => {
     expect(publishedEditorDocument({ publishedData: published })?.basic.name).toBe("Nome publicado");
     expect(publishedEditorDocument({ publishedData: null })).toBeNull();
   });
+
+  it("leva a CONTRIBUICAO COM VALOR LIVRE para o convite publicado", () => {
+    // Ela nao mora em `gifts.items` — nasce de `gifts.freeContribution`. Lendo
+    // os itens crus, o convidado nunca via a contribuicao livre no site no ar.
+    const published = createDefaultEventDocument({
+      gifts: {
+        items: [{ id: "gift-real", title: "Viagem", description: "", value: "R$ 1.200", imageUrl: "", pricingMode: "FIXO" }],
+        freeContribution: { enabled: true, title: "Ajude com a festa", suggestedValues: "R$ 50 · R$ 100" },
+      },
+    });
+
+    const projected = publishedEventProjection({ ...legacy, publishedData: published });
+
+    expect(projected.gifts).toHaveLength(2);
+    // id igual ao que o sync grava no banco — e o que casa o Pix pago com o item.
+    expect(projected.gifts[1]).toMatchObject({
+      id: "event-1-contribuicao-livre",
+      title: "Ajude com a festa",
+      pricingMode: "LIVRE",
+      priceCents: 0,
+      description: "Sugestões: R$ 50 · R$ 100",
+    });
+  });
+
+  it("desligada, a contribuicao livre nao entra na lista", () => {
+    const published = createDefaultEventDocument({
+      gifts: {
+        items: [{ id: "gift-real", title: "Viagem", description: "", value: "R$ 1.200", imageUrl: "", pricingMode: "FIXO" }],
+        freeContribution: { enabled: false, title: "Ajude com a festa", suggestedValues: "" },
+      },
+    });
+
+    expect(publishedEventProjection({ ...legacy, publishedData: published }).gifts).toHaveLength(1);
+  });
 });

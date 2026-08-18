@@ -1,8 +1,8 @@
 import { EventEditorDocumentSchema } from "./schema";
-import { documentToRenderModel } from "./render";
-import { brlParaCents } from "../eventoForm";
+import { documentToRenderModel, presentesDoDocumento, ID_CONTRIBUICAO_LIVRE } from "./render";
 
 type EventWithPublishedData = {
+  id?: string;
   title: string;
   type: string;
   eventDate: Date;
@@ -28,13 +28,19 @@ export function publishedEventProjection<T extends EventWithPublishedData>(event
     type: model.event.type,
     eventDate: model.event.eventDate,
     customization: model.event.customization,
-    gifts: parsed.data.gifts.items.map((gift) => ({
+    // `presentesDoDocumento` e nao `gifts.items`: a CONTRIBUICAO COM VALOR LIVRE
+    // nao e um item da lista no documento — ela nasce ali, no fim, a partir de
+    // `gifts.freeContribution`. Lendo `items` cru, o convite PUBLICADO perdia a
+    // contribuicao livre inteira (o editor mostrava na previa e o convidado
+    // nunca via). Mesma funcao que o sync usa para gravar os `GiftItem`, com o
+    // MESMO id por evento — e o que casa a contribuicao paga com o item.
+    gifts: presentesDoDocumento(parsed.data, `${event.id ?? ""}-${ID_CONTRIBUICAO_LIVRE}`).map((gift) => ({
       id: gift.id,
       title: gift.title,
       description: gift.description || null,
-      priceCents: brlParaCents(gift.value) ?? 0,
+      priceCents: gift.priceCents,
       pricingMode: gift.pricingMode,
-      quotaCount: gift.quotas ?? null,
+      quotaCount: gift.quotaCount,
       imageUrl: gift.imageUrl || null,
     })),
     photos: parsed.data.gallery.imageUrls.map((url, order) => ({ id: `published-${order}`, url, order })),

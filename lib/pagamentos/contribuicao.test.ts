@@ -32,6 +32,13 @@ describe("valorDaContribuicao", () => {
     expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 0 }, { valorCustomCents: -100 }).ok)
       .toBe(false);
   });
+  it("COTAS que arredondam para zero sao recusadas", () => {
+    // R$ 0,01 em 3 cotas: cada cota vale 0 e a cobranca seria de R$ 0,00.
+    expect(valorDaContribuicao({ pricingMode: "COTAS", priceCents: 1, quotaCount: 3 }, { quotas: 1 }).ok)
+      .toBe(false);
+    expect(valorDaContribuicao({ pricingMode: "COTAS", priceCents: 0, quotaCount: 4 }, { quotas: 2 }).ok)
+      .toBe(false);
+  });
   it("LIVRE sem minimo aceita qualquer valor positivo", () => {
     expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 0 }, { valorCustomCents: 1 }))
       .toEqual({ ok: true, brutoCents: 1, quotas: undefined });

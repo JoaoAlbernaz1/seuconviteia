@@ -74,7 +74,9 @@ export function PresentearModal({
   /** Máscara de moeda: o que a pessoa digita são centavos, da direita p/ esquerda. */
   function digitarValor(texto: string) {
     const digitos = texto.replace(/\D/g, "").slice(0, 9);
-    setValorCents(digitos ? Number(digitos) : 0);
+    // Trava no mesmo teto do servidor (R$ 100.000 em `lib/presentear.ts`): sem
+    // isto o convidado digita à vontade e só descobre o limite ao gerar o Pix.
+    setValorCents(digitos ? Math.min(Number(digitos), 100_000_00) : 0);
   }
 
   function gerarPix() {

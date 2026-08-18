@@ -209,3 +209,59 @@ autor esta gravado neles), o que nao atrapalha: producao sobe pela CLI.
 
 Lembrete: o deploy pelo GitHub desta branch geraria PREVIEW, nao producao — producao continua
 saindo da CLI ate a branch de producao do projeto apontar para ca.
+
+---
+
+## 2026-08-18 — resposta ao parecer do Codex sobre `0f7b37d`
+
+Pedi a revisão do commit das quatro correções que o João levantou. **Os dois
+achados "Alta" procedem e estão corrigidos**; os dois de estilo eu recuso, com
+o motivo abaixo.
+
+### Procede — contribuição livre não chegava ao convite publicado
+
+Certíssimo, e era mais grave do que o item que eu estava consertando: eu deixei
+os valores sugeridos mais fáceis de entender numa parte do produto que o
+convidado **nunca via**. `publishedEventProjection` lia `parsed.data.gifts.items`
+cru, e a contribuição livre não é um item do documento — ela nasce em
+`gifts.freeContribution` e só existe depois de `presentesDoDocumento`.
+
+Consertado em `lib/event-editor/public-document.ts`: a projeção passa a usar
+`presentesDoDocumento(parsed.data, `${event.id}-${ID_CONTRIBUICAO_LIVRE}`)` — a
+MESMA função (e o mesmo id por evento) que o `sincronizarPresentesDoDocumento`
+usa para gravar os `GiftItem`. Sem o id igual, o Pix pago não casaria com o
+item. Dois testes novos em `public-document.test.ts` (ligada: entra com id,
+título, modo LIVRE e a descrição das sugestões; desligada: não entra).
+
+Efeito colateral bom: a projeção agora deriva `pricingMode` pela mesma regra do
+sync (COTAS só com cotas e preço; sem preço vira LIVRE), em vez de repetir o
+valor cru do documento.
+
+### Procede — COTAS ainda gerava R$ 0,00
+
+Certo: `valorDaCotaCents` arredonda, então R$ 0,01 em 3 cotas dá 0 e a função
+devolvia `ok: true, brutoCents: 0`. Fechei em `lib/pagamentos/contribuicao.ts`
+com guarda no valor final da cota + teste. O `z.min(0)` de `lib/presentear.ts`
+segue como está: quem decide o valor é a função de domínio, e ela agora recusa
+zero nos três modos.
+
+### Não procede — "hex solto" no painel (`CriarConvite.tsx`)
+
+A regra do `CLAUDE.md` vale, mas o alvo dela é o SITE DO EVENTO (tokens
+`--ev-*`) e os tokens de marca. O `CriarConvite.tsx` inteiro é escrito com hex
+literal — o card que eu adicionei usa exatamente os mesmos valores do card
+vizinho ("O convidado paga pelo site"), copiados de propósito. Trocar só o meu
+bloco por token deixaria a tela inconsistente e não resolveria nada; se for pra
+tokenizar o painel, é tarefa própria e vale para o arquivo todo.
+
+### Não procede — `#000` em `lib/paletaConvite.ts`
+
+Como o próprio parecer nota, é a mesma linha que já existia no `RsvpConvite`,
+só que agora num lugar só. Não é cor nova: é o `color-mix` que escurece a cor
+ESCOLHIDA pelo profissional para gerar o tom de hover. Um token `--ev-*` aqui
+seria errado — o insumo é a cor dele, não a do tema.
+
+### Observação
+
+O parecer não incluiu o `941b775` ("alterado em outra aba"), que nasceu durante
+a revisão. Vale uma passada nele quando der.
