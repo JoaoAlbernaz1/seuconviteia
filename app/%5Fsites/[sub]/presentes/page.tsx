@@ -12,6 +12,7 @@ import { getPaymentProvider } from "@/lib/pagamentos";
 import { planoDoSite, podeVitrine } from "@/lib/plans";
 import type { GiftPricing } from "@/lib/pagamentos/contribuicao";
 import type { PresentearData, PresenteInterativo } from "@/lib/presentesTipos";
+import { lerValoresSugeridos } from "@/lib/valoresSugeridos";
 
 import { RecursoIndisponivel } from "@/components/evt/RecursoIndisponivel";
 import { PaginaPresentes } from "@/components/evt/paginas/PaginaPresentes";
@@ -73,6 +74,7 @@ async function montarPresentear(event: {
     priceCents: number;
     pricingMode: string;
     quotaCount: number | null;
+    description: string | null;
     purchased: boolean;
     mode: string;
     storeUrl: string | null;
@@ -104,6 +106,9 @@ async function montarPresentear(event: {
       imageUrl: g.imageUrl ?? undefined,
       pricingMode: mode,
       priceCents: g.priceCents,
+      // Os valores sugeridos viajam na descrição ("Sugestões: R$ 50 · R$ 100");
+      // aqui viram números para o modal oferecer como atalho.
+      sugestoesCents: mode === "LIVRE" ? lerValoresSugeridos(g.description) : undefined,
       quotaCount: g.quotaCount,
       cotasVendidas,
       arrecadadoCents,

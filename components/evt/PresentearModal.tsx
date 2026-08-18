@@ -36,7 +36,10 @@ export function PresentearModal({
 
   const [etapa, setEtapa] = useState<Etapa>("form");
   const [quotas, setQuotas] = useState(1);
-  const [valorReais, setValorReais] = useState("");
+  // Valor livre em CENTAVOS. Antes era uma string solta ("12,5", "R$ 12", "")
+  // convertida com parseFloat na hora de enviar — o convidado digitava no
+  // escuro e o botão dizia "R$ 0,00" até acertar o formato.
+  const [valorCents, setValorCents] = useState(0);
   const [nome, setNome] = useState("");
   const [recado, setRecado] = useState("");
   const [consent, setConsent] = useState(false);
@@ -59,12 +62,28 @@ export function PresentearModal({
       ? item.priceCents
       : item.pricingMode === "COTAS"
         ? cotaCents * quotas
-        : Math.round((parseFloat(valorReais.replace(",", ".")) || 0) * 100);
+        : valorCents;
+
+  // Atalhos de valor ("R$ 50 · R$ 100 · R$ 200" que o profissional escreveu no
+  // editor). Sem eles, o convidado encara um campo vazio e tem que inventar
+  // quanto dar — a parte mais difícil de decidir.
+  const sugestoes = item.pricingMode === "LIVRE" ? item.sugestoesCents ?? [] : [];
+  const temMinimo = item.pricingMode === "LIVRE" && item.priceCents > 0;
+  const semValor = item.pricingMode === "LIVRE" && brutoPrevisto <= 0;
+
+  /** Máscara de moeda: o que a pessoa digita são centavos, da direita p/ esquerda. */
+  function digitarValor(texto: string) {
+    const digitos = texto.replace(/\D/g, "").slice(0, 9);
+    setValorCents(digitos ? Number(digitos) : 0);
+  }
 
   function gerarPix() {
     setErro(null);
     if (nome.trim().length < 2) return setErro("Informe seu nome.");
     if (!consent) return setErro("É preciso aceitar o compartilhamento dos dados.");
+    if (item.pricingMode === "LIVRE" && brutoPrevisto <= 0) {
+      return setErro("Escolha um valor ou digite quanto quer presentear.");
+    }
     if (item.pricingMode === "LIVRE" && brutoPrevisto < item.priceCents) {
       return setErro(`O valor mínimo é ${fmt(item.priceCents)}.`);
     }
@@ -78,7 +97,7 @@ export function PresentearModal({
         buyerName: nome.trim(),
         message: recado.trim() || undefined,
         quotas: item.pricingMode === "COTAS" ? quotas : undefined,
-        valorCustomCents: item.pricingMode === "LIVRE" ? brutoPrevisto : undefined,
+        valorCustomCents: item.pricingMode === "LIVRE" ? valorCents : undefined,
         consentimento: true,
       });
       if (!r.ok) return setErro(r.erro);
@@ -183,17 +202,51 @@ export function PresentearModal({
 
             {item.pricingMode === "LIVRE" && (
               <div className="mt-4">
-                <label className="block font-evt-util text-[0.7rem] uppercase tracking-[0.18em] text-evt-rosa-ink">
-                  Valor (mínimo {fmt(item.priceCents)})
+                <p className="font-evt-body text-[1rem] text-evt-ink-soft">
+                  {temMinimo
+                    ? `Escolha quanto quer presentear — a partir de ${fmt(item.priceCents)}.`
+                    : "Escolha quanto quer presentear."}
+                </p>
+
+                {/* Atalhos: um toque resolve a decisão mais difícil. */}
+                {sugestoes.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {sugestoes.map((cents) => {
+                      const escolhido = valorCents === cents;
+                      return (
+                        <button
+                          key={cents}
+                          type="button"
+                          aria-pressed={escolhido}
+                          onClick={() => setValorCents(cents)}
+                          className={`min-h-[44px] rounded-full border px-5 font-evt-display text-[1.05rem] transition-colors duration-200 ${
+                            escolhido
+                              ? "border-evt-framboesa bg-evt-framboesa text-white"
+                              : "border-[var(--line)] bg-white text-evt-ink hover:border-evt-framboesa"
+                          }`}
+                        >
+                          {fmt(cents)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <label className="mt-4 block font-evt-util text-[0.7rem] uppercase tracking-[0.18em] text-evt-rosa-ink">
+                  {sugestoes.length > 0 ? "Ou digite outro valor" : "Valor"}
                 </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={valorReais}
-                  onChange={(e) => setValorReais(e.target.value)}
-                  placeholder="0,00"
-                  className="mt-1 w-full rounded-[12px] border border-[var(--line)] bg-ivory/97 px-4 py-3 font-evt-body text-[1.15rem] text-evt-ink outline-none focus:border-evt-rosa-ink"
-                />
+                <div className="mt-1 flex items-center gap-2 rounded-[12px] border border-[var(--line)] bg-ivory/97 px-4 py-3 focus-within:border-evt-rosa-ink">
+                  <span className="font-evt-body text-[1.15rem] text-evt-ink-soft">R$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={valorCents ? (valorCents / 100).toFixed(2).replace(".", ",") : ""}
+                    onChange={(e) => digitarValor(e.target.value)}
+                    placeholder="0,00"
+                    aria-label="Valor da contribuição em reais"
+                    className="w-full bg-transparent font-evt-body text-[1.15rem] text-evt-ink outline-none"
+                  />
+                </div>
               </div>
             )}
 
@@ -223,10 +276,14 @@ export function PresentearModal({
             <button
               type="button"
               onClick={gerarPix}
-              disabled={enviando}
-              className="mt-5 w-full rounded-full bg-evt-framboesa px-6 py-3.5 font-evt-util text-[0.72rem] font-medium uppercase tracking-[0.22em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep disabled:opacity-60"
+              disabled={enviando || semValor}
+              className="mt-5 w-full rounded-full bg-evt-framboesa px-6 py-3.5 font-evt-util text-[0.72rem] font-medium uppercase tracking-[0.22em] text-white transition-[transform,background-color] duration-200 hover:bg-evt-framboesa-deep disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {enviando ? "Gerando Pix…" : `Gerar Pix · ${fmt(brutoPrevisto)}`}
+              {enviando
+                ? "Gerando Pix…"
+                : semValor
+                  ? "Escolha um valor"
+                  : `Gerar Pix de ${fmt(brutoPrevisto)}`}
             </button>
           </div>
         )}

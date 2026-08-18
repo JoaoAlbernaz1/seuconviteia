@@ -17,8 +17,10 @@ export type PresenteInterativo = {
   /** Foto do produto (só tipo LINK; PIX usa a foto lateral do painel). */
   imageUrl?: string;
   pricingMode: GiftPricing;
-  /** FIXO = preço; COTAS = total do item; LIVRE = mínimo. */
+  /** FIXO = preço; COTAS = total do item; LIVRE = mínimo (0 = sem mínimo). */
   priceCents: number;
+  /** Atalhos de valor (centavos) — só no modo LIVRE, lidos do texto sugerido. */
+  sugestoesCents?: number[];
   quotaCount?: number | null;
   /** Soma de cotas já PAGAS (modo COTAS). */
   cotasVendidas: number;

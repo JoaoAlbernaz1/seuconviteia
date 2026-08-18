@@ -21,7 +21,7 @@ describe("compatibilidade entre a UI legada e o documento canônico", () => {
 
     const ui = {
       step: 1 as const, sv: "salvo" as const, showErr: false, foco: "capa" as const,
-      acc: 0, theme: 0, recSt: ["pendente"], published: false, copied: false, pvMode: "celular" as const,
+      acc: 0, theme: 0, published: false, copied: false, pvMode: "celular" as const,
     };
 
     expect(documentoDoEditor(estadoDoDocumento(document, ui))).toEqual(document);

@@ -35,8 +35,16 @@ export function valorDaContribuicao(item: ItemConfig, escolha: EscolhaConvidado)
     return { ok: true, brutoCents: valorDaCotaCents(item.priceCents, total) * q, quotas: q };
   }
   // LIVRE
+  //
+  // A contribuicao de valor livre nasce com `priceCents = 0` (nao ha minimo a
+  // cobrar). So que "sem minimo" nao pode virar "aceita zero": sem a checagem
+  // abaixo, um convidado que nao digitasse nada gerava um Pix de R$ 0,00 —
+  // cobranca vazia no gateway e uma contribuicao fantasma no ledger.
   const v = escolha.valorCustomCents ?? 0;
-  if (!Number.isInteger(v) || v < item.priceCents) {
+  if (!Number.isInteger(v) || v <= 0) {
+    return { ok: false, erro: "Informe um valor maior que zero." };
+  }
+  if (v < item.priceCents) {
     return { ok: false, erro: "Valor abaixo do minimo." };
   }
   return { ok: true, brutoCents: v, quotas: undefined };

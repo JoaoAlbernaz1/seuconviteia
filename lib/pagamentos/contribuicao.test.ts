@@ -23,6 +23,19 @@ describe("valorDaContribuicao", () => {
     expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 5_000 }, { valorCustomCents: 3_000 }).ok)
       .toBe(false);
   });
+  it("LIVRE sem minimo (contribuicao de valor livre) NAO aceita zero", () => {
+    // priceCents 0 = "de graca" para a regra antiga; um Pix de R$ 0,00 nao existe.
+    expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 0 }, { valorCustomCents: 0 }).ok)
+      .toBe(false);
+    expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 0 }, {}).ok)
+      .toBe(false);
+    expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 0 }, { valorCustomCents: -100 }).ok)
+      .toBe(false);
+  });
+  it("LIVRE sem minimo aceita qualquer valor positivo", () => {
+    expect(valorDaContribuicao({ pricingMode: "LIVRE", priceCents: 0 }, { valorCustomCents: 1 }))
+      .toEqual({ ok: true, brutoCents: 1, quotas: undefined });
+  });
 });
 
 describe("saldoDoEvento", () => {

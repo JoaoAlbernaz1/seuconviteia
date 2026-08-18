@@ -2,8 +2,9 @@
 // rota pública (subdomínio) e o preview do editor, pra o profissional ver
 // EXATAMENTE o que publica. Porte fiel do festa-15-maria-clara, agora
 // data-driven: a mensagem muda conforme a pessoa CONFIRMOU (`vai`) ou não, com
-// os textos vindos do editor (`config.msgConfirma`/`msgRecusa`). A `PALETA` do
-// convite é mapeada para os tokens do preset (--ev-*), seguindo o tema.
+// os textos vindos do editor (`config.msgConfirma`/`msgRecusa`). A paleta vem de
+// `paletaDoRsvp` — a MESMA do formulário —, então segue a cor escolhida no
+// editor e, sem cor escolhida, o tema do convite.
 import Link from "next/link";
 
 import type { EventoFesta } from "@/lib/eventoFesta";
@@ -13,24 +14,13 @@ import {
   type RsvpConfig,
 } from "@/lib/rsvpConfig";
 import { acentoDoTema, TEMA_PADRAO } from "@/lib/temas";
+import { paletaDoRsvp } from "@/lib/paletaConvite";
 import { coresParticulas } from "@/lib/cor";
 
 import { Flourish } from "@/components/evt/icons";
 import { ConviteBackground } from "@/components/evt/ConviteBackground";
 import { Particles } from "@/components/evt/Particles";
 import { Celebration } from "@/components/evt/Celebration";
-
-// Paleta do convite mapeada para as vars de runtime do preset (no wrapper `.evt`).
-const PALETA = {
-  "--plum": "var(--ev-framboesa)",
-  "--plum-2": "var(--ev-framboesa-deep)",
-  "--wine": "var(--ev-rosa-ink)",
-  "--rose": "var(--ev-rosa)",
-  "--gold": "var(--ev-rose)",
-  "--ivory": "var(--ev-ivory)",
-  "--ivory-2": "var(--ev-blush-soft)",
-  "--ink": "var(--ev-ink)",
-} as React.CSSProperties;
 
 export function PaginaObrigada({
   evento,
@@ -47,6 +37,10 @@ export function PaginaObrigada({
       ? undefined
       : coresParticulas(acentoDoTema(evento.tema, evento.temaCor));
 
+  // A cor escolhida no editor vale aqui também: quem acabou de preencher o
+  // formulário naquela cor não pode ser agradecido no rosa do tema.
+  const paleta = paletaDoRsvp(config.corBotao);
+
   const mensagem = vai
     ? config.msgConfirma ?? MSG_CONFIRMA_PADRAO
     : config.msgRecusa ?? MSG_RECUSA_PADRAO;
@@ -55,7 +49,7 @@ export function PaginaObrigada({
   const secKey = vai ? "obrigada-sim" : "obrigada-nao";
 
   return (
-    <div style={PALETA} className="relative min-h-dvh text-[var(--ink)]">
+    <div style={paleta} className="relative min-h-dvh text-[var(--ink)]">
       <ConviteBackground foto={evento.fotoUrl} />
       <Particles className="z-[5]" colors={cores} />
       {/* Confete só para quem CONFIRMA (respeita reduced-motion no componente). */}

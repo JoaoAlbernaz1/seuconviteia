@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { confirmarPresencaFesta } from "@/lib/rsvp";
 import type { GuestInput } from "@/lib/rsvpFesta";
 import { RSVP_CONFIG_PADRAO, type RsvpConfig } from "@/lib/rsvpConfig";
+import { paletaDoRsvp } from "@/lib/paletaConvite";
 import { ArrowRight, Plus, Check, XMark } from "@/components/evt/icons";
 import { ConviteBackground } from "@/components/evt/ConviteBackground";
 import { Particles } from "@/components/evt/Particles";
@@ -18,19 +19,6 @@ import { Particles } from "@/components/evt/Particles";
  */
 type Guest = GuestInput & { id: string };
 
-// Paleta do convite mapeada para as vars de runtime do preset (definidas no
-// wrapper `.evt`): o form re-tinge por tema sem mudar a estrutura/escritas.
-const PALETA = {
-  "--plum": "var(--ev-framboesa)",
-  "--plum-2": "var(--ev-framboesa-deep)",
-  "--wine": "var(--ev-rosa-ink)",
-  "--rose": "var(--ev-rosa)",
-  "--rose-soft": "var(--ev-blush)",
-  "--gold": "var(--ev-rose)",
-  "--ivory": "var(--ev-ivory)",
-  "--ivory-2": "var(--ev-blush-soft)",
-  "--ink": "var(--ev-ink)",
-} as React.CSSProperties;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -181,15 +169,10 @@ export function RsvpConvite({
   const contagem = cfg.permitirAcompanhantes && !cfg.pedirNomeAcompanhantes;
   const maxComp = Math.max(0, cfg.maxAcompanhantes);
 
-  // Cor do botão: do editor (cfg.corBotao) ou a cor do tema (--ev-framboesa).
-  const paleta = cfg.corBotao
-    ? ({
-        ...PALETA,
-        "--plum": cfg.corBotao,
-        "--plum-2": `color-mix(in srgb, ${cfg.corBotao} 78%, #000)`,
-        "--wine": cfg.corBotao,
-      } as React.CSSProperties)
-    : PALETA;
+  // Cor do form: do editor (cfg.corBotao) ou a cor do tema (--ev-framboesa).
+  // A MESMA chamada acontece na tela de resposta (/obrigada) — as duas pontas
+  // do RSVP têm que sair na cor que a pessoa escolheu.
+  const paleta = paletaDoRsvp(cfg.corBotao);
 
   const adultos = guests.filter((g) => g.tipo === "adulto");
   const criancas = guests.filter((g) => g.tipo === "crianca");

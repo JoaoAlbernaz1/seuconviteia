@@ -4,6 +4,7 @@ import { documentToLegacyCustomization } from "./legacy";
 import type { EventEditorDocument } from "./document";
 import { brlParaCents } from "../eventoForm";
 import type { PresentearData, PresenteInterativo } from "../presentesTipos";
+import { lerValoresSugeridos } from "../valoresSugeridos";
 import type { GiftPricing } from "../pagamentos/contribuicao";
 
 export type EventEditorRenderModel = {
@@ -92,6 +93,8 @@ export function presentearDePrevia(document: EventEditorDocument): PresentearDat
     imageUrl: gift.imageUrl || undefined,
     pricingMode: gift.pricingMode,
     priceCents: gift.priceCents,
+    sugestoesCents:
+      gift.pricingMode === "LIVRE" ? lerValoresSugeridos(gift.description) : undefined,
     quotaCount: gift.quotaCount,
     cotasVendidas: 0,
     arrecadadoCents: 0,

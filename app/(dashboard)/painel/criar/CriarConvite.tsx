@@ -215,12 +215,6 @@ const SUGESTOES_PRESENTES = [
   { n: "Lembrancinhas", v: "R$ 90", desc: "Um carinho para os convidados" },
 ];
 
-const RECADOS = [
-  { n: "Tio Marcos", txt: "Que noite linda vai ser! Estamos contando os dias, minha querida.", d: "02/07" },
-  { n: "Maria e Carlos", txt: "Amiga, você merece o mundo! Te amamos!", d: "30/06" },
-  { n: "Vô Antônio", txt: "Minha neta, que Deus abençoe seus 15 anos.", d: "28/06" },
-];
-
 type State = {
   step: number;
   sv: "salvo" | "salvando" | "erro";
@@ -239,7 +233,7 @@ type State = {
   gifts: boolean; free: boolean; giftList: GiftRow[]; pixOn: boolean; pixNome: string; pixChave: string; presentesTexto: string;
   freeTitulo: string; freeValores: string;
   programacao: ItemProgramacao[]; prog: boolean;
-  gal: boolean; galFotos: string[]; rec: boolean; recSt: string[];
+  gal: boolean; galFotos: string[]; rec: boolean;
   recEyebrow: string; recTitulo: string; recConvite: string; recMural: string;
   listaModelo: "painel" | "vitrine";
   animacoes: boolean;
@@ -268,7 +262,7 @@ const INICIAL: State = {
   pixOn: true, pixNome: "", pixChave: "", presentesTexto: "",
   freeTitulo: "Contribua com o valor que desejar", freeValores: "R$ 50 · R$ 100 · R$ 200",
   programacao: programacaoSugerida("QUINZE_ANOS"), prog: true,
-  gal: true, galFotos: [], rec: true, recSt: ["pendente", "publicado", "pendente"],
+  gal: true, galFotos: [], rec: true,
   recEyebrow: REC_PADRAO.eyebrow, recTitulo: REC_PADRAO.titulo,
   recConvite: REC_PADRAO.convite, recMural: REC_PADRAO.mural,
   animacoes: false,
@@ -276,7 +270,7 @@ const INICIAL: State = {
 };
 
 type EditorUiState = Pick<State,
-  "step" | "sv" | "showErr" | "foco" | "acc" | "theme" | "recSt" | "published" | "copied" | "pvMode"
+  "step" | "sv" | "showErr" | "foco" | "acc" | "theme" | "published" | "copied" | "pvMode"
 >;
 
 export function uiDoEstado(state: State): EditorUiState {
@@ -287,7 +281,6 @@ export function uiDoEstado(state: State): EditorUiState {
     foco: state.foco,
     acc: state.acc,
     theme: state.theme,
-    recSt: state.recSt,
     published: state.published,
     copied: state.copied,
     pvMode: state.pvMode,
@@ -1025,12 +1018,6 @@ export function CriarConvite({
     { name: "Galeria revisada", ok: S.gal, note: "opcional" },
     { name: "Recados configurados", ok: S.rec, note: "opcional" },
   ];
-
-  const recStyles: Record<string, { s: string; sBg: string; sColor: string }> = {
-    pendente: { s: "Aguardando aprovação", sBg: "#FFF3E5", sColor: "#B8730F" },
-    publicado: { s: "Publicado", sBg: "rgba(52,161,119,0.12)", sColor: "#2E8A66" },
-    oculto: { s: "Oculto", sBg: "#F0F0F3", sColor: "#8B8B93" },
-  };
 
   const svText =
     S.sv === "salvo"
@@ -1996,7 +1983,7 @@ export function CriarConvite({
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
                             <div className="text-[13.5px] font-bold">Contribuição com valor livre</div>
-                            <div className="mt-0.5 text-[12px] text-[#6e6e76]">Entra como um item no fim da lista: o convidado escolhe quanto dar.</div>
+                            <div className="mt-0.5 text-[12px] text-[#6e6e76]">Entra como um item no fim da lista: o convidado escolhe quanto quer dar e paga por Pix.</div>
                           </div>
                           <Toggle on={S.free} onClick={() => upd({ free: !S.free })} />
                         </div>
@@ -2009,6 +1996,7 @@ export function CriarConvite({
                             <div>
                               <Label opt>Valores sugeridos</Label>
                               <input value={S.freeValores} onChange={inp("freeValores")} maxLength={140} style={{ borderColor: "#E4E4EA" }} className="w-full rounded-[11px] border bg-white px-3 py-2.5 text-[13.5px] text-[#17171B]" />
+                              <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Viram botões de um toque no convite. Até quatro — ex.: <span className="font-semibold">50 · 100 · 200</span>. O convidado sempre pode digitar outro valor.</div>
                             </div>
                           </div>
                         )}
@@ -2142,6 +2130,9 @@ export function CriarConvite({
                     <div className="text-[14.5px] font-bold">Mural de recados</div>
                     <Toggle on={S.rec} onClick={() => upd({ rec: !S.rec })} />
                   </div>
+                  <div className="mb-1 text-[12.5px] text-[#6e6e76]">
+                    Uma página onde os convidados escrevem um carinho — e leem o que os outros escreveram.
+                  </div>
                   {S.rec && (
                     <>
                       {/* Textos da página /recados — vão AO VIVO pra prévia (data-live). */}
@@ -2165,24 +2156,24 @@ export function CriarConvite({
                           <input value={S.recMural} onChange={inp("recMural")} maxLength={80} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                         </div>
                       </div>
-                      <div className="mb-3.5 text-[12.5px] text-[#6e6e76]">Os recados passam pela sua aprovação antes de aparecer no convite.</div>
-                      {RECADOS.map((r, i) => {
-                        const st = S.recSt[i];
-                        const sty = recStyles[st];
-                        return (
-                          <div key={r.n} className="flex items-center gap-3 border-b border-[#F5F5F7] py-2.5">
-                            <div className="min-w-0 flex-1">
-                              <div className="text-[13px] font-semibold">{r.n} <span className="text-[11.5px] font-normal text-[#A6A6AE]">· {r.d}</span></div>
-                              <div className="truncate text-[12.5px] text-[#6e6e76]">{r.txt}</div>
-                            </div>
-                            <span style={{ background: sty.sBg, color: sty.sColor }} className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold">{sty.s}</span>
-                            {st !== "publicado" && (
-                              <span onClick={() => { const recSt = [...S.recSt]; recSt[i] = "publicado"; upd({ recSt }); }} className="shrink-0 cursor-pointer text-[12px] font-semibold text-[#7C3AED]">Aprovar</span>
-                            )}
-                            <span onClick={() => { const recSt = [...S.recSt]; recSt[i] = "oculto"; upd({ recSt }); }} className="shrink-0 cursor-pointer text-[12px] text-[#A6A6AE] hover:text-[#17171B]">Ocultar</span>
-                          </div>
-                        );
-                      })}
+                      {/* Aqui existia uma lista de TRÊS recados inventados
+                          ("Tio Marcos", "Vô Antônio") com selo "Aguardando
+                          aprovação" e botões Aprovar/Ocultar que só mexiam em
+                          estado local. Ninguém tinha escrito nada — o convite
+                          nem estava publicado —, e a fila fingida passava a
+                          ideia de que havia algo pendente. Some, e no lugar
+                          fica a única coisa que o profissional precisa saber
+                          agora: o que acontece depois que ele publicar. */}
+                      <div className="flex items-start gap-3 rounded-[13px] border border-[#ECECF0] bg-[#F8F7FB] px-4 py-3.5">
+                        <span className="grid size-9 flex-none place-items-center rounded-[11px] bg-[#EDE9FE] text-[#7C3AED]">
+                          <Ic d={IC.mail} size={17} stroke="#7C3AED" width={2} />
+                        </span>
+                        <div className="min-w-0 flex-1 text-[12.5px] leading-snug text-[#6e6e76]">
+                          Você ainda não recebeu recados. Depois de publicar, cada recado
+                          enviado por um convidado aparece direto no mural do convite, e o
+                          total fica visível na tela do convite, em <span className="font-semibold text-[#17171b]">Meus convites</span>.
+                        </div>
+                      </div>
                     </>
                   )}
                 </div>
