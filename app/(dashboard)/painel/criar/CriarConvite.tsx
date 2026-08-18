@@ -634,7 +634,9 @@ export function CriarConvite({
       const r = await fetch("/api/gerar-foto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titulo }),
+        // A cor do convite vai junto: a imagem sai combinando com o site em vez
+        // de parecer colada de outro lugar.
+        body: JSON.stringify({ titulo, cor: corDoConvite(S.tema, S.corCustom) }),
       });
       const data = (await r.json()) as { url?: string; error?: string; origem?: string };
       if (!data.url) throw new Error(data.error || "Não consegui criar a imagem agora.");

@@ -14,10 +14,30 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getStorageProvider } from "@/lib/storage";
 import { consumir } from "@/lib/limiteTaxa";
+import {
+  descricaoSegura,
+  instrucoesDoRoteirista,
+  pedidoAoRoteirista,
+  promptDaImagem,
+  promptDeReserva,
+} from "@/lib/roteiroImagem";
 
 export const runtime = "nodejs";
+// Roteirista + imagem em `medium` passam bem dos 10s padrão.
+export const maxDuration = 60;
 
-const bodySchema = z.object({ titulo: z.string().trim().min(2).max(120) });
+/** Modelo do roteirista. Trocável por ambiente sem mexer no código. */
+const MODELO_TEXTO = process.env.OPENAI_TEXT_MODEL ?? "gpt-4o-mini";
+
+const bodySchema = z.object({
+  titulo: z.string().trim().min(2).max(120),
+  /**
+   * Cor do convite — entra como cor de apoio na cena. Cor estranha é IGNORADA,
+   * não recusada: perder a geração inteira por causa de um detalhe estético
+   * seria trocar o essencial pelo enfeite.
+   */
+  cor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().catch(undefined),
+});
 
 /** Quantas imagens uma conta cria por hora (cada uma custa ~US$0,01). */
 const MAX_POR_HORA = 20;
@@ -53,7 +73,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Informe o nome do presente." }, { status: 400 });
   }
-  const { titulo } = parsed.data;
+  const { titulo, cor } = parsed.data;
 
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -80,17 +100,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: fotoTematica(titulo), origem: "catalogo" });
   }
 
+  // 1) O ROTEIRISTA escreve a cena. Falhou (modelo fora, lentidão, resposta
+  //    estranha)? Segue com o pedido de reserva — nunca trava a geração.
+  let descricao: string | null = null;
+  try {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify({
+        model: MODELO_TEXTO,
+        messages: [
+          { role: "system", content: instrucoesDoRoteirista() },
+          { role: "user", content: pedidoAoRoteirista(titulo, cor) },
+        ],
+        max_completion_tokens: 160,
+      }),
+    });
+    if (!r.ok) throw new Error(`OpenAI texto ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    const data = (await r.json()) as { choices?: { message?: { content?: string } }[] };
+    descricao = descricaoSegura(data.choices?.[0]?.message?.content);
+    if (!descricao) throw new Error("roteirista devolveu resposta vazia");
+  } catch (err) {
+    console.error("[gerar-foto] roteirista falhou; usando o pedido de reserva:", err);
+  }
+
+  // 2) O DESENHISTA. `medium` porque `low` sai visivelmente tosco — decisão do
+  //    João, sabendo que quadruplica o custo (~US$0,04 por imagem).
   try {
     const r = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(120_000),
       body: JSON.stringify({
         model: "gpt-image-1",
-        prompt:
-          `Fotografia profissional de produto para lista de presentes de festa: ${titulo}. ` +
-          "Fundo elegante e suave, iluminação de estúdio, sem texto, sem pessoas identificáveis.",
+        prompt: descricao ? promptDaImagem(descricao) : promptDeReserva(titulo),
         size: "1024x1024",
-        quality: "low",
+        quality: "medium",
         n: 1,
       }),
     });
@@ -101,7 +147,9 @@ export async function POST(req: Request) {
 
     const file = new File([Buffer.from(b64, "base64")], "gerada.png", { type: "image/png" });
     const { url } = await getStorageProvider().salvar(file, `eventos/${session.user.id}/geradas`);
-    return NextResponse.json({ url, origem: "ia" });
+    // `roteiro` conta se a cena foi escrita ou se caiu na reserva — é o que
+    // permite ver, pelo log e pela resposta, se o roteirista está de pé.
+    return NextResponse.json({ url, origem: "ia", roteiro: descricao ? "sim" : "reserva" });
   } catch (err) {
     console.error("[gerar-foto] IA falhou; caindo para o catálogo:", err);
     return NextResponse.json({ url: fotoTematica(titulo), origem: "catalogo" });
