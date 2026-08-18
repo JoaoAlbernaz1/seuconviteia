@@ -116,6 +116,7 @@ export async function confirmarPresenca(
         status: confirmado ? "CONFIRMED" : "DECLINED",
         companions: confirmado ? acompanhantes : 0,
         message: recado || null,
+        party: [{ nome, tipo: "adulto", vai: confirmado }],
       },
     });
   } catch {
@@ -181,18 +182,6 @@ const extrasSchema = z
   })
   .partial();
 
-/** Monta o bloco de texto dos extras (anexado ao `message` do Guest). */
-function linhaExtras(extras: RsvpExtras | undefined): string {
-  if (!extras) return "";
-  const partes: string[] = [];
-  const rec = extras.recado?.trim();
-  if (rec) partes.push(`Recado: ${rec}`);
-  if (extras.telefone?.trim()) partes.push(`Tel: ${extras.telefone.trim()}`);
-  if (extras.email?.trim()) partes.push(`E-mail: ${extras.email.trim()}`);
-  if (extras.restricao?.trim()) partes.push(`Restrição: ${extras.restricao.trim()}`);
-  return partes.join(" · ");
-}
-
 export async function confirmarPresencaFesta(
   eventId: string,
   guests: GuestInput[],
@@ -206,7 +195,6 @@ export async function confirmarPresencaFesta(
     return { ok: false, error: msg };
   }
   const extras = extrasSchema.safeParse(extrasInput ?? {});
-  const extrasBloco = extras.success ? linhaExtras(extras.data) : "";
 
   const v = validateGuests(parsed.data.guests);
   if (!v.ok) return v;
@@ -224,7 +212,7 @@ export async function confirmarPresencaFesta(
   }
 
   const row = montarGuestRow(v.guests);
-  const message = [row.message, extrasBloco].filter(Boolean).join(" · ") || null;
+  const dados = extras.success ? extras.data : {};
   try {
     await prisma.guest.create({
       data: {
@@ -232,7 +220,19 @@ export async function confirmarPresencaFesta(
         name: row.name,
         status: row.status,
         companions: row.companions,
-        message,
+        // Cada resposta na SUA coluna. Antes tudo virava uma frase só
+        // ("Confirmados: … · Tel: … · Restrição: …") e o painel não tinha como
+        // mostrar nada organizado — não existia "telefone", existia um pedaço
+        // de texto. As linhas antigas seguem legíveis por `lib/rsvpFicha.ts`.
+        message: dados.recado?.trim() || null,
+        phone: dados.telefone?.trim() || null,
+        email: dados.email?.trim() || null,
+        dietary: dados.restricao?.trim() || null,
+        party: v.guests.map((g) => ({
+          nome: g.nome,
+          tipo: g.tipo,
+          vai: g.vai_comparecer,
+        })),
       },
     });
   } catch {

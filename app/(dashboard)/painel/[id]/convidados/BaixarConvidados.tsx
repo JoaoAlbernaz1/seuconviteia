@@ -17,6 +17,14 @@ export type LinhaConvidado = {
   acompanhantes: number;
   /** Recado/observação que o convidado deixou ao confirmar. */
   recado?: string | null;
+  /** Quantas pessoas vão nesta confirmação (titular incluído). */
+  pessoas?: number;
+  /** Nomes de quem vai / de quem não vai, separados por vírgula. */
+  vao?: string;
+  naoVao?: string;
+  telefone?: string;
+  email?: string;
+  restricao?: string;
   /** Quando confirmou (dd/mm/aaaa). */
   quando: string;
 };
@@ -52,7 +60,7 @@ export function BaixarConvidados({
         label="Baixar lista (.csv)"
         className={BTN}
         titulo="Baixar a lista de convidados"
-        descricao="Salva todo mundo num arquivo de planilha: nome, se confirmou, quantos acompanhantes, o recado que deixou e a data da resposta. Serve para levar impresso no dia, montar as mesas ou passar para o buffet."
+        descricao="Salva todo mundo num arquivo de planilha: quem vai e quem não vai nome a nome, telefone, e-mail, restrição alimentar, o recado e a data da resposta. Serve para levar impresso no dia, montar as mesas ou passar para o buffet."
         motivo="plano"
         planoNecessario="CLASSICO"
         planoAtual={plano}
@@ -67,9 +75,33 @@ export function BaixarConvidados({
   }
 
   const baixar = () => {
-    const cabecalho = ["Nome", "Status", "Acompanhantes", "Recado", "Respondeu em"];
+    // Uma COLUNA por resposta. Antes telefone, e-mail e restrição saíam
+    // grudados dentro do "Recado", e o buffet tinha que ler frase por frase.
+    const cabecalho = [
+      "Nome",
+      "Status",
+      "Pessoas que vão",
+      "Vão",
+      "Não vão",
+      "Telefone",
+      "E-mail",
+      "Restrição alimentar",
+      "Recado",
+      "Respondeu em",
+    ];
     const linhas = convidados.map((g) =>
-      [g.nome, STATUS_LABEL[g.status] ?? g.status, g.acompanhantes, g.recado, g.quando]
+      [
+        g.nome,
+        STATUS_LABEL[g.status] ?? g.status,
+        g.pessoas ?? "",
+        g.vao ?? "",
+        g.naoVao ?? "",
+        g.telefone ?? "",
+        g.email ?? "",
+        g.restricao ?? "",
+        g.recado ?? "",
+        g.quando,
+      ]
         .map(celula)
         .join(";"),
     );

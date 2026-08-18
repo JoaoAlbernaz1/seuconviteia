@@ -10,6 +10,7 @@ import { adicionarConvidado, removerConvidado } from "../../acoes";
 import { CopiarLink } from "../CopiarLink";
 import { BTN_VOLTAR, CARD, INPUT, SUB, TITULO } from "../../_ui/estilos";
 import { planoEfetivo } from "@/lib/plans";
+import { fichaDoConvidado, quantasVao } from "@/lib/rsvpFicha";
 import { BaixarConvidados } from "./BaixarConvidados";
 
 export const dynamic = "force-dynamic";
@@ -137,13 +138,22 @@ export default async function ConvidadosPage({
             plano={plano}
             liberado={plano !== "BASICO"}
             nomeEvento={event.title}
-            convidados={convidados.map((g) => ({
-              nome: g.name,
-              status: g.status,
-              acompanhantes: g.companions ?? 0,
-              recado: g.message,
-              quando: formatarData(g.createdAt),
-            }))}
+            convidados={convidados.map((g) => {
+              const f = fichaDoConvidado(g);
+              return {
+                nome: g.name,
+                status: g.status,
+                acompanhantes: g.companions ?? 0,
+                pessoas: g.status === "CONFIRMED" ? quantasVao(g, f) : 0,
+                vao: f.pessoas.filter((p) => p.vai).map((p) => p.nome).join(", "),
+                naoVao: f.pessoas.filter((p) => !p.vai).map((p) => p.nome).join(", "),
+                telefone: f.telefone,
+                email: f.email,
+                restricao: f.restricao,
+                recado: f.recado,
+                quando: formatarData(g.createdAt),
+              };
+            })}
           />
           <a
             href={url}
@@ -237,40 +247,156 @@ export default async function ConvidadosPage({
 
             {formAdicionar}
 
+            {/* Cada linha ABRE na ficha do que a pessoa respondeu. `<details>` é
+                nativo: sem JavaScript, funciona com teclado e no celular. O
+                "Remover" mora DENTRO da ficha — no resumo, um clique errado
+                apagava a confirmação de alguém. */}
             <div className="mt-4 flex flex-col gap-1.5">
               {convidados.map((g) => {
                 const chip = STATUS[g.status] ?? STATUS.PENDING;
+                const ficha = fichaDoConvidado(g);
+                const vao = ficha.pessoas.filter((p) => p.vai);
+                const naoVao = ficha.pessoas.filter((p) => !p.vai);
+                const total = quantasVao(g, ficha);
+                const respondeu = g.status !== "PENDING";
+                const temDetalhe =
+                  respondeu &&
+                  (ficha.pessoas.length > 0 || ficha.telefone || ficha.email || ficha.restricao || ficha.recado);
+
                 return (
-                  <div
+                  <details
                     key={g.id}
-                    className="flex items-center gap-3 rounded-[13px] border border-scv-line bg-scv-card px-3.5 py-2.5 transition-colors duration-200 hover:border-scv-dash"
+                    className="group rounded-[13px] border border-scv-line bg-scv-card transition-colors duration-200 hover:border-scv-dash open:border-scv-dash"
                   >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-scv-lilac text-[12px] font-bold text-scv-violet">
-                      {iniciais(g.name)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[14px] font-semibold text-scv-ink">{g.name}</div>
-                      {g.companions > 0 && (
-                        <div className="text-[11.5px] text-scv-muted">
-                          +{g.companions} acompanhante{g.companions === 1 ? "" : "s"}
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2.5">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-scv-lilac text-[12px] font-bold text-scv-violet">
+                        {iniciais(g.name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[14px] font-semibold text-scv-ink">{g.name}</div>
+                        <div className="flex flex-wrap items-center gap-x-2 text-[11.5px] text-scv-muted">
+                          {g.status === "CONFIRMED" && (
+                            <span>
+                              {total === 1 ? "vai sozinho(a)" : `${total} pessoas`}
+                            </span>
+                          )}
+                          {ficha.restricao && (
+                            <span className="text-scv-warn-ink">· restrição alimentar</span>
+                          )}
+                          {respondeu && <span>· respondeu {formatarData(g.createdAt)}</span>}
                         </div>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${chip.cls}`}>
+                        {chip.label}
+                      </span>
+                      <i
+                        className="bi bi-chevron-down shrink-0 text-[12px] text-scv-faint transition-transform duration-200 group-open:rotate-180"
+                        aria-hidden
+                      />
+                    </summary>
+
+                    <div className="border-t border-scv-line px-3.5 py-3.5">
+                      {temDetalhe ? (
+                        <div className="flex flex-col gap-3">
+                          {ficha.pessoas.length > 0 && (
+                            <div className="flex flex-col gap-2">
+                              {vao.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[11.5px] font-semibold uppercase tracking-wide text-scv-faint">
+                                    Vão
+                                  </span>
+                                  {vao.map((p) => (
+                                    <span
+                                      key={`v-${p.nome}`}
+                                      className="rounded-full bg-scv-teal/10 px-2.5 py-1 text-[12px] font-medium text-scv-teal"
+                                    >
+                                      {p.nome}
+                                      {p.tipo === "crianca" ? " · criança" : ""}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {naoVao.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[11.5px] font-semibold uppercase tracking-wide text-scv-faint">
+                                    Não vão
+                                  </span>
+                                  {naoVao.map((p) => (
+                                    <span
+                                      key={`n-${p.nome}`}
+                                      className="rounded-full bg-scv-soft px-2.5 py-1 text-[12px] font-medium text-scv-muted"
+                                    >
+                                      {p.nome}
+                                      {p.tipo === "crianca" ? " · criança" : ""}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {(ficha.telefone || ficha.email || ficha.restricao) && (
+                            <div className="grid gap-2.5 sm:grid-cols-3">
+                              {ficha.telefone && (
+                                <div>
+                                  <div className="text-[11.5px] text-scv-faint">Telefone</div>
+                                  <a
+                                    href={`tel:${ficha.telefone.replace(/[^\d+]/g, "")}`}
+                                    className="text-[13.5px] font-semibold text-scv-violet"
+                                  >
+                                    {ficha.telefone}
+                                  </a>
+                                </div>
+                              )}
+                              {ficha.email && (
+                                <div className="min-w-0">
+                                  <div className="text-[11.5px] text-scv-faint">E-mail</div>
+                                  <a
+                                    href={`mailto:${ficha.email}`}
+                                    className="block truncate text-[13.5px] font-semibold text-scv-violet"
+                                  >
+                                    {ficha.email}
+                                  </a>
+                                </div>
+                              )}
+                              {ficha.restricao && (
+                                <div>
+                                  <div className="text-[11.5px] text-scv-faint">Restrição alimentar</div>
+                                  <div className="text-[13.5px] font-semibold text-scv-ink">{ficha.restricao}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {ficha.recado && (
+                            <div className="rounded-[11px] bg-scv-soft px-3.5 py-2.5">
+                              <div className="text-[11.5px] text-scv-faint">Recado</div>
+                              <p className="mt-0.5 text-[13.5px] italic leading-relaxed text-scv-ink">
+                                “{ficha.recado}”
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[13px] text-scv-muted">
+                          {respondeu
+                            ? "Respondeu sem preencher mais nada."
+                            : "Ainda não respondeu. Assim que abrir o convite e confirmar, os dados aparecem aqui."}
+                        </p>
                       )}
+
+                      <form action={removerConvidado} className="mt-3.5 border-t border-scv-line pt-3">
+                        <input type="hidden" name="guestId" value={g.id} />
+                        <input type="hidden" name="eventId" value={event.id} />
+                        <button
+                          type="submit"
+                          className="inline-flex cursor-pointer items-center gap-1.5 text-[12.5px] font-semibold text-scv-faint transition-colors duration-200 hover:text-red-600"
+                        >
+                          <i className="bi bi-trash text-[12px]" aria-hidden /> Remover da lista
+                        </button>
+                      </form>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${chip.cls}`}>
-                      {chip.label}
-                    </span>
-                    <form action={removerConvidado} className="shrink-0">
-                      <input type="hidden" name="guestId" value={g.id} />
-                      <input type="hidden" name="eventId" value={event.id} />
-                      <button
-                        type="submit"
-                        aria-label={`Remover ${g.name}`}
-                        className="grid size-8 cursor-pointer place-items-center rounded-[9px] text-scv-faint transition-colors duration-200 hover:bg-scv-soft hover:text-red-600"
-                      >
-                        <i className="bi bi-trash text-[13px]" aria-hidden />
-                      </button>
-                    </form>
-                  </div>
+                  </details>
                 );
               })}
             </div>

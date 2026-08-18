@@ -181,7 +181,18 @@ model Guest {
   name       String
   status     GuestStatus @default(PENDING)
   companions Int         @default(0)
+  /// Recado que o convidado escreveu. ATE 18/08/2026 este campo guardava tudo
+  /// amassado numa frase ("Confirmados: … · Tel: … · Restricao: …") porque nao
+  /// havia onde por o resto; as linhas antigas seguem assim e a ficha do painel
+  /// sabe ler as duas formas (ver `lib/rsvpFicha.ts`).
   message    String?     @db.Text
+  /// Contato e restricao, quando o convite pediu (`rsvpConfig`).
+  phone      String?
+  email      String?
+  dietary    String?     @db.Text
+  /// Quem vai e quem nao vai, nome a nome:
+  /// `[{ nome, tipo: "adulto" | "crianca", vai: boolean }]`.
+  party      Json?
   createdAt  DateTime    @default(now())
 
   @@index([eventId])
