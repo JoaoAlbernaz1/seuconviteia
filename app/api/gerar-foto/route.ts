@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import sharp from "sharp";
 import { getStorageProvider } from "@/lib/storage";
 import { consumir } from "@/lib/limiteTaxa";
 import {
@@ -31,6 +32,10 @@ const MODELO_TEXTO = process.env.OPENAI_TEXT_MODEL ?? "gpt-4o-mini";
 
 const bodySchema = z.object({
   titulo: z.string().trim().min(2).max(120),
+  /** Descrição que a pessoa escreveu no presente — o melhor contexto que existe. */
+  descricao: z.string().trim().max(240).optional().catch(undefined),
+  /** Modelo da lista: decide o FORMATO da imagem (quadrado ou 4:3). */
+  formato: z.enum(["painel", "vitrine"]).optional().catch(undefined),
   /**
    * Cor do convite — entra como cor de apoio na cena. Cor estranha é IGNORADA,
    * não recusada: perder a geração inteira por causa de um detalhe estético
@@ -39,7 +44,19 @@ const bodySchema = z.object({
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().catch(undefined),
 });
 
-/** Quantas imagens uma conta cria por hora (cada uma custa ~US$0,01). */
+/**
+ * Formato final da imagem, por modelo de lista.
+ *
+ * `pede` é o tamanho que o modelo aceita (só 1024x1024, 1536x1024 e 1024x1536);
+ * `larg`/`alt` é o recorte de verdade, feito aqui com o sharp. Sem isto, a
+ * Vitrine (4:3) recebia um quadrado e cortava a cena no lugar errado.
+ */
+const RECORTE = {
+  painel: { pede: "1024x1024", larg: 1024, alt: 1024 },
+  vitrine: { pede: "1536x1024", larg: 1200, alt: 900 },
+} as const;
+
+/** Quantas imagens uma conta cria por hora (cada uma custa ~US$0,04 em medium). */
 const MAX_POR_HORA = 20;
 const UMA_HORA = 60 * 60 * 1000;
 
@@ -73,7 +90,10 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Informe o nome do presente." }, { status: 400 });
   }
-  const { titulo, cor } = parsed.data;
+  const { titulo, descricao: descricaoDoPresente, cor, formato } = parsed.data;
+  // Cada lista corta a foto de um jeito. Gerar no formato certo evita a imagem
+  // "cortada no lugar errado": a Vitrine mostra 4:3, o Painel mostra quadrado.
+  const alvo = formato === "vitrine" ? RECORTE.vitrine : RECORTE.painel;
 
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -112,7 +132,7 @@ export async function POST(req: Request) {
         model: MODELO_TEXTO,
         messages: [
           { role: "system", content: instrucoesDoRoteirista() },
-          { role: "user", content: pedidoAoRoteirista(titulo, cor) },
+          { role: "user", content: pedidoAoRoteirista(titulo, cor, descricaoDoPresente) },
         ],
         max_completion_tokens: 160,
       }),
@@ -135,7 +155,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: "gpt-image-1",
         prompt: descricao ? promptDaImagem(descricao) : promptDeReserva(titulo),
-        size: "1024x1024",
+        size: alvo.pede,
         quality: "medium",
         n: 1,
       }),
@@ -145,11 +165,24 @@ export async function POST(req: Request) {
     const b64 = data.data?.[0]?.b64_json;
     if (!b64) throw new Error("resposta sem imagem");
 
-    const file = new File([Buffer.from(b64, "base64")], "gerada.png", { type: "image/png" });
+    // Recorte no formato EXATO da lista (o modelo só entrega 1:1, 3:2 e 2:3).
+    // `cover` centraliza e corta o excedente, sem distorcer a cena.
+    const png = await sharp(Buffer.from(b64, "base64"))
+      .resize({ width: alvo.larg, height: alvo.alt, fit: "cover", position: "attention" })
+      .webp({ quality: 88 })
+      .toBuffer();
+    const file = new File([new Uint8Array(png)], "gerada.webp", { type: "image/webp" });
     const { url } = await getStorageProvider().salvar(file, `eventos/${session.user.id}/geradas`);
     // `roteiro` conta se a cena foi escrita ou se caiu na reserva — é o que
     // permite ver, pelo log e pela resposta, se o roteirista está de pé.
-    return NextResponse.json({ url, origem: "ia", roteiro: descricao ? "sim" : "reserva" });
+    // `cena` volta para a tela: a pessoa VÊ o que foi entendido do presente dela
+    // e corrige o nome se estiver longe do que queria.
+    return NextResponse.json({
+      url,
+      origem: "ia",
+      roteiro: descricao ? "sim" : "reserva",
+      cena: descricao ?? undefined,
+    });
   } catch (err) {
     console.error("[gerar-foto] IA falhou; caindo para o catálogo:", err);
     return NextResponse.json({ url: fotoTematica(titulo), origem: "catalogo" });

@@ -35,10 +35,15 @@ export function instrucoesDoRoteirista(): string {
   ].join("\n");
 }
 
-/** O pedido enviado ao roteirista, com a cor do convite quando houver. */
-export function pedidoAoRoteirista(titulo: string, cor?: string): string {
+/**
+ * O pedido enviado ao roteirista: o nome, a descrição que a pessoa escreveu e a
+ * cor do convite. A DESCRIÇÃO é o melhor contexto que existe — "Cota da festa"
+ * não diz nada, mas "Cota da festa · ajude com o buffet da noite" diz tudo.
+ */
+export function pedidoAoRoteirista(titulo: string, cor?: string, descricao?: string): string {
+  const detalhe = descricao?.trim() ? ` O anfitrião descreveu assim: "${descricao.trim()}".` : "";
   const paleta = cor ? ` Paleta do convite: ${cor} — use como cor de apoio no fundo ou nos detalhes.` : "";
-  return `Presente: "${titulo}".${paleta}`;
+  return `Presente: "${titulo}".${detalhe}${paleta}`;
 }
 
 /**

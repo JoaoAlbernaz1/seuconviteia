@@ -575,6 +575,9 @@ export function CriarConvite({
   const [subindoFoto, setSubindoFoto] = useState<string | null>(null);
   const [gerandoFoto, setGerandoFoto] = useState<string | null>(null);
   const [fotoDeExemplo, setFotoDeExemplo] = useState<string | null>(null);
+  // A CENA que a IA entendeu do presente. Vai para a tela: a pessoa vê o que foi
+  // compreendido e conserta o nome se estiver longe do que ela queria.
+  const [cenaDaFoto, setCenaDaFoto] = useState<{ id: string; texto: string } | null>(null);
   // O erro guarda O PRESENTE que falhou: sem o id, a mensagem aparecia
   // embaixo de TODOS os presentes da lista ao mesmo tempo. Com a recusa de
   // foto com QR code isso passaria a acontecer sempre.
@@ -622,7 +625,7 @@ export function CriarConvite({
   const aplicarFoto = (id: string, url: string) =>
     setS((s) => ({ ...s, giftList: s.giftList.map((x) => (x.id === id ? { ...x, foto: url } : x)) }));
 
-  async function gerarFotoGift(id: string, titulo: string) {
+  async function gerarFotoGift(id: string, titulo: string, descricao?: string) {
     if (titulo.trim().length < 2) {
       setFotoGiftErro({ id, msg: "Escreva o nome do presente primeiro." });
       return;
@@ -630,17 +633,24 @@ export function CriarConvite({
     if (gerandoFoto) return; // uma geração por vez: cada uma custa dinheiro
     setGerandoFoto(id);
     setFotoGiftErro(null);
+    setCenaDaFoto(null);
     try {
       const r = await fetch("/api/gerar-foto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // A cor do convite vai junto: a imagem sai combinando com o site em vez
         // de parecer colada de outro lugar.
-        body: JSON.stringify({ titulo, cor: corDoConvite(S.tema, S.corCustom) }),
+        body: JSON.stringify({
+          titulo,
+          descricao,
+          formato: S.listaModelo,
+          cor: corDoConvite(S.tema, S.corCustom),
+        }),
       });
-      const data = (await r.json()) as { url?: string; error?: string; origem?: string };
+      const data = (await r.json()) as { url?: string; error?: string; origem?: string; cena?: string };
       if (!data.url) throw new Error(data.error || "Não consegui criar a imagem agora.");
       aplicarFoto(id, data.url);
+      setCenaDaFoto(data.cena ? { id, texto: data.cena } : null);
       // Sem a IA ligada, o que volta é uma foto do nosso acervo — e ela pode não
       // ter nada a ver com o presente ("Valsa" caía numa foto genérica de
       // festa). Dizer isso é melhor que a pessoa achar que a máquina errou.
@@ -657,6 +667,7 @@ export function CriarConvite({
     try {
       aplicarFoto(id, await enviarUpload(file));
       setFotoDeExemplo(null);
+      setCenaDaFoto(null);
     } catch (e) {
       // Engolir o erro fazia a foto "não funcionar" sem dizer por quê — era só
       // o arquivo grande demais, um formato que não aceitamos, ou o QR code.
@@ -2026,9 +2037,18 @@ export function CriarConvite({
 
                             {/* Foto do presente (opcional) — miniatura no painel, capa na vitrine */}
                             <div className="mt-2 flex flex-wrap items-center gap-2.5 pl-[38px]">
-                              {g.foto && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={g.foto} alt="" className="h-11 w-11 flex-none rounded-lg border border-[#ECECF0] object-cover" />
+                              {gerandoFoto === g.id ? (
+                                // Enquanto cria: um lugar reservado no tamanho da
+                                // miniatura, pulsando. Sem isto a pessoa encarava
+                                // 30 segundos de tela parada sem saber se pegou.
+                                <span className="grid size-11 flex-none place-items-center rounded-lg border border-[#DCCDFB] bg-[#F6F3FE]">
+                                  <span className="size-4 animate-spin rounded-full border-2 border-[#DCCDFB] border-t-[#7C3AED]" />
+                                </span>
+                              ) : (
+                                g.foto && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={g.foto} alt="" className="h-11 w-11 flex-none rounded-lg border border-[#ECECF0] object-cover" />
+                                )
                               )}
                               <label className="cursor-pointer rounded-[10px] border border-[#DCCDFB] bg-[#F6F3FE] px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#EFE7FE]">
                                 {subindoFoto === g.id ? "Enviando…" : g.foto ? "Trocar foto" : "Adicionar foto (opcional)"}
@@ -2036,7 +2056,7 @@ export function CriarConvite({
                               </label>
                               <button
                                 type="button"
-                                onClick={() => gerarFotoGift(g.id, g.n)}
+                                onClick={() => gerarFotoGift(g.id, g.n, g.desc)}
                                 disabled={gerandoFoto !== null}
                                 title="Cria uma imagem a partir do nome do presente"
                                 className="cursor-pointer rounded-[10px] border border-[#DCCDFB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#F6F3FE] disabled:cursor-wait disabled:opacity-60"
@@ -2052,7 +2072,21 @@ export function CriarConvite({
                               {fotoDeExemplo === g.id && !fotoGiftErro && (
                                 <span className="text-[11.5px] text-[#B8730F]">Foto de exemplo do acervo — envie a sua se preferir.</span>
                               )}
-                              <span className="text-[11px] text-[#A6A6AE]">Envie a sua ou gere pelo nome · JPG, PNG ou WebP · até 6 MB</span>
+                              {cenaDaFoto?.id === g.id && gerandoFoto !== g.id && (
+                                // O que a IA entendeu do presente, na tela. Longe do
+                                // que a pessoa queria? Ela ajusta o nome ou a
+                                // descrição e gera de novo, em vez de tentar no escuro.
+                                <span className="basis-full text-[11.5px] leading-snug text-[#A6A6AE]">
+                                  Criada a partir de: <span className="text-[#6e6e76]">{cenaDaFoto.texto}</span>
+                                </span>
+                              )}
+                              {gerandoFoto === g.id ? (
+                                <span aria-live="polite" className="text-[11.5px] font-medium text-[#6D28D9]">
+                                  Criando a imagem de “{g.n || "seu presente"}” — costuma levar de 20 a 40 segundos.
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-[#A6A6AE]">Envie a sua ou gere pelo nome · JPG, PNG ou WebP · até 6 MB</span>
+                              )}
                             </div>
 
                             {/* Descrição do presente (opcional) — aparece abaixo do nome, na lista */}

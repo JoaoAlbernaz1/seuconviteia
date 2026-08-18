@@ -35,6 +35,16 @@ describe("pedidoAoRoteirista", () => {
     expect(pedidoAoRoteirista("Buffet", "#CE578B")).toContain("#CE578B");
     expect(pedidoAoRoteirista("Buffet")).not.toContain("Paleta");
   });
+
+  it("leva a descrição escrita pela pessoa — é o melhor contexto que existe", () => {
+    const p = pedidoAoRoteirista("Cota da festa", "#CE578B", "ajude com o buffet da noite");
+    expect(p).toContain("ajude com o buffet da noite");
+  });
+
+  it("descrição vazia ou só espaço não vira ruído no pedido", () => {
+    expect(pedidoAoRoteirista("Buffet", undefined, "   ")).not.toContain("descreveu");
+    expect(pedidoAoRoteirista("Buffet")).not.toContain("descreveu");
+  });
 });
 
 describe("prompts de imagem", () => {
