@@ -67,8 +67,55 @@ export default async function ConvidadosPage({
     { n: acompanhantes, label: "Acompanhantes" },
   ];
 
-  const tileForte =
-    "flex flex-col items-start gap-2 rounded-[15px] p-3.5 text-left transition-colors";
+  const progresso = total > 0 ? Math.round((confirmados.length / total) * 100) : 0;
+
+  /** Bloco do link — a única coisa que faz convidado aparecer sozinho na lista. */
+  const blocoLink = (
+    <div className={`${CARD} p-4 sm:p-5`}>
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="grid size-11 shrink-0 place-items-center rounded-[13px] bg-scv-lilac text-scv-violet">
+          <i className="bi bi-link-45deg text-[19px]" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-semibold text-scv-ink">Link de confirmação</div>
+          <div className="truncate text-[13px] text-scv-muted">{host}</div>
+        </div>
+        <CopiarLink
+          url={url}
+          idleLabel="Compartilhar com os convidados"
+          className="w-full shrink-0 cursor-pointer rounded-[11px] bg-violeta px-5 py-2.5 text-[13.5px] font-semibold !text-white transition-colors duration-200 hover:brightness-110 sm:w-auto"
+        />
+      </div>
+      <p className="mt-3 flex items-center gap-1.5 text-[12px] text-scv-faint">
+        <i className="bi bi-info-circle" aria-hidden />
+        Quem abrir o convite confirma presença sozinho — e aparece aqui na hora.
+      </p>
+    </div>
+  );
+
+  /** Formulário de adicionar à mão. Existe UMA vez na tela, nunca duas. */
+  const formAdicionar = (
+    <form action={adicionarConvidado} className="flex items-center gap-2.5" id="add-convidado">
+      <input type="hidden" name="eventId" value={event.id} />
+      <label htmlFor="nome-convidado" className="sr-only">
+        Nome do convidado
+      </label>
+      <input
+        id="nome-convidado"
+        name="name"
+        placeholder="Nome do convidado"
+        required
+        maxLength={140}
+        className={`${INPUT} flex-1`}
+      />
+      <button
+        type="submit"
+        className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-[11px] bg-violeta px-4 py-3 text-[13.5px] font-semibold text-white transition-colors duration-200 hover:brightness-110"
+      >
+        <i className="bi bi-plus-lg" aria-hidden /> Adicionar
+      </button>
+    </form>
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1120px] scv-fade px-4 py-9 pb-24 sm:px-7">
@@ -102,135 +149,101 @@ export default async function ConvidadosPage({
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-[11px] border border-scv-line bg-scv-card px-4 py-2.5 text-[13px] font-semibold text-scv-ink transition-colors hover:border-scv-dash hover:bg-scv-field"
+            className="inline-flex items-center gap-1.5 rounded-[11px] border border-scv-line bg-scv-card px-4 py-2.5 text-[13px] font-semibold text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field"
           >
             Ver no site <i className="bi bi-box-arrow-up-right text-[12px]" aria-hidden />
           </a>
         </div>
       </div>
 
-      <div className="mt-7 grid items-start gap-6 lg:grid-cols-[358px_minmax(0,1fr)] lg:gap-7">
-        {/* ================= ESQUERDA — resumo + atalhos ================= */}
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-[84px]">
-          <div className={`${CARD} overflow-hidden`}>
-            {/* Header com o placar */}
-            <div className="relative p-5">
-              <div
-                className="absolute inset-0"
-                style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
-              />
-              <i className="bi bi-people absolute right-4 top-3.5 text-[22px] text-white/35" aria-hidden />
-              <div className="relative">
-                <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
-                  Sua lista de convidados
-                </div>
-                <div className="mt-1.5 font-display text-[26px] font-semibold leading-tight text-white">
-                  {total === 0
-                    ? "Ninguém ainda"
-                    : `${confirmados.length} de ${total} confirmaram`}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 p-4">
-              {/* Placar */}
-              <div className="grid grid-cols-3 gap-2.5">
-                {stats.map((s) => (
-                  <div key={s.label} className="rounded-[13px] bg-scv-soft p-3 text-center">
-                    <div className="font-display text-[22px] font-semibold text-scv-ink">{s.n}</div>
-                    <div className="mt-0.5 text-[11px] leading-tight text-scv-muted">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Atalhos */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <a href="#add-convidado" className={`${tileForte} bg-violeta text-white hover:brightness-110`}>
-                  <i className="bi bi-person-plus text-[18px]" aria-hidden />
-                  <span className="text-[12px] font-semibold leading-tight">Adicionar<br />convidado</span>
-                </a>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`${tileForte} bg-scv-soft text-scv-ink hover:bg-scv-field`}
-                >
-                  <i className="bi bi-eye text-[18px] text-scv-violet" aria-hidden />
-                  <span className="text-[12px] font-semibold leading-tight">Ver página<br />de confirmação</span>
-                </a>
-              </div>
-
-              {/* Compartilhar link (ação principal do RSVP) */}
-              <div className="rounded-[15px] border border-scv-line p-3.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-scv-lilac text-scv-violet">
-                    <i className="bi bi-link-45deg text-[17px]" aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold text-scv-ink">Link de confirmação</div>
-                    <div className="truncate text-[12px] text-scv-muted">{host}</div>
-                  </div>
-                </div>
-                <CopiarLink
-                  url={url}
-                  idleLabel="Compartilhar com os convidados"
-                  className="mt-3 w-full cursor-pointer rounded-[11px] bg-violeta px-4 py-2.5 text-[13px] font-semibold text-white transition hover:brightness-110"
-                />
-                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-scv-faint">
-                  <i className="bi bi-info-circle" aria-hidden />
-                  Quem abrir o site confirma presença sozinho — aparece aqui na hora.
-                </p>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* ================= DIREITA — a lista ================= */}
-        <section className={`${CARD} p-4 sm:p-5`} id="add-convidado">
-          <div className="mb-3.5 flex items-center gap-2">
-            <h2 className="text-[16px] font-bold tracking-[-0.01em] text-scv-ink">Convidados</h2>
-            <span className="rounded-full bg-scv-lilac px-2 py-0.5 text-[11.5px] font-bold text-scv-violet">
-              {total}
+      {total === 0 ? (
+        /* ===================== LISTA VAZIA =====================
+           O estado real de quem acabou de criar o convite. Aqui a tela tem UM
+           assunto: o link. Números zerados e atalhos repetidos só ocupavam
+           espaço dizendo "nada". */
+        <div className="mt-7 flex flex-col gap-4">
+          <div className={`${CARD} px-5 py-9 text-center sm:px-8`}>
+            <span className="mx-auto grid size-14 place-items-center rounded-full bg-scv-lilac text-scv-violet">
+              <i className="bi bi-send text-[22px]" aria-hidden />
             </span>
+            <h2 className="mt-4 font-display text-[21px] font-semibold text-scv-ink">
+              Comece compartilhando o link
+            </h2>
+            <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] leading-relaxed text-scv-muted">
+              Mande o convite no WhatsApp. Quem abrir confirma presença sozinho, com
+              acompanhantes e recado — e aparece nesta lista na hora.
+            </p>
+            <div className="mx-auto mt-5 flex max-w-[430px] flex-col items-center gap-2.5">
+              <div className="w-full truncate rounded-[11px] border border-scv-line bg-scv-soft px-4 py-2.5 text-[13px] text-scv-muted">
+                {host}
+              </div>
+              <CopiarLink
+                url={url}
+                idleLabel="Compartilhar com os convidados"
+                className="w-full cursor-pointer rounded-[11px] bg-violeta px-5 py-3 text-[13.5px] font-semibold !text-white transition-colors duration-200 hover:brightness-110"
+              />
+            </div>
           </div>
 
-          {/* Adicionar */}
-          <form action={adicionarConvidado} className="flex items-center gap-2.5">
-            <input type="hidden" name="eventId" value={event.id} />
-            <input
-              name="name"
-              placeholder="Nome do convidado"
-              required
-              maxLength={140}
-              className={`${INPUT} flex-1`}
-            />
-            <button
-              type="submit"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-[11px] bg-violeta px-4 py-3 text-[13.5px] font-semibold text-white transition hover:brightness-110"
-            >
-              <i className="bi bi-plus-lg" aria-hidden /> Adicionar
-            </button>
-          </form>
-
-          {/* Lista */}
-          <div className="mt-4 flex flex-col gap-1.5">
-            {total === 0 ? (
-              <div className="rounded-[14px] border border-dashed border-scv-line px-4 py-10 text-center">
-                <span className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-scv-lilac text-scv-violet">
-                  <i className="bi bi-people text-[20px]" aria-hidden />
-                </span>
-                <div className="text-[14px] font-semibold text-scv-ink">Ninguém na lista ainda</div>
-                <p className="mx-auto mt-1 max-w-xs text-[12.5px] text-scv-muted">
-                  Adicione o primeiro nome aí em cima — ou compartilhe o link e deixe os convidados confirmarem.
-                </p>
+          <div className={`${CARD} p-4 sm:p-5`}>
+            <div className="mb-3 text-[13.5px] font-semibold text-scv-ink">
+              Prefere colocar os nomes você mesmo?
+            </div>
+            {formAdicionar}
+            <p className="mt-2.5 text-[12px] text-scv-faint">
+              Vale para quem você já sabe que vai — dá para confirmar por eles depois.
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* ===================== COM CONVIDADOS ===================== */
+        <div className="mt-7 flex flex-col gap-4">
+          {/* Placar em faixa. Sem degradê: o número é o que importa, não a caixa. */}
+          <div className={`${CARD} p-4 sm:p-5`}>
+            <div className="grid grid-cols-3 divide-x divide-scv-line">
+              {stats.map((s) => (
+                <div key={s.label} className="px-2 text-center first:pl-0 last:pr-0">
+                  <div className="font-display text-[30px] font-semibold leading-none text-scv-ink">
+                    {s.n}
+                  </div>
+                  <div className="mt-1.5 text-[12px] text-scv-muted">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-scv-soft"
+                role="img"
+                aria-label={`${confirmados.length} de ${total} confirmaram`}
+              >
+                <div className="h-full rounded-full bg-teal transition-[width] duration-300" style={{ width: `${progresso}%` }} />
               </div>
-            ) : (
-              convidados.map((g) => {
+              <div className="mt-2 text-[12px] text-scv-muted">
+                {confirmados.length} de {total} confirmaram
+              </div>
+            </div>
+          </div>
+
+          {blocoLink}
+
+          {/* A lista, com o campo de adicionar em cima dela. */}
+          <section className={`${CARD} p-4 sm:p-5`}>
+            <div className="mb-3.5 flex items-center gap-2">
+              <h2 className="text-[16px] font-bold tracking-[-0.01em] text-scv-ink">Na lista</h2>
+              <span className="rounded-full bg-scv-lilac px-2 py-0.5 text-[11.5px] font-bold text-scv-violet">
+                {total}
+              </span>
+            </div>
+
+            {formAdicionar}
+
+            <div className="mt-4 flex flex-col gap-1.5">
+              {convidados.map((g) => {
                 const chip = STATUS[g.status] ?? STATUS.PENDING;
                 return (
                   <div
                     key={g.id}
-                    className="flex items-center gap-3 rounded-[13px] border border-scv-line bg-scv-card px-3.5 py-2.5 transition-colors hover:border-scv-dash"
+                    className="flex items-center gap-3 rounded-[13px] border border-scv-line bg-scv-card px-3.5 py-2.5 transition-colors duration-200 hover:border-scv-dash"
                   >
                     <span className="grid size-9 shrink-0 place-items-center rounded-full bg-scv-lilac text-[12px] font-bold text-scv-violet">
                       {iniciais(g.name)}
@@ -252,18 +265,18 @@ export default async function ConvidadosPage({
                       <button
                         type="submit"
                         aria-label={`Remover ${g.name}`}
-                        className="grid size-8 place-items-center rounded-[9px] text-scv-faint transition hover:bg-scv-soft hover:text-red-600"
+                        className="grid size-8 cursor-pointer place-items-center rounded-[9px] text-scv-faint transition-colors duration-200 hover:bg-scv-soft hover:text-red-600"
                       >
                         <i className="bi bi-trash text-[13px]" aria-hidden />
                       </button>
                     </form>
                   </div>
                 );
-              })
-            )}
-          </div>
-        </section>
-      </div>
+              })}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

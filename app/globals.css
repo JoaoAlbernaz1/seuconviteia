@@ -1176,8 +1176,13 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0) sc
    @layer e as utilities do Tailwind v4 estao dentro, elas venciam ate o
    `text-white` do template e pintavam a barra do convite de violeta.
    O `:not(:is(.evt a))` devolve os links do convite para o proprio template. */
-.dash a:not(:is(.evt a)) { color: var(--dv); text-decoration: none; }
-.dash a:not(:is(.evt a)):hover { color: var(--dv-deep); }
+/* `:where()` NÃO soma especificidade — de propósito. Sem ele esta regra vencia
+   qualquer `text-white`/`text-scv-ink` do Tailwind, e todo link estilizado como
+   botão colorido saía violeta: era o caso do atalho "Adicionar convidado", roxo
+   sobre roxo, ilegível. Espalharam-se `!text-white` pelo painel para contornar,
+   um a um. Com `:where()` a cor vira apenas o PADRÃO: quem declara cor, ganha. */
+.dash :where(a:not(:is(.evt a))) { color: var(--dv); text-decoration: none; }
+.dash :where(a:not(:is(.evt a)):hover) { color: var(--dv-deep); }
 .dash input::placeholder, .dash textarea::placeholder { color: #a6a6ae; }
 .dash input:focus, .dash textarea:focus {
   outline: none;

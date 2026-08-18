@@ -38,7 +38,19 @@ function fmtCep(v: string): string {
 
 const TITULOS = ["Dados pessoais", "Endereço", "Recebimento"] as const;
 
-export function AtivarCarteira({ eventId }: { eventId: string }) {
+export function AtivarCarteira({
+  eventId,
+  apenasBotao = false,
+}: {
+  eventId: string;
+  /**
+   * Só o botão (a moldura vem de quem chama). A tela de Recebimentos já
+   * apresenta o assunto — ícone, título, explicação e a linha de segurança —,
+   * e repetir tudo isso aqui dentro dava cartão dentro de cartão com o mesmo
+   * aviso escrito duas vezes.
+   */
+  apenasBotao?: boolean;
+}) {
   const [aberto, setAberto] = useState(false);
   const [passo, setPasso] = useState<1 | 2 | 3>(1);
   const [erro, setErro] = useState<string | null>(null);
@@ -109,6 +121,16 @@ export function AtivarCarteira({ eventId }: { eventId: string }) {
   return (
     <>
       {/* ── Cartão TRANCADO (cadeado) ── */}
+      {apenasBotao ? (
+        <button
+          type="button"
+          onClick={() => setAberto(true)}
+          className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] bg-violeta px-5 py-3 text-[14px] font-semibold text-white transition-colors duration-200 hover:brightness-110"
+        >
+          <i className="bi bi-unlock" aria-hidden />
+          Ativar carteira
+        </button>
+      ) : (
       <div className="rounded-[15px] border border-scv-line p-4 text-center">
         <span className="mx-auto grid size-12 place-items-center rounded-full bg-scv-lilac text-scv-violet">
           <i className="bi bi-lock-fill text-[20px]" aria-hidden />
@@ -130,6 +152,7 @@ export function AtivarCarteira({ eventId }: { eventId: string }) {
           Seus dados ficam só aqui, nunca aparecem no site do convite.
         </p>
       </div>
+      )}
 
       {/* ── MODAL do formulário ── */}
       {aberto ? (
