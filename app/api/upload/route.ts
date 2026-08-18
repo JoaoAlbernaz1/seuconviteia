@@ -1,8 +1,9 @@
 // Upload de imagem autenticado (capa/album do evento).
 //
 // POST multipart com campo `file`. Requer sessao (`auth()`); valida com Zod que e
-// uma imagem (JPG/PNG/WebP) de ate ~6MB; salva via storage provider sob um diretorio
-// por profissional; devolve `{ url }`.
+// uma imagem (JPG/PNG/WebP) de ate ~6MB; RECUSA imagem com QR code (ver
+// `lib/imagemQr.ts`); salva via storage provider sob um diretorio por
+// profissional; devolve `{ url }`.
 //
 // Esta rota fica no subdominio `app` (reservado) — o middleware NAO reescreve `/api/*`,
 // entao ela responde como rota raiz normal do app. Runtime Node (Prisma/bcrypt no auth).
@@ -10,6 +11,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getStorageProvider } from "@/lib/storage";
+import { contemQrCode, ERRO_QR } from "@/lib/imagemQr";
 
 export const runtime = "nodejs";
 
@@ -43,6 +45,13 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     const msg = parsed.error.issues[0]?.message ?? "Arquivo invalido.";
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // Foto com QR CODE nao entra: o presente em dinheiro e pago pelo proprio site
+  // (com a taxa da plataforma), e um QR na foto e o atalho para desviar isso —
+  // basta o convidado escanear. Ver `lib/imagemQr.ts`.
+  if (await contemQrCode(await parsed.data.arrayBuffer())) {
+    return NextResponse.json({ error: ERRO_QR }, { status: 400 });
   }
 
   try {

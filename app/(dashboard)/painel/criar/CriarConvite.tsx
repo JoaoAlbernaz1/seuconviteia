@@ -27,6 +27,7 @@ import { paletasSeletor, deriveTemaVars, corDoConvite } from "@/lib/temas";
 import { fonteTemNegritoNoNome } from "@/lib/fontes";
 import { moverItem } from "@/lib/presentesOrdem";
 import { paginaDaPrevia } from "@/lib/previaPagina";
+import { secaoEmLeitura } from "@/lib/focoVisivel";
 import { deveResalvar } from "@/lib/autosave";
 import { taxaLabel } from "@/lib/pagamentos/taxa";
 import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
@@ -202,17 +203,6 @@ const GIFTS = [
   { n: "Valsa da debutante", desc: "O momento mais esperado", v: "R$ 250", q: 2, c1: "#241a12", c2: "#D4AF37" },
   { n: "Sessão de fotos", desc: "Registros para a vida toda", v: "R$ 320", q: 1, c1: "#101426", c2: "#5B8DEF" },
   { n: "Kit lembrancinhas", desc: "Para os convidados", v: "R$ 90", q: 8, c1: "#191114", c2: "#C97B7F" },
-];
-// Sugestões de presente (adicionar com 1 toque no passo 6) — deixa a lista fácil.
-const SUGESTOES_PRESENTES = [
-  { n: "Buffet & jantar", v: "R$ 200", desc: "Ajude com a comida da noite" },
-  { n: "Decoração", v: "R$ 150", desc: "Flores e ambientação" },
-  { n: "Sessão de fotos", v: "R$ 300", desc: "Registros para a vida toda" },
-  { n: "DJ / Música", v: "R$ 250", desc: "A trilha da festa" },
-  { n: "Bolo & doces", v: "R$ 120", desc: "A mesa mais disputada" },
-  { n: "Cabelo & maquiagem", v: "R$ 180", desc: "Para ficar linda no grande dia" },
-  { n: "Vestido", v: "R$ 400", desc: "O look da debutante" },
-  { n: "Lembrancinhas", v: "R$ 90", desc: "Um carinho para os convidados" },
 ];
 
 type State = {
@@ -586,6 +576,7 @@ export function CriarConvite({
   const [monoErro, setMonoErro] = useState("");
   // Busca de prévia do link de loja (presente tipo LINK).
   const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
+  const [gerandoFoto, setGerandoFoto] = useState<number | null>(null);
   const [fotoGiftErro, setFotoGiftErro] = useState("");
   const [galEnviando, setGalEnviando] = useState(false);
   const [galErro, setGalErro] = useState("");
@@ -620,6 +611,34 @@ export function CriarConvite({
   const setFoco = (sec: string) => setS((s) => (s.foco === sec ? s : { ...s, foco: sec }));
 
   // Foto do presente: upload manual -> imageUrl do card (vitrine) / miniatura (painel).
+  // Gera a foto do presente a partir do NOME que a pessoa acabou de escrever
+  // (IA quando configurada; senão a foto temática do catálogo — /api/gerar-foto).
+  // Sempre por CLIQUE: gerar a cada tecla queimaria uma imagem por letra.
+  async function gerarFotoGift(i: number, titulo: string) {
+    if (titulo.trim().length < 2) {
+      setFotoGiftErro("Escreva o nome do presente primeiro.");
+      return;
+    }
+    setGerandoFoto(i);
+    setFotoGiftErro("");
+    try {
+      const r = await fetch("/api/gerar-foto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo }),
+      });
+      const data = (await r.json()) as { url?: string; error?: string };
+      if (!data.url) throw new Error(data.error || "Não consegui criar a imagem agora.");
+      setS((s) => ({
+        ...s,
+        giftList: s.giftList.map((x, j) => (j === i ? { ...x, foto: data.url! } : x)),
+      }));
+    } catch (e) {
+      setFotoGiftErro(e instanceof Error ? e.message : "Não consegui criar a imagem agora.");
+    } finally {
+      setGerandoFoto(null);
+    }
+  }
   async function subirFotoGift(i: number, file: File) {
     setSubindoFoto(i);
     setFotoGiftErro("");
@@ -642,6 +661,55 @@ export function CriarConvite({
     const sec = alvo?.getAttribute("data-foco");
     if (sec) setFoco(sec);
   };
+
+  // A PRÉVIA SEGUE A ROLAGEM. Antes o foco só mudava no clique: quem descia até
+  // o mural de recados continuava vendo a galeria na prévia e só descobria o
+  // mural depois de tocar num campo — parecia que editar recado não mudava nada.
+  // Aqui o editor observa quanto de cada seção está na tela e manda a prévia
+  // para a mais visível.
+  //
+  // Digitar SEMPRE ganha da rolagem: se o cursor está num campo de outra seção,
+  // a rolagem não rouba o foco (senão a prévia pularia enquanto se escreve).
+  const colunaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const raiz = colunaRef.current;
+    if (!raiz) return;
+    const alvos = Array.from(raiz.querySelectorAll<HTMLElement>("[data-foco]"));
+    if (alvos.length < 2) return; // uma seção só: nada a escolher
+
+    let agendado = false;
+    const conferir = () => {
+      agendado = false;
+      // Digitar SEMPRE ganha da rolagem: com o cursor num campo, a prévia não
+      // pula sozinha enquanto a pessoa escreve.
+      if (document.activeElement?.closest?.("[data-foco]")) return;
+      const sec = secaoEmLeitura(
+        alvos.map((el) => {
+          const r = el.getBoundingClientRect();
+          return { sec: el.getAttribute("data-foco") ?? "", topo: r.top, altura: r.height };
+        }),
+        window.innerHeight,
+      );
+      if (sec) setFoco(sec);
+    };
+    const aoRolar = () => {
+      if (agendado) return;
+      agendado = true;
+      requestAnimationFrame(conferir);
+    };
+    conferir();
+    // `capture: true` no documento: dependendo do tamanho da tela quem rola é a
+    // janela ou a coluna do editor. Ouvir só a janela deixava a prévia parada no
+    // notebook, onde a coluna tem barra própria.
+    document.addEventListener("scroll", aoRolar, { passive: true, capture: true });
+    window.addEventListener("resize", aoRolar);
+    return () => {
+      document.removeEventListener("scroll", aoRolar, { capture: true });
+      window.removeEventListener("resize", aoRolar);
+    };
+    // Re-observa a cada passo: cada um tem os seus cartões.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [S.step]);
 
   // Galeria: várias fotos de uma vez. Cada upload entra no fim do álbum e já
   // aparece na prévia (a galeria e o carrossel do convite leem daqui).
@@ -1098,7 +1166,7 @@ export function CriarConvite({
           {/* ===================== FORM COLUMN ===================== */}
           {/* onFocus/onClick borbulham: ao tocar num campo com `data-foco`, a
               prévia rola até aquela seção do site ("vai para onde estou mexendo"). */}
-          <div className="flex flex-col gap-4" onFocus={onFocoCampo} onClick={onFocoCampo}>
+          <div ref={colunaRef} className="flex flex-col gap-4" onFocus={onFocoCampo} onClick={onFocoCampo}>
             {/* STEP 1 — Capa (o nome da debutante mora aqui) */}
             {S.step === 1 && (
               <div data-foco="capa" className={cardCls}>
@@ -1810,35 +1878,10 @@ export function CriarConvite({
                     <div className={cardCls}>
                       <div className="mb-4 text-[15.5px] font-bold">Seus presentes</div>
                       <div className="flex flex-col gap-4">
-                      {/* Adicionar rápido — 1 toque adiciona um presente pronto (fácil). */}
-                      <div>
-                        <div className="mb-2 text-[12.5px] font-semibold text-[#3F3F46]">Adicionar rápido <span className="font-normal text-[#A6A6AE]">— toque para incluir</span></div>
-                        <div className="flex flex-wrap gap-2">
-                          {SUGESTOES_PRESENTES.map((s) => {
-                            const jaTem = S.giftList.some((g) => g.n.trim().toLowerCase() === s.n.toLowerCase());
-                            return (
-                              <button
-                                key={s.n}
-                                type="button"
-                                disabled={jaTem}
-                                onClick={() => upd({ giftList: [...S.giftList, { id: crypto.randomUUID(), n: s.n, desc: s.desc, v: s.v }] })}
-                                className={`rounded-full border px-3 py-[7px] text-[12.5px] font-medium transition-colors ${
-                                  jaTem
-                                    ? "cursor-default border-[#ECECF0] bg-[#F4F4F6] text-[#B9B9C0]"
-                                    : "cursor-pointer border-[#DCCDFB] bg-[#F6F3FE] text-[#6D28D9] hover:bg-[#EFE7FE]"
-                                }`}
-                              >
-                                {jaTem ? "✓ " : "+ "}{s.n}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
                       <div data-foco="presentes" className="flex flex-col gap-2.5">
                         {S.giftList.length === 0 && (
                           <div className="rounded-xl border border-dashed border-[#E4E4EA] bg-[#FAFAFC] px-4 py-6 text-center text-[13px] text-[#A6A6AE]">
-                            Nenhum presente ainda. Toque numa sugestão acima ou em “Adicionar presente”.
+                            Nenhum presente ainda. Toque em “Adicionar presente” aqui embaixo.
                           </div>
                         )}
                         {S.giftList.map((g, i) => {
@@ -1962,13 +2005,22 @@ export function CriarConvite({
                                 {subindoFoto === i ? "Enviando…" : g.foto ? "Trocar foto" : "Adicionar foto (opcional)"}
                                 <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) subirFotoGift(i, f); e.target.value = ""; }} />
                               </label>
+                              <button
+                                type="button"
+                                onClick={() => gerarFotoGift(i, g.n)}
+                                disabled={gerandoFoto === i}
+                                title="Cria uma imagem a partir do nome do presente"
+                                className="cursor-pointer rounded-[10px] border border-[#DCCDFB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#6D28D9] hover:bg-[#F6F3FE] disabled:cursor-wait disabled:opacity-60"
+                              >
+                                {gerandoFoto === i ? "Criando…" : g.foto ? "Gerar outra" : "Gerar imagem"}
+                              </button>
                               {g.foto && (
                                 <button type="button" onClick={() => setRow({ foto: "" })} className="text-[11.5px] text-[#A6A6AE] hover:text-[#E11D48]">Remover</button>
                               )}
                               {fotoGiftErro && subindoFoto === null && (
                                 <span className="text-[11.5px] text-[#E11D48]">{fotoGiftErro}</span>
                               )}
-                              <span className="text-[11px] text-[#A6A6AE]">JPG, PNG ou WebP · até 6 MB</span>
+                              <span className="text-[11px] text-[#A6A6AE]">Envie a sua ou gere pelo nome · JPG, PNG ou WebP · até 6 MB</span>
                             </div>
 
                             {/* Descrição do presente (opcional) — aparece abaixo do nome, na lista */}
