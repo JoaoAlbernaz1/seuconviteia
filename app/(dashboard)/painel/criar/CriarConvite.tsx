@@ -198,12 +198,6 @@ const RSVP_LABELS = [
   "Perguntar sobre restrição alimentar",
   "Permitir recado para a debutante",
 ];
-const GIFTS = [
-  { n: "Jantar de gala", desc: "Ajude com o buffet da noite", v: "R$ 180", q: 4, c1: "#2b2440", c2: "#7C3AED" },
-  { n: "Valsa da debutante", desc: "O momento mais esperado", v: "R$ 250", q: 2, c1: "#241a12", c2: "#D4AF37" },
-  { n: "Sessão de fotos", desc: "Registros para a vida toda", v: "R$ 320", q: 1, c1: "#101426", c2: "#5B8DEF" },
-  { n: "Kit lembrancinhas", desc: "Para os convidados", v: "R$ 90", q: 8, c1: "#191114", c2: "#C97B7F" },
-];
 
 type State = {
   step: number;
@@ -248,7 +242,10 @@ const INICIAL: State = {
   rsvpDataLimite: "10/11/2026", rsvpCorBotao: "#CE578B",
   rsvpMsgSim: MSG_CONFIRMA_PADRAO, rsvpMsgNao: MSG_RECUSA_PADRAO,
   gifts: true, free: true, listaModelo: "painel",
-  giftList: GIFTS.map((g, index) => ({ id: `gift-demo-${index + 1}`, n: g.n, desc: g.desc, v: g.v })),
+  // A lista nasce VAZIA. Vinha com quatro presentes de exemplo ("Jantar de
+  // gala", "Valsa da debutante"...) que pareciam do cliente: quem não
+  // reparasse publicava o convite pedindo presente que ninguém escolheu.
+  giftList: [],
   pixOn: true, pixNome: "", pixChave: "", presentesTexto: "",
   freeTitulo: "Contribua com o valor que desejar", freeValores: "R$ 50 · R$ 100 · R$ 200",
   programacao: programacaoSugerida("QUINZE_ANOS"), prog: true,
