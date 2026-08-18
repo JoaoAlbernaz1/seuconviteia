@@ -169,13 +169,15 @@ export function ListaConvites({ items }: { items: ItemConvite[] }) {
                       editor. Sao coisas diferentes: gerenciar e ver quem
                       confirmou, quanto entrou e mexer nas partes do site;
                       editar e o assistente de 6 passos, que continua no
-                      "Editar o site" de dentro dela. */}
+                      "Editar o site" de dentro dela. Enquanto o site nao esta
+                      no ar nao ha o que gerenciar: o botao leva ao editor, que
+                      e onde o rascunho vira site publicado. */}
                   <Link
-                    href={`/painel/${ev.id}`}
+                    href={ev.publicado ? `/painel/${ev.id}` : `/painel/criar?id=${ev.id}`}
                     className="flex flex-1 items-center justify-center gap-2 rounded-[11px] bg-[#7C3AED] px-4 py-2.5 text-[13.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
                   >
                     <Ic d={IC.edit} size={14} stroke="#fff" width={2} />
-                    Gerenciar
+                    {ev.publicado ? "Gerenciar" : "Editar"}
                   </Link>
                   <a
                     href={ev.url}

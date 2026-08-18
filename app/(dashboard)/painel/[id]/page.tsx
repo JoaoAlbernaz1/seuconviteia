@@ -1,8 +1,9 @@
 // Acompanhar o evento (site já no ar): um cartão-herói com a prévia + link +
 // ação principal, KPIs com ícone, confirmações recentes e um menu único e
 // consistente para gerenciar cada parte do site. Ações destrutivas ficam
-// agrupadas numa zona própria no rodapé. Rascunho ainda não publicado volta ao
-// passo de publicar.
+// agrupadas numa zona própria no rodapé. Rascunho ainda não publicado não abre
+// aqui: gerenciar é para site no ar, então volta para "Meus convites" (a edição
+// do rascunho acontece no editor).
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -60,7 +61,7 @@ export default async function AcompanharEventoPage({
 }) {
   const { id } = await params;
   const event = await carregarEventoDono(id);
-  if (event.status === "DRAFT") redirect(`/painel/${id}/publicar`);
+  if (event.status === "DRAFT") redirect("/painel/convites");
 
   const host = hostDoEvento(event.subdomain);
   const url = urlDoEvento(event.subdomain);

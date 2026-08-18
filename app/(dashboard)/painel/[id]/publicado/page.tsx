@@ -1,5 +1,5 @@
 // Celebração de publicação — "Está no ar! ✨". Só aparece para eventos já
-// publicados (senão volta ao passo de publicar); confete + glows + link pronto
+// publicados (senão volta para "Meus convites"); confete + glows + link pronto
 // para copiar e compartilhar no WhatsApp.
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -16,7 +16,7 @@ export default async function PublicadoPage({
 }) {
   const { id } = await params;
   const event = await carregarEventoDono(id);
-  if (event.status !== "PUBLISHED") redirect(`/painel/${id}/publicar`);
+  if (event.status !== "PUBLISHED") redirect("/painel/convites");
 
   const host = hostDoEvento(event.subdomain);
   const url = urlDoEvento(event.subdomain);

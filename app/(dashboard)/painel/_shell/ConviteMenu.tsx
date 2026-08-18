@@ -98,7 +98,11 @@ export function ConviteMenu({
             <button onClick={compartilhar} className={itemCls}>
               Compartilhar
             </button>
-            <Link href={`/painel/${fid}/publicar`} onClick={() => setOpen(false)} className={itemCls}>
+            <Link
+              href={publicado ? `/painel/${fid}` : `/painel/criar?id=${fid}`}
+              onClick={() => setOpen(false)}
+              className={itemCls}
+            >
               {publicado ? "Pausar convite" : "Publicar"}
             </Link>
             <Link

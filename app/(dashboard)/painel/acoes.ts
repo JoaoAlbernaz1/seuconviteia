@@ -135,7 +135,7 @@ const rascunhoSchema = z.object({
 
 /**
  * Cria o evento como RASCUNHO com o essencial do wizard e leva pro passo 4
- * (/painel/<id>/publicar). O slug desejado e respeitado quando livre (senao
+ * (o editor, /painel/criar?id=<id>). O slug desejado e respeitado quando livre (senao
  * ganha sufixo unico — a tela seguinte mostra o endereco final).
  */
 export async function criarRascunho(
@@ -230,7 +230,7 @@ export async function criarRascunho(
   });
 
   revalidatePath("/painel");
-  redirect(`/painel/${event.id}/publicar`);
+  redirect(`/painel/criar?id=${event.id}`);
 }
 
 // ----------------------------------------------------------------------------
@@ -508,21 +508,6 @@ export async function salvarProgramacao(formData: FormData): Promise<void> {
   });
   revalidatePath("/painel");
   redirect(destinoVoltar(formData, `/painel/${event.id}`));
-}
-
-// ----------------------------------------------------------------------------
-// Publicar (rascunho -> no ar) com celebração
-// ----------------------------------------------------------------------------
-
-export async function publicarEComemorar(formData: FormData): Promise<void> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) redirect("/painel");
-  await prisma.event.update({
-    where: { id: event.id },
-    data: { status: "PUBLISHED" },
-  });
-  revalidatePath("/painel");
-  redirect(`/painel/${event.id}/publicado`);
 }
 
 // ----------------------------------------------------------------------------
