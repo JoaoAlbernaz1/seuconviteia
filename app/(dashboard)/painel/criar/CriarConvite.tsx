@@ -574,6 +574,7 @@ export function CriarConvite({
   // Busca de prévia do link de loja (presente tipo LINK).
   const [subindoFoto, setSubindoFoto] = useState<string | null>(null);
   const [gerandoFoto, setGerandoFoto] = useState<string | null>(null);
+  const [fotoDeExemplo, setFotoDeExemplo] = useState<string | null>(null);
   // O erro guarda O PRESENTE que falhou: sem o id, a mensagem aparecia
   // embaixo de TODOS os presentes da lista ao mesmo tempo. Com a recusa de
   // foto com QR code isso passaria a acontecer sempre.
@@ -635,9 +636,13 @@ export function CriarConvite({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ titulo }),
       });
-      const data = (await r.json()) as { url?: string; error?: string };
+      const data = (await r.json()) as { url?: string; error?: string; origem?: string };
       if (!data.url) throw new Error(data.error || "Não consegui criar a imagem agora.");
       aplicarFoto(id, data.url);
+      // Sem a IA ligada, o que volta é uma foto do nosso acervo — e ela pode não
+      // ter nada a ver com o presente ("Valsa" caía numa foto genérica de
+      // festa). Dizer isso é melhor que a pessoa achar que a máquina errou.
+      setFotoDeExemplo(data.origem === "catalogo" ? id : null);
     } catch (e) {
       setFotoGiftErro({ id, msg: e instanceof Error ? e.message : "Não consegui criar a imagem agora." });
     } finally {
@@ -649,6 +654,7 @@ export function CriarConvite({
     setFotoGiftErro(null);
     try {
       aplicarFoto(id, await enviarUpload(file));
+      setFotoDeExemplo(null);
     } catch (e) {
       // Engolir o erro fazia a foto "não funcionar" sem dizer por quê — era só
       // o arquivo grande demais, um formato que não aceitamos, ou o QR code.
@@ -657,7 +663,17 @@ export function CriarConvite({
       setSubindoFoto(null);
     }
   }
+  /** Marca "acabei de mexer aqui" — a rolagem não manda por um instante. */
+  const marcarInteracao = useCallback(() => {
+    ultimaInteracaoRef.current = Date.now();
+  }, []);
+
   const onFocoCampo = (e: React.FocusEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
+    // Tocar em qualquer coisa do editor conta como ESCOLHA: por um instante, o
+    // acompanhamento de rolagem não manda. Sem isto, clicar em "Ver: recados"
+    // mostrava o mural e o primeiro evento de rolagem devolvia a prévia para a
+    // galeria — a escolha da pessoa durava menos que um piscar.
+    marcarInteracao();
     const alvo = (e.target as HTMLElement).closest("[data-foco]");
     const sec = alvo?.getAttribute("data-foco");
     if (sec) setFoco(sec);
@@ -672,7 +688,7 @@ export function CriarConvite({
   // Digitar SEMPRE ganha da rolagem: se o cursor está num campo de outra seção,
   // a rolagem não rouba o foco (senão a prévia pularia enquanto se escreve).
   const colunaRef = useRef<HTMLDivElement>(null);
-  const ultimaTeclaRef = useRef(0);
+  const ultimaInteracaoRef = useRef(0);
   useEffect(() => {
     const raiz = colunaRef.current;
     if (!raiz) return;
@@ -683,10 +699,10 @@ export function CriarConvite({
     let quadro = 0;
     const conferir = () => {
       agendado = false;
-      // Digitar ganha da rolagem por um instante — e só por um instante.
-      // Antes a trava era "existe um campo focado", o que prendia a prévia à
-      // seção anterior enquanto a pessoa rolava com o cursor ainda no campo.
-      if (Date.now() - ultimaTeclaRef.current < 1200) return;
+      // Mexer no editor (clicar, focar, digitar) ganha da rolagem por um
+      // instante — e só por um instante. A trava antiga era "existe um campo
+      // focado", que prendia a prévia à seção anterior enquanto se rolava.
+      if (Date.now() - ultimaInteracaoRef.current < 1200) return;
       const sec = secaoEmLeitura(
         alvos.map((el) => {
           const r = el.getBoundingClientRect();
@@ -1176,7 +1192,7 @@ export function CriarConvite({
             className="flex flex-col gap-4"
             onFocus={onFocoCampo}
             onClick={onFocoCampo}
-            onKeyDown={() => { ultimaTeclaRef.current = Date.now(); }}
+            onKeyDown={marcarInteracao}
           >
             {/* STEP 1 — Capa (o nome da debutante mora aqui) */}
             {S.step === 1 && (
@@ -2031,6 +2047,9 @@ export function CriarConvite({
                               {fotoGiftErro?.id === g.id && (
                                 <span className="text-[11.5px] text-[#E11D48]">{fotoGiftErro.msg}</span>
                               )}
+                              {fotoDeExemplo === g.id && !fotoGiftErro && (
+                                <span className="text-[11.5px] text-[#B8730F]">Foto de exemplo do acervo — envie a sua se preferir.</span>
+                              )}
                               <span className="text-[11px] text-[#A6A6AE]">Envie a sua ou gere pelo nome · JPG, PNG ou WebP · até 6 MB</span>
                             </div>
 
@@ -2223,7 +2242,7 @@ export function CriarConvite({
                       <div className="mb-4 mt-3 flex flex-col gap-3 rounded-[13px] border border-[#ECECF0] bg-[#FAFAFC] p-3.5">
                         <div className="text-[13px] font-semibold">Textos da página</div>
                         <div>
-                          <Label>Chapéu</Label>
+                          <Label>Linha de cima</Label>
                           <input value={S.recEyebrow} onChange={inp("recEyebrow")} maxLength={60} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                         </div>
                         <div>
@@ -2234,10 +2253,6 @@ export function CriarConvite({
                           <Label>Convite</Label>
                           <input value={S.recConvite} onChange={inp("recConvite")} maxLength={220} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                           <div className="mt-1 text-[11.5px] text-[#A6A6AE]">Escreva <span className="font-semibold">{"{nome}"}</span> onde quiser que apareça o nome do convite.</div>
-                        </div>
-                        <div>
-                          <Label>Título do mural</Label>
-                          <input value={S.recMural} onChange={inp("recMural")} maxLength={80} style={{ borderColor: "#E4E4EA" }} className={inputCls} />
                         </div>
                       </div>
                       {/* Aqui existia uma lista de TRÊS recados inventados

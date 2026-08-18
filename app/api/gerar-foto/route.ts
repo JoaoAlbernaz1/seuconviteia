@@ -18,14 +18,18 @@ const bodySchema = z.object({ titulo: z.string().trim().min(2).max(120) });
 /** Foto temática local por palavra-chave (fallback sem IA). */
 function fotoTematica(titulo: string): string {
   const t = titulo.toLowerCase();
+  // O acervo tem OITO fotos: por melhor que fique a lista de palavras, presente
+  // fora dela cai na foto genérica de festa. Quem gera imagem DE VERDADE é a
+  // IA (basta a OPENAI_API_KEY no ambiente) — isto aqui é o plano B para não
+  // deixar o botão sem resposta.
   const REGRAS: [RegExp, string][] = [
-    [/viag|lua de mel|passeio|intercâmbio|intercambio|hotel/, "viagem"],
-    [/vestido|roupa|look/, "vestido"],
-    [/maquiagem|make|batom|beleza/, "make"],
-    [/foto|ensaio|c[âa]mera|filmagem/, "foto"],
-    [/spa|massagem|bem-estar|salão|salao|cabelo/, "spa"],
-    [/sapato|salto|t[êe]nis|calçado|calcado/, "sapato"],
-    [/fone|m[úu]sica|som|show|ingresso/, "som"],
+    [/viag|lua de mel|passeio|intercâmbio|intercambio|hotel|hosped/, "viagem"],
+    [/vestido|roupa|look|traje|terno|smoking/, "vestido"],
+    [/maquiagem|make|batom|beleza|unha|manicure|perfume/, "make"],
+    [/foto|ensaio|c[âa]mera|filmagem|v[íi]deo|[áa]lbum|drone/, "foto"],
+    [/spa|massagem|bem-estar|sal[ãa]o|cabelo|penteado|dia da noiva/, "spa"],
+    [/sapato|salto|t[êe]nis|cal[çc]ado|bolsa/, "sapato"],
+    [/fone|m[úu]sica|som|show|ingresso|dj|banda|valsa|dan[çc]a|baile|karaok/, "som"],
   ];
   for (const [re, nome] of REGRAS) if (re.test(t)) return `/presentes-demo/${nome}.jpg`;
   return "/presentes-demo/festa.jpg";
