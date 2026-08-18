@@ -179,15 +179,19 @@ export function ListaConvites({ items }: { items: ItemConvite[] }) {
                     <Ic d={IC.edit} size={14} stroke="#fff" width={2} />
                     {ev.publicado ? "Gerenciar" : "Editar"}
                   </Link>
-                  <a
-                    href={ev.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-[11px] border border-[#ececf0] bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[#17171b] transition-colors hover:bg-[#f4f4f6]"
-                  >
-                    <Ic d={IC.eye} size={14} stroke="#17171b" />
-                    Ver
-                  </a>
+                  {/* "Ver" abre o site publico — que so existe depois de
+                      publicar. No rascunho ele fica de fora. */}
+                  {ev.publicado && (
+                    <a
+                      href={ev.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 rounded-[11px] border border-[#ececf0] bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[#17171b] transition-colors hover:bg-[#f4f4f6]"
+                    >
+                      <Ic d={IC.eye} size={14} stroke="#17171b" />
+                      Ver
+                    </a>
+                  )}
                 </div>
               )}
             </div>
