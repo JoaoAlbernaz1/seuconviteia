@@ -61,12 +61,17 @@ export const PILL_PREPARO =
  * Pill de status APAGADO: o site existe, mas ninguem o alcanca agora (fora do
  * ar, festa encerrada).
  *
- * Tinta cheia de proposito. Ele divide a linha com o selo secundario neutro
- * (`PILL_NEUTRO`), e dois cinzas lado a lado empatam — quem bate o olho nao
- * saberia qual dos dois e o estado do convite.
+ * Cheio de proposito: ele divide a linha com o selo secundario neutro
+ * (`PILL_NEUTRO`), e dois chips claros lado a lado empatam — quem bate o olho
+ * nao saberia qual dos dois e o estado do convite.
+ *
+ * Mas CINZA, nao tinta (`bg-scv-btn` dava 16:1): num chip preto, o convite
+ * MORTO virava o elemento mais pesado da grade e o convite vivo, o mais fraco.
+ * O cinza medio da 4,76:1 com branco — legivel, e sem gritar mais alto que o
+ * "Publicado".
  */
 export const PILL_FORA =
-  "rounded-full bg-scv-btn px-3 py-1 text-[10.5px] font-bold text-scv-btn-ink";
+  "rounded-full bg-scv-muted px-3 py-1 text-[10.5px] font-bold text-white";
 
 /**
  * Pill SECUNDARIO neutro — informacao de apoio que NUNCA substitui o estado.

@@ -233,10 +233,16 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
               </div>
 
               {!modo && (
-                /* `mt-auto` cola a area de acao no rodape do card: sem ele, um
-                   convite com endereco de duas linhas empurrava os botoes para
-                   baixo e a fileira inteira ficava desalinhada. */
-                <div className="mt-auto pt-4">
+                /* SEM `mt-auto`. Colar a acao no rodape alinhava a base dos
+                   cards, mas ao custo de desalinhar os BOTOES: o card sem o link
+                   (rascunho, festa encerrada) empurrava o proprio botao ~44px
+                   para baixo do botao do vizinho, e a folga no meio lia como
+                   buraco. Sem ele, os botoes da fileira batem — o que sobra vai
+                   para o rodape do card, onde le como respiro.
+                   A outra saida seria reservar a linha do link em TODOS os
+                   cards; com 26 rascunhos na conta real, seria espaco morto na
+                   maioria deles. */
+                <div className="pt-4">
                   <div className="flex items-center gap-2.5">
                     {/* GERENCIAR = a tela do convite (`/painel/<id>`): quem
                         confirmou, os recados, o que entrou de presente. Nao e o
@@ -282,6 +288,10 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                       com a janela ja aberta ela vira o atalho direto para o
                       editor, porque ai nao ha nada a liberar (a tela de liberar
                       redireciona para la de qualquer jeito).
+                      Sublinhado FIXO, nao no hover: desde que o lapis saiu, esta
+                      e a unica porta de edicao da tela, e no celular nao existe
+                      hover — cinza de 12,5px sem sublinhado lia como legenda do
+                      card, nao como link. "Discreto" nao e "invisivel".
                       `!text-` porque `.dash a` pinta todo link de violeta de
                       fora das @layer, e utility sem `!` perde essa briga. */}
                   {mostraEdicao ? (
@@ -291,7 +301,7 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                           ? `/painel/criar?id=${ev.id}`
                           : `/painel/${ev.id}/liberar`
                       }
-                      className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] !text-[#6e6e76] transition-colors hover:!text-[#17171b] hover:underline"
+                      className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] !text-scv-muted underline underline-offset-4 transition-colors hover:!text-scv-ink"
                     >
                       {ev.edicaoLiberada
                         ? "Editar o site agora"
