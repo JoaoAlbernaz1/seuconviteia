@@ -599,6 +599,7 @@ export function CriarConvite({
   // popup do navegador que a pessoa fecha no automatico. Mesmo padrao inline de
   // `ListaConvites.tsx` e `ExcluirEvento.tsx`.
   const [confirmandoPub, setConfirmandoPub] = useState(false);
+  const perguntaPub = useRef<HTMLParagraphElement>(null);
   // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
   // cliente so via "Nao foi possivel salvar" e nao sabia o que fazer.
   const [salvarErro, setSalvarErro] = useState("");
@@ -879,6 +880,14 @@ export function CriarConvite({
       }
     }
   };
+
+  // O botão que estava sob o dedo some quando a pergunta entra: sem isto o foco
+  // cai no <body> e quem usa teclado ou leitor de tela não fica sabendo que a
+  // barra trocou de assunto. Foca a PERGUNTA (e não um dos botões): assim nada
+  // publica por repetição de tecla, e a consequência é lida antes da escolha.
+  useEffect(() => {
+    if (confirmandoPub) perguntaPub.current?.focus();
+  }, [confirmandoPub]);
 
   const req = (v: string) => !!v && v.trim().length > 0;
   const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
@@ -1280,7 +1289,7 @@ export function CriarConvite({
                 estado, não consequência: o âmbar da tela é o aviso de publicar. */}
             {edicaoAte && (
               <div
-                role="status"
+                role="note"
                 className="flex items-start gap-3 rounded-[14px] border border-scv-teal/25 bg-scv-teal/10 px-4 py-3.5 text-[13px] leading-relaxed"
               >
                 <i className="bi bi-unlock mt-0.5 text-[17px] text-scv-teal" aria-hidden />
@@ -2567,7 +2576,11 @@ export function CriarConvite({
       <div className="sticky bottom-0 z-30 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
         {confirmandoPub ? (
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-            <p className="text-[12.5px] leading-snug text-[#6e6e76] sm:flex-1" role="status">
+            <p
+              ref={perguntaPub}
+              tabIndex={-1}
+              className="text-[12.5px] leading-snug text-[#6e6e76] outline-none sm:flex-1"
+            >
               O site vai ao ar com esta versão e a edição fecha.
             </p>
             <button
