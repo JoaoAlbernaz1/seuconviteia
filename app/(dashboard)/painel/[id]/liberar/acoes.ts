@@ -1,25 +1,29 @@
 "use server";
 
 /**
- * Passe de edicao: o convite publicado reabre por 48h (`PASSE_HORAS`) contra um
- * Pix de R$ 19,90.
+ * As duas portas do painel para reabrir por 48h (`PASSE_HORAS`) a edicao de um
+ * convite publicado: o Pix de R$ 19,90 (`comprarPasseEdicao`) e a liberacao ja
+ * INCLUIDA no plano (`usarPasseIncluido`).
  *
- * Espelha `lib/presentear.ts`: cria a linha PENDING primeiro (o id vira a
- * referencia da cobranca) e marca FAILED se o gateway recusar. E NUNCA concede
- * — nada aqui toca `Event.edicaoAte`. Quem abre a janela e o webhook
- * (/api/webhooks/mercadopago), depois de reconsultar o pagamento no MP; esta
- * action so sabe pedir a cobranca.
+ * `comprarPasseEdicao` espelha `lib/presentear.ts`: cria a linha PENDING
+ * primeiro (o id vira a referencia da cobranca) e marca FAILED se o gateway
+ * recusar. E NUNCA concede — nada nela toca `Event.edicaoAte`. Quem abre a
+ * janela depois de um Pix e o webhook (/api/webhooks/mercadopago), depois de
+ * reconsultar o pagamento no MP; a action so sabe pedir a cobranca.
  */
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
-import { PASSE_PRECO_CENTS, edicaoAberta } from "@/lib/edicao";
+import { PASSE_PRECO_CENTS, edicaoAberta, fimDoPasse, temPasseIncluido } from "@/lib/edicao";
 import { conviteEncerrado } from "@/lib/event";
+import { SELECT_ASSINATURA, planoEfetivo } from "@/lib/plans";
 
 export type ComprarPasseResult =
   | { ok: true; pixCode: string; pixQrUrl: string; transactionId: string }
   | { ok: false; erro: string };
+
+export type UsarPasseIncluidoResult = { ok: true } | { ok: false; erro: string };
 
 /** O id vem do cliente: valida na borda antes de virar query (CLAUDE.md). */
 const eventIdSchema = z.string().trim().min(1).max(40);
@@ -143,4 +147,76 @@ export async function comprarPasseEdicao(eventId: string): Promise<ComprarPasseR
     pixQrUrl: cobranca.pixQrUrl,
     transactionId: tx.id,
   };
+}
+
+/**
+ * Usa uma liberacao INCLUIDA no plano (Gratis 0, Profissional 1, Estudio 3 —
+ * `passesIncluidos`). O teto e POR CONVITE: sem teto, "editar de graca" viraria
+ * edicao infinita e o passe pago nao existiria para quem assina.
+ *
+ * Esta e a TERCEIRA (e ultima) escrita de `Event.edicaoAte` no repo, ao lado da
+ * cortesia da primeira publicacao (`painel/criar/acoes.ts`) e do webhook
+ * (`lib/passeEdicao.ts`). Aqui e legitimo porque a cota nao e cortesia nem venda
+ * nova: e direito JA PAGO na mensalidade, entao a janela abre no ato, sem passar
+ * pelo gateway. Um quarto escritor precisa da mesma justificativa.
+ */
+export async function usarPasseIncluido(eventId: string): Promise<UsarPasseIncluidoResult> {
+  const session = await auth();
+  // Mesma guarda da compra: sem `id`, o `undefined` some do `where` do Prisma e
+  // a consulta viraria "qualquer convite com esse id" — gastando a cota (e
+  // abrindo a edicao) de convite alheio.
+  if (!session?.user?.id) return { ok: false, erro: "Sua sessão expirou. Entre de novo." };
+
+  const id = eventIdSchema.safeParse(eventId);
+  if (!id.success) return { ok: false, erro: "Convite não encontrado." };
+
+  const [event, prof] = await Promise.all([
+    // Ownership pelo `professionalId` da SESSAO, como na compra.
+    prisma.event.findFirst({
+      where: { id: id.data, professionalId: session.user.id },
+      select: { id: true, status: true, expiresAt: true, edicaoAte: true, passesGratis: true },
+    }),
+    // A conta vem com `SELECT_ASSINATURA` porque o direito e o `planoEfetivo`,
+    // nunca o `prof.plan`: quem cancelou o Estudio nao fica com as 3 liberacoes.
+    prisma.professional.findUnique({
+      where: { id: session.user.id },
+      select: SELECT_ASSINATURA,
+    }),
+  ]);
+  if (!event || !prof) return { ok: false, erro: "Convite não encontrado." };
+
+  const agora = new Date();
+  // A ordem e a mesma da compra, e ela e a regra: `edicaoAberta` e
+  // DRAFT-primeiro, entao rascunho ouve "ja esta liberada" — e nao "a festa
+  // passou", que o mandaria criar convite novo por causa da data que ele ainda
+  // esta consertando.
+  if (edicaoAberta(event, agora)) {
+    return { ok: false, erro: "A edição deste convite já está liberada." };
+  }
+  // Convite encerrado cai fora da janela como qualquer outro: sem esta pergunta
+  // a pessoa queimaria uma cota do plano para editar um site que nao volta ao ar.
+  if (conviteEncerrado(event, agora)) {
+    return { ok: false, erro: "Esta festa já passou. Crie um convite novo para a próxima." };
+  }
+  if (!temPasseIncluido(planoEfetivo(prof, agora), event.passesGratis)) {
+    return { ok: false, erro: "Você já usou as liberações incluídas neste convite." };
+  }
+
+  // COMPARE-AND-SET: `passesGratis` entra no WHERE com o valor que acabou de ser
+  // lido. Dois cliques simultaneos leem o mesmo 0, os dois UPDATEs disputam a
+  // MESMA linha e o Postgres reavalia o WHERE do segundo depois do commit do
+  // primeiro — ele nao acha linha e nao consome a segunda cota. Sem isto os dois
+  // gravariam 1 e o convite teria recebido duas liberacoes por uma so cota (e
+  // por isso nao ha transacao explicita aqui: e um UPDATE unico e condicional).
+  //
+  // `fimDoPasse(agora)` SOBRESCREVE em vez de empilhar de proposito: so se chega
+  // ate aqui com a janela fechada, entao nao ha tempo vivo para encurtar.
+  const aplicado = await prisma.event.updateMany({
+    where: { id: event.id, passesGratis: event.passesGratis },
+    data: { passesGratis: event.passesGratis + 1, edicaoAte: fimDoPasse(agora) },
+  });
+  // Perdeu a corrida (ou a linha sumiu). "Tente de novo" e a verdade util: no
+  // recarregar, a tela ja mostra a edicao liberada pelo clique que venceu.
+  if (aplicado.count !== 1) return { ok: false, erro: "Tente de novo." };
+  return { ok: true };
 }

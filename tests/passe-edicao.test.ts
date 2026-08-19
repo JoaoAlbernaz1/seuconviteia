@@ -14,6 +14,7 @@ import { PrismaClient } from "@prisma/client";
 import { POST } from "@/app/api/webhooks/mercadopago/route";
 import { FakePaymentProvider } from "@/lib/pagamentos";
 import { MercadoPagoPaymentProvider } from "@/lib/pagamentos/mercadopago";
+import type { UsarPasseIncluidoResult } from "@/app/(dashboard)/painel/[id]/liberar/acoes";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
@@ -36,13 +37,29 @@ vi.mock("@/lib/pagamentos", async (original) => {
   return { ...real, getPaymentProvider: providerMock };
 });
 
-const { comprarPasseEdicao } = await import("@/app/(dashboard)/painel/[id]/liberar/acoes");
+const { comprarPasseEdicao, usarPasseIncluido } = await import(
+  "@/app/(dashboard)/painel/[id]/liberar/acoes"
+);
 
 /** Conta + convite PUBLICADO com a janela ja vencida (o caso real da tela). */
-async function conviteFechado(db: PrismaClient, plan: "BASICO" | "CLASSICO" | "PREMIUM" = "BASICO") {
+async function conviteFechado(
+  db: PrismaClient,
+  plan: "BASICO" | "CLASSICO" | "PREMIUM" = "BASICO",
+  // Assinatura VIVA por padrao nos planos pagos: `planoEfetivo` rebaixa para
+  // BASICO quando `assinaturaAte` e nulo ou passado, entao um "CLASSICO" criado
+  // so na coluna `plan` nao teria liberacao incluida nenhuma.
+  assinaturaAte: Date | null = plan === "BASICO" ? null : new Date(Date.now() + 30 * 24 * 60 * 60_000),
+) {
   const sufixo = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const prof = await db.professional.create({
-    data: { name: "Dono", email: `${MARCA}-${sufixo}@exemplo.test`, passwordHash: "x", plan },
+    data: {
+      name: "Dono",
+      email: `${MARCA}-${sufixo}@exemplo.test`,
+      passwordHash: "x",
+      plan,
+      assinaturaStatus: plan === "BASICO" ? null : "authorized",
+      assinaturaAte,
+    },
   });
   const event = await db.event.create({
     data: {
@@ -374,5 +391,157 @@ describe("passe de edicao", () => {
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
     expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PENDING");
+  });
+
+  // --------------------------------------------------------------------------
+  // Liberacao INCLUIDA no plano (Gratis 0, Profissional 1, Estudio 3)
+  // --------------------------------------------------------------------------
+
+  it.skipIf(!enabled)("Profissional usa 1 liberacao por convite — a segunda e recusada", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "CLASSICO");
+
+    expect(await usarPasseIncluido(event.id)).toEqual({ ok: true });
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.passesGratis).toBe(1);
+    expect(depois.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+
+    // Fecha a janela na mao para pedir a SEGUNDA liberacao do mesmo convite.
+    await db.event.update({ where: { id: event.id }, data: { edicaoAte: new Date(Date.now() - 1000) } });
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Você já usou as liberações incluídas neste convite.",
+    });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(1);
+  });
+
+  it.skipIf(!enabled)("Basico nao tem liberacao incluida", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "BASICO");
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Você já usou as liberações incluídas neste convite.",
+    });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(0);
+  });
+
+  it.skipIf(!enabled)("Estudio usa 3 no mesmo convite — a quarta e recusada", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "PREMIUM");
+
+    for (let i = 1; i <= 3; i++) {
+      expect(await usarPasseIncluido(event.id)).toEqual({ ok: true });
+      expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(i);
+      // Cada uso so acontece com a janela fechada — e assim que a tela chega aqui.
+      await db.event.update({ where: { id: event.id }, data: { edicaoAte: new Date(Date.now() - 1000) } });
+    }
+
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Você já usou as liberações incluídas neste convite.",
+    });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(3);
+  });
+
+  it.skipIf(!enabled)("Estudio com assinatura VENCIDA nao tem liberacao incluida", async () => {
+    const db = prisma!;
+    // A coluna `plan` continua PREMIUM: quem diz o direito de hoje e
+    // `planoEfetivo`. Ler `prof.plan` daria 3 liberacoes a quem parou de pagar.
+    const { event } = await conviteFechado(db, "PREMIUM", new Date(Date.now() - 24 * 60 * 60_000));
+
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Você já usou as liberações incluídas neste convite.",
+    });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(0);
+  });
+
+  it.skipIf(!enabled)("com a janela ja aberta, nao gasta cota", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "CLASSICO");
+    await db.event.update({ where: { id: event.id }, data: { edicaoAte: new Date(Date.now() + 3_600_000) } });
+
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "A edição deste convite já está liberada.",
+    });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(0);
+  });
+
+  it.skipIf(!enabled)("festa que ja passou nao libera edicao (nem queima cota)", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "PREMIUM");
+    await db.event.update({
+      where: { id: event.id },
+      data: { eventDate: new Date("2020-01-01T00:00:00Z"), expiresAt: new Date("2020-02-01T00:00:00Z") },
+    });
+
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Esta festa já passou. Crie um convite novo para a próxima.",
+    });
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.passesGratis).toBe(0);
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+  });
+
+  it.skipIf(!enabled)("convite de outra conta (ou sessao sem id) nao gasta cota", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "PREMIUM");
+    // Sessao trocada para um estranho: o convite existe, mas nao e dele.
+    const { prof: outro } = await conviteFechado(db, "PREMIUM");
+    sessionMock.mockResolvedValue({ user: { id: outro.id, email: outro.email } });
+    expect(await usarPasseIncluido(event.id)).toEqual({ ok: false, erro: "Convite não encontrado." });
+
+    sessionMock.mockResolvedValue(null);
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Sua sessão expirou. Entre de novo.",
+    });
+
+    // Sessao legada sem `id`: o Prisma ignora `undefined` no where, entao a
+    // consulta viraria "qualquer convite com esse id".
+    sessionMock.mockResolvedValue({ user: { email: outro.email } });
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Sua sessão expirou. Entre de novo.",
+    });
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.passesGratis).toBe(0);
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+  });
+
+  it.skipIf(!enabled)("dois cliques SIMULTANEOS gastam UMA cota (corrida FORCADA por lock)", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "CLASSICO");
+
+    // `Promise.all` sozinho NAO reproduz a corrida: as duas chamadas terminam
+    // antes de se cruzarem. O que morde e travar a linha do evento numa conexao
+    // separada (`FOR UPDATE`): o `SELECT` do MVCC passa, entao as duas leem
+    // `passesGratis = 0`, e os dois UPDATEs ficam pendurados na trava — o
+    // interleaving exato do bug. Sem `passesGratis` no WHERE as DUAS voltariam
+    // `ok: true` (a linha ainda marcaria 1, e a cota unica teria virado duas).
+    const bloqueador = new PrismaClient();
+    let cliques: Promise<UsarPasseIncluidoResult[]> | undefined;
+    // `finally` porque a conexao extra tem de fechar mesmo se a trava estourar:
+    // pool vazado derruba os testes seguintes com um erro que nao e o de verdade.
+    try {
+      await bloqueador.$transaction(async (trava) => {
+        await trava.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${event.id} FOR UPDATE`;
+        cliques = Promise.all([usarPasseIncluido(event.id), usarPasseIncluido(event.id)]);
+        // Tempo de as duas chegarem no UPDATE e ficarem penduradas na trava.
+        await new Promise((r) => setTimeout(r, 300));
+      });
+
+      const resultados = await cliques!;
+      expect(resultados.filter((r) => r.ok)).toHaveLength(1);
+      expect(resultados.filter((r) => !r.ok)).toEqual([{ ok: false, erro: "Tente de novo." }]);
+      const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+      expect(depois.passesGratis).toBe(1);
+      expect(depois.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+    } finally {
+      await bloqueador.$disconnect();
+    }
   });
 });
