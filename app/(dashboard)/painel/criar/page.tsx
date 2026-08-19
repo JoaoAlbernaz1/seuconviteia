@@ -9,6 +9,8 @@ import Link from "next/link";
 import { legacyEventToDocument } from "@/lib/event-editor/legacy";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
+import { edicaoAberta } from "@/lib/edicao";
+import { redirect } from "next/navigation";
 import { CriarConvite } from "./CriarConvite";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +45,14 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
         where: { id, professionalId: session.user.id },
         include: { gifts: { orderBy: { id: "asc" } }, photos: { orderBy: { order: "asc" } } },
       });
+
+      // A PORTA de ABRIR o editor. Publicou, fecha: sem uma janela aberta o
+      // convite nao volta para a tela de edicao, vai para a tela que explica e
+      // libera. Botao escondido nao seria bloqueio — o link direto passaria.
+      if (event && !edicaoAberta(event, new Date())) {
+        redirect(`/painel/${event.id}/liberar`);
+      }
+
       if (event) {
         const legacyDocument = legacyEventToDocument(event);
         const draft = EventEditorDocumentSchema.safeParse(event.draftData);

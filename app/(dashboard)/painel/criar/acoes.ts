@@ -35,6 +35,7 @@ import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
 import { mergeCustomization } from "@/lib/customizationMerge";
 import { planGiftSync } from "@/lib/event-editor/gift-sync";
 import { conviteEncerrado } from "@/lib/event";
+import { edicaoAberta, fimDaCortesia } from "@/lib/edicao";
 
 export type CriarConviteResult =
   | { ok: true; id: string; subdomain: string; host: string; url: string }
@@ -43,12 +44,12 @@ export type CriarConviteResult =
 export type SalvarDocumentoResult =
   | { ok: true; id: string; version: number; savedAt: string; host: string; url: string }
   | { ok: false; kind: "conflict"; currentVersion: number; error: string }
-  | { ok: false; kind: "validation" | "auth" | "not_found" | "limit" | "server"; error: string };
+  | { ok: false; kind: "validation" | "auth" | "not_found" | "limit" | "fechado" | "server"; error: string };
 
 export type PublicarDocumentoResult =
   | { ok: true; id: string; publishedVersion: number; publishedAt: string; host: string; url: string }
   | { ok: false; kind: "conflict"; currentVersion: number; error: string }
-  | { ok: false; kind: "validation" | "auth" | "not_found" | "server"; error: string };
+  | { ok: false; kind: "validation" | "auth" | "not_found" | "fechado" | "server"; error: string };
 
 const giftSchema = z.object({
   titulo: z.string().trim().min(1).max(140),
@@ -558,12 +559,18 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     return { ok: true, id: event.id, version: 1, savedAt: savedAt.toISOString(), ...address };
   }
 
-  const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true, status: true, expiresAt: true } });
+  const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true, status: true, expiresAt: true, edicaoAte: true } });
   if (!owned) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
   // Convite ENCERRADO nao se edita: senao a mesma linha vira a festa do ano que
   // vem, e nenhuma festa nova gera presente novo.
   if (conviteEncerrado(owned, new Date())) {
     return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
+  }
+  // A PORTA de SALVAR. O editor fechado nem abre (`criar/page.tsx`), mas a
+  // action é um endereço público: sem esta linha, uma aba velha ainda gravaria
+  // no convite que já está com os convidados.
+  if (!edicaoAberta(owned, new Date())) {
+    return { ok: false, kind: "fechado", error: "Este convite está publicado. Libere a edição para mexer no site." };
   }
   if (owned.draftVersion !== expectedVersion) {
     return { ok: false, kind: "conflict", currentVersion: owned.draftVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
@@ -602,11 +609,16 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const professionalId = session.user.id;
   const event = await prisma.event.findFirst({
     where: { id, professionalId },
-    select: { id: true, subdomain: true, draftData: true, draftVersion: true, status: true, expiresAt: true },
+    select: { id: true, subdomain: true, draftData: true, draftVersion: true, status: true, expiresAt: true, edicaoAte: true, publishedVersion: true },
   });
   if (!event) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
   if (conviteEncerrado(event, new Date())) {
     return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
+  }
+  // A PORTA de REPUBLICAR. Republicar é o que troca o site que os convidados
+  // veem: fora da janela, é exatamente isso que a regra impede.
+  if (!edicaoAberta(event, new Date())) {
+    return { ok: false, kind: "fechado", error: "Este convite está publicado. Libere a edição para mexer no site." };
   }
   if (event.draftVersion !== expectedDraftVersion) {
     return { ok: false, kind: "conflict", currentVersion: event.draftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
@@ -614,9 +626,15 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const document = EventEditorDocumentSchema.safeParse(event.draftData);
   if (!document.success) return { ok: false, kind: "validation", error: "O rascunho precisa ser revisado antes de publicar." };
 
-  const subdomain = await gerarSlugUnico(document.data.basic.slug || document.data.basic.name || "convite", async (slug) =>
-    slug !== event.subdomain && Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
-  );
+  // O endereço só é calculado na PRIMEIRA publicação. Depois dela o link já foi
+  // mandado no WhatsApp: mudar o nome da debutante não pode mudar o subdomínio
+  // e derrubar quem guardou o convite.
+  const primeiraPublicacao = event.status !== "PUBLISHED";
+  const subdomain = primeiraPublicacao
+    ? await gerarSlugUnico(document.data.basic.slug || document.data.basic.name || "convite", async (slug) =>
+        slug !== event.subdomain && Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
+      )
+    : event.subdomain;
   const publishedAt = new Date();
   const updated = await prisma.event.updateMany({
     where: { id, professionalId, draftVersion: expectedDraftVersion },
@@ -627,6 +645,10 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
       publishedVersion: expectedDraftVersion,
       publishedAt,
       schemaVersion: document.data.schemaVersion,
+      // Cortesia de 1h só na PRIMEIRA publicação: é a rede do erro de digitação
+      // que só aparece com o convite no ar. Republicar dentro de uma janela paga
+      // não pode encurtar nem esticar o prazo — quem manda é a janela vigente.
+      ...(primeiraPublicacao ? { edicaoAte: fimDaCortesia(publishedAt) } : {}),
     },
   });
   if (updated.count !== 1) {

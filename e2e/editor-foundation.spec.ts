@@ -8,6 +8,8 @@ const passwordA = process.env.E2E_PASSWORD ?? "demo12345";
 const emailB = "editor-e2e-b@seuconviteia.test";
 const passwordB = "editor-e2e-password";
 const prisma = databaseReady ? new PrismaClient() : null;
+// Prefixo dos convites criados direto no banco por este arquivo (limpeza no fim).
+const slugFechado = "e2e-fechado";
 
 // A porta vem da baseURL: o site do tenant mora num subdominio, entao nao da para
 // usar o `page.goto` relativo — e fixar 3000 quebra quando o app sobe noutra porta.
@@ -43,6 +45,12 @@ async function cycle(page: Page, switchName: string) {
   await expect(toggle).toHaveAttribute("aria-checked", initial ?? "true");
 }
 
+// Convite NOVO (sem `id` do dono) abre na tela de escolha do modelo — hoje um so.
+// O editor so aparece depois do "Usar este modelo" (tela de 17/08).
+async function escolherModelo(page: Page) {
+  await page.getByRole("button", { name: "Usar este modelo" }).click();
+}
+
 function nameInput(page: Page) {
   return page.getByText("Nome da debutante", { exact: true }).locator("..").locator("input");
 }
@@ -67,7 +75,10 @@ test.describe("fundação do editor", () => {
     });
   });
 
-  test.afterAll(async () => prisma?.$disconnect());
+  test.afterAll(async () => {
+    await prisma?.event.deleteMany({ where: { subdomain: { startsWith: slugFechado } } });
+    await prisma?.$disconnect();
+  });
 
   test("editar, autosave em rajada, conflito, autorização e publicação isolada", async ({ browser, page, baseURL }) => {
     let saveRequests = 0;
@@ -83,6 +94,7 @@ test.describe("fundação do editor", () => {
     await page.reload();
     // `networkidle` nunca ocorre no `next dev` por causa do websocket de HMR.
     await page.waitForTimeout(500);
+    await escolherModelo(page);
 
     const prefix = `E2E-${Date.now()}`;
     const input = nameInput(page);
@@ -174,6 +186,7 @@ test.describe("fundação do editor", () => {
     const unauthorizedContext = await browser.newContext();
     const unauthorized = await loginContext(unauthorizedContext, emailB, passwordB);
     await unauthorized.goto(`/painel/criar?id=${event.id}`);
+    await escolherModelo(unauthorized);
     await expect(nameInput(unauthorized)).not.toHaveValue(`${publishedName}-A`);
     await nameInput(unauthorized).fill("Documento do usuário B");
     await unauthorized.waitForFunction(() => Object.keys(localStorage).some((key) => key.startsWith("sc-editor-rascunho:new:")));
@@ -190,6 +203,7 @@ test.describe("fundação do editor", () => {
       localStorage.setItem(`sc-editor-active:${scope}`, eventId);
     }, { recovery, eventId: event.id });
     await unauthorized.goto("/painel/criar");
+    await escolherModelo(unauthorized);
     await unauthorized.getByRole("button", { name: "Salvar rascunho" }).click();
     await expect(unauthorized.getByText("Convite não encontrado.")).toBeVisible();
     await unauthorizedContext.close();
@@ -223,5 +237,38 @@ test.describe("fundação do editor", () => {
     await expect(publicPage.locator("body")).toContainText(unpublishedName);
     await publicPage.close();
     await editorPage.close();
+  });
+
+  // A PORTA de abrir o editor. Publicou, fecha: o convite que ja esta na mao dos
+  // convidados so volta a ser editavel dentro de uma janela (cortesia, cota do
+  // plano ou passe pago). Fora dela, nem o link direto do editor abre — vai para
+  // a tela que explica e libera (`/painel/[id]/liberar`, criada na Task 7; ate la
+  // o destino responde 404, o que nao muda o que este teste prova: o redirect).
+  test("convite publicado so abre o editor dentro da janela", async ({ page }) => {
+    await login(page);
+    const dono = await prisma!.professional.findUniqueOrThrow({ where: { email: emailA }, select: { id: true } });
+    const evento = await prisma!.event.create({
+      data: {
+        professionalId: dono.id,
+        type: "QUINZE_ANOS",
+        subdomain: `${slugFechado}-${Date.now()}`,
+        title: "Convite fechado E2E",
+        eventDate: new Date(Date.now() + 30 * 86_400_000),
+        expiresAt: new Date(Date.now() + 60 * 86_400_000),
+        status: "PUBLISHED",
+        plan: "PREMIUM",
+        edicaoAte: new Date(Date.now() - 1_000), // a janela venceu ha um segundo
+      },
+    });
+
+    await page.goto(`/painel/criar?id=${evento.id}`);
+    await expect(page).toHaveURL(new RegExp(`/painel/${evento.id}/liberar`));
+
+    // E o contrario, senao um redirect que barra TODO mundo passaria no teste:
+    // com a janela aberta, o mesmo convite publicado abre para editar.
+    await prisma!.event.update({ where: { id: evento.id }, data: { edicaoAte: new Date(Date.now() + 3_600_000) } });
+    await page.goto(`/painel/criar?id=${evento.id}`);
+    await expect(page).toHaveURL(/\/painel\/criar/);
+    await expect(nameInput(page)).toBeEditable();
   });
 });
