@@ -77,11 +77,6 @@ export default async function DashboardPage() {
   // Plano EFETIVO: assinatura vencida volta a valer como Básico.
   const planoPago = (prof ? planoEfetivo(prof, agora) : "BASICO") !== "BASICO";
   const temConvite = !!evento;
-  // "Continuar edição" abre o editor em 6 passos — o mesmo de "Criar meu
-  // convite", agora carregando o convite existente. Antes caía nas telas
-  // avulsas (`/detalhes`), que são outro editor: continuar uma edição levava a
-  // uma tela diferente da que a criou (pedido do João).
-  const conviteHref = evento ? `/painel/criar?id=${evento.id}` : "/painel/criar";
 
   // Números reais do convite em destaque.
   let confirmadas = 0;
@@ -118,6 +113,16 @@ export default async function DashboardPage() {
   const feitos = evento
     ? [!!fotoUrl, evento._count.gifts > 0, evento._count.guests > 0, !!local].filter(Boolean).length
     : 0;
+  // O CTA do topo levava ao editor com QUALQUER convite. Isso valia quando o
+  // editor abria sempre; hoje ele esta fechado depois de publicar (`lib/edicao`)
+  // e devolve a pessoa para a tela de liberar. Rascunho continua indo editar —
+  // e onde ele parou; publicado vai gerenciar, que e o que da para fazer.
+  const cta = !evento
+    ? { href: "/painel/criar", label: "Criar meu convite", icone: IC.plus }
+    : rascunho
+      ? { href: `/painel/criar?id=${evento.id}`, label: "Continuar edição", icone: IC.edit }
+      : { href: `/painel/${evento.id}`, label: "Gerenciar convite", icone: IC.grid };
+
   const pct = pronto ? 100 : Math.min(90, 35 + feitos * 14);
   // O anel só é violeta enquanto o convite está VIVO. Cheio de violeta num
   // convite fora do ar, ele comemorava o que estava parado.
@@ -136,11 +141,11 @@ export default async function DashboardPage() {
           </p>
         </div>
         <Link
-          href={temConvite ? conviteHref : "/painel/criar"}
+          href={cta.href}
           className="flex items-center gap-2.5 rounded-[13px] bg-[#7C3AED] px-[22px] py-3 text-[14.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
         >
-          <Ic d={temConvite ? IC.edit : IC.plus} size={15} stroke="#fff" width={2} />
-          {temConvite ? "Continuar edição" : "Criar meu convite"}
+          <Ic d={cta.icone} size={15} stroke="#fff" width={2} />
+          {cta.label}
         </Link>
       </div>
 
@@ -287,7 +292,9 @@ export default async function DashboardPage() {
                   >
                     {linkLabel}
                   </a>
-                  <CopyLinkButton url={linkFull} />
+                  {/* Mesmo motivo do menu: com a festa encerrada, copiar poe
+                      na area de transferencia um link que responde "acabou". */}
+                  {estado === "encerrada" ? null : <CopyLinkButton url={linkFull} />}
                 </div>
                 {planoPago ? (
                   <div className="flex items-center gap-1.5 text-[13px] text-[#6e6e76]">
