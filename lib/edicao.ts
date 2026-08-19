@@ -10,6 +10,7 @@
  * tres portas do servidor (abrir editor, salvar documento, publicar) so
  * perguntam.
  */
+import { conviteEncerrado, type StatusEvento } from "./event";
 import type { Plan } from "./plans";
 
 /** Preco do passe de edicao, em centavos. */
@@ -21,21 +22,30 @@ export const CORTESIA_MINUTOS = 60;
 
 /** Subconjunto do Event necessario para decidir a edicao. */
 export type EventoEdicao = {
-  status: string;
+  status: StatusEvento;
+  expiresAt: Date;
   edicaoAte: Date | null;
 };
 
-/** O site deste convite pode ser mexido agora? */
+/**
+ * O site deste convite pode ser mexido agora?
+ *
+ * O fim da festa e perguntado a `conviteEncerrado` — a MESMA funcao que tira o
+ * site do ar. Deixar cada chamador lembrar de combinar as duas e armadilha: quem
+ * esquecer vende um passe de R$ 19,90 para um convite morto.
+ */
 export function edicaoAberta(ev: EventoEdicao, agora: Date): boolean {
-  if (ev.status === "EXPIRED") return false;
+  if (conviteEncerrado(ev, agora)) return false;
   if (ev.status === "DRAFT") return true;
   return ev.edicaoAte !== null && ev.edicaoAte.getTime() > agora.getTime();
 }
 
+/** Fim da cortesia contado a partir da primeira publicacao. */
 export function fimDaCortesia(agora: Date): Date {
   return new Date(agora.getTime() + CORTESIA_MINUTOS * 60_000);
 }
 
+/** Fim da janela que o passe (pago ou incluido no plano) abre. */
 export function fimDoPasse(agora: Date): Date {
   return new Date(agora.getTime() + PASSE_HORAS * 60 * 60_000);
 }
@@ -47,12 +57,18 @@ export function passesIncluidos(plan: Plan): number {
       return 3;
     case "CLASSICO":
       return 1;
+    case "BASICO":
     default:
       return 0;
   }
 }
 
-/** Ainda sobra liberacao incluida neste convite? */
-export function temPasseIncluido(plan: Plan, passesGratis: number): boolean {
-  return passesGratis < passesIncluidos(plan);
+/**
+ * Ainda sobra liberacao incluida neste convite?
+ *
+ * `passesGratisUsados` e quanto ja foi CONSUMIDO neste convite, nao o saldo —
+ * `number` contra `number` nao acusa quem inverter.
+ */
+export function temPasseIncluido(plan: Plan, passesGratisUsados: number): boolean {
+  return passesGratisUsados < passesIncluidos(plan);
 }

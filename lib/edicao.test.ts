@@ -11,29 +11,72 @@ import {
 } from "./edicao";
 
 const agora = new Date("2026-08-18T12:00:00Z");
+const festaAdiante = new Date("2030-01-01T00:00:00Z");
 
 describe("edicaoAberta", () => {
   it("rascunho edita sempre", () => {
-    expect(edicaoAberta({ status: "DRAFT", edicaoAte: null }, agora)).toBe(true);
+    expect(
+      edicaoAberta({ status: "DRAFT", expiresAt: festaAdiante, edicaoAte: null }, agora),
+    ).toBe(true);
   });
 
   it("publicado sem janela nao edita", () => {
-    expect(edicaoAberta({ status: "PUBLISHED", edicaoAte: null }, agora)).toBe(false);
+    expect(
+      edicaoAberta(
+        { status: "PUBLISHED", expiresAt: festaAdiante, edicaoAte: null },
+        agora,
+      ),
+    ).toBe(false);
   });
 
   it("publicado com janela vencida nao edita", () => {
     const ontem = new Date("2026-08-17T12:00:00Z");
-    expect(edicaoAberta({ status: "PUBLISHED", edicaoAte: ontem }, agora)).toBe(false);
+    expect(
+      edicaoAberta(
+        { status: "PUBLISHED", expiresAt: festaAdiante, edicaoAte: ontem },
+        agora,
+      ),
+    ).toBe(false);
   });
 
   it("publicado com janela aberta edita", () => {
     const daqui = new Date("2026-08-18T12:30:00Z");
-    expect(edicaoAberta({ status: "PUBLISHED", edicaoAte: daqui }, agora)).toBe(true);
+    expect(
+      edicaoAberta(
+        { status: "PUBLISHED", expiresAt: festaAdiante, edicaoAte: daqui },
+        agora,
+      ),
+    ).toBe(true);
   });
 
   it("convite expirado nao edita nem com janela aberta", () => {
     const daqui = new Date("2026-08-18T12:30:00Z");
-    expect(edicaoAberta({ status: "EXPIRED", edicaoAte: daqui }, agora)).toBe(false);
+    expect(
+      edicaoAberta(
+        { status: "EXPIRED", expiresAt: festaAdiante, edicaoAte: daqui },
+        agora,
+      ),
+    ).toBe(false);
+  });
+
+  it("festa que ja passou nao edita nem com janela aberta", () => {
+    const daqui = new Date("2026-08-18T12:30:00Z");
+    const festaOntem = new Date("2026-08-17T12:00:00Z");
+    expect(
+      edicaoAberta(
+        { status: "PUBLISHED", expiresAt: festaOntem, edicaoAte: daqui },
+        agora,
+      ),
+    ).toBe(false);
+  });
+
+  it("janela que termina AGORA ja esta fechada", () => {
+    expect(
+      edicaoAberta(
+        { status: "PUBLISHED", expiresAt: festaAdiante, edicaoAte: agora },
+        agora,
+      ),
+    ).toBe(false);
   });
 });
 
