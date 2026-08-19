@@ -11,7 +11,7 @@ import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { lerTemaKey } from "@/lib/temas";
 import { lerFonteKey } from "@/lib/fontes";
 import { textosDoNicho } from "@/lib/textos";
-import { despublicarEvento } from "@/app/(dashboard)/actions";
+import { tirarDoAr } from "@/app/(dashboard)/actions";
 import { ExcluirEvento } from "./ExcluirEvento";
 import {
   carregarEventoDono,
@@ -284,7 +284,7 @@ export default async function AcompanharEventoPage({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <form action={despublicarEvento}>
+          <form action={tirarDoAr}>
             <input type="hidden" name="eventId" value={event.id} />
             <button
               type="submit"

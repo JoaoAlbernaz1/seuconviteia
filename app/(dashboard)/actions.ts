@@ -208,9 +208,10 @@ async function eventoDoDono(eventId: unknown): Promise<string | null> {
  * Tira o site do ar SEM destravar a edicao (o status continua PUBLISHED).
  *
  * Voltar para DRAFT era a porta dos fundos: bastava tirar do ar para reabrir o
- * editor de graca e publicar tudo de novo.
+ * editor de graca e publicar tudo de novo. O nome tambem mudou por isso — isto
+ * NAO despublica, so pausa.
  */
-export async function despublicarEvento(formData: FormData) {
+export async function tirarDoAr(formData: FormData) {
   const id = await eventoDoDono(formData.get("eventId"));
   if (!id) redirect("/entrar");
   await prisma.event.update({ where: { id }, data: { foraDoAr: true } });

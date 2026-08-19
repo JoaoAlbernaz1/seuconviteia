@@ -37,6 +37,14 @@ describe("eventoPublico", () => {
     ).toEqual({ ok: false, motivo: "fora-do-ar" });
   });
 
+  // O caso que separa a ORDEM das checagens: prazo vencido E fora do ar ao mesmo
+  // tempo. Se `foraDoAr` for perguntado depois da expiracao, este vira "expirado".
+  it("fora do ar com prazo vencido -> fora-do-ar (fora do ar vem antes)", () => {
+    expect(
+      eventoPublico({ status: "PUBLISHED", expiresAt: passado, foraDoAr: true }, agora),
+    ).toEqual({ ok: false, motivo: "fora-do-ar" });
+  });
+
   it("publicado, no prazo e no ar -> ok", () => {
     expect(
       eventoPublico({ status: "PUBLISHED", expiresAt: futuro, foraDoAr: false }, agora),

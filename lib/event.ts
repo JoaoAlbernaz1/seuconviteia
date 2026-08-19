@@ -30,16 +30,6 @@ type EventoVisivel = {
 };
 
 /**
- * Decide se o site de um evento pode ser servido publicamente.
- *
- *  - `null`        -> nao existe                  -> `inexistente`
- *  - `DRAFT`       -> ainda nao publicado         -> `rascunho`
- *  - `foraDoAr`    -> o dono pausou o convite     -> `fora-do-ar`
- *  - `EXPIRED`     -> expirado por status         -> `expirado`
- *  - `expiresAt`   -> ja passou (`< agora`)       -> `expirado`
- *  - caso contrario (PUBLISHED e dentro do prazo) -> `ok: true`
- */
-/**
  * Convite ENCERRADO: a festa passou e ele saiu do ar.
  *
  * Encerrado nao se edita. Sem isso, a mesma linha viraria a festa do ano que
@@ -54,6 +44,16 @@ export function conviteEncerrado(
   return ev.status === "EXPIRED" || ev.expiresAt.getTime() < agora.getTime();
 }
 
+/**
+ * Decide se o site de um evento pode ser servido publicamente.
+ *
+ *  - `null`        -> nao existe                  -> `inexistente`
+ *  - `DRAFT`       -> ainda nao publicado         -> `rascunho`
+ *  - `foraDoAr`    -> o dono pausou o convite     -> `fora-do-ar`
+ *  - `EXPIRED`     -> expirado por status         -> `expirado`
+ *  - `expiresAt`   -> ja passou (`< agora`)       -> `expirado`
+ *  - caso contrario (PUBLISHED e dentro do prazo) -> `ok: true`
+ */
 export function eventoPublico(
   ev: EventoVisivel | null,
   agora: Date,
