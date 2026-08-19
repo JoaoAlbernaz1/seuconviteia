@@ -1,7 +1,8 @@
 // Home do PAINEL — réplica fiel do Claude Design "seuconvite - Dashboard".
 // Saudação + CTA, hero "começa aqui" (3 passos), resumo (bloqueado no plano de
-// entrada / com números no plano completo) e o card "Seu convite" com anel de
-// progresso — tudo ligado ao convite em destaque (o mais recente) do usuário.
+// entrada / com números no plano completo) e o card "Seu convite" (com anel de
+// progresso enquanto ele é rascunho) — tudo ligado ao convite em destaque (o
+// mais recente) do usuário.
 //
 // O card "Seu convite" pergunta o ESTADO (`lib/estadoConvite`), não o status do
 // banco. Perguntando ao status, esta tela — a primeira depois de entrar — dizia
@@ -97,10 +98,6 @@ export default async function DashboardPage() {
   // Convite em destaque — derivados.
   const estado = evento ? estadoDoConvite(evento, agora) : null;
   const rascunho = estado === "rascunho";
-  // "Pronto" = o site existe e não está mais sendo montado (no ar, pausado ou
-  // com a festa já encerrada). É o que o anel mede; se ele responde AGORA é
-  // outra pergunta, e quem responde é o selo.
-  const pronto = estado !== null && !rascunho;
   const kicker = evento ? (TIPO_LABEL[evento.type] ?? evento.type) : "";
   const local = evento ? lerCustomStr(evento.customization, "local") : undefined;
   const fotoUrl = evento ? lerCustomStr(evento.customization, "fotoUrl") : undefined;
@@ -131,22 +128,36 @@ export default async function DashboardPage() {
   // Ele levava ao editor com qualquer convite — e, quando a edição passou a ser
   // fechada depois de publicar (`lib/edicao`), virou "Gerenciar convite": o
   // mesmo rótulo, a mesma cor e o mesmo destino do botão do card, duas vezes na
-  // mesma tela. Sem vaga no plano ele simplesmente não existe: sem vaga = plano
-  // Básico, e a faixa de resumo logo abaixo já é o convite a mudar de plano —
-  // dois botões violeta para /painel/plano na mesma tela seria a duplicação de
-  // novo, só que com outro nome.
+  // mesma tela.
+  //
+  // Sem vaga no plano ele NÃO some — é a regra que a lista, o seletor da topbar
+  // e a tela do convite já seguem ("ele não some, ele DIZ o que falta"): sumir
+  // deixa a pessoa procurando onde clicar, e o Dashboard é a porta de entrada.
+  // O empate de violeta com a faixa "Desbloquear recursos" se resolve por
+  // HIERARQUIA (este vira contorno), não por ausência — até porque as duas
+  // ofertas são diferentes: a faixa vende RECURSOS, este aqui vende ESCALA.
+  //
+  // ⚠️ INVARIANTE não testado: hoje "sem vaga" implica Básico (`limiteEventos`
+  // só limita o Básico) e Básico implica a faixa bloqueada logo abaixo. Se um
+  // dia o Clássico ganhar teto, este ramo aparece SEM a faixa por perto — e aí
+  // ele pode (deve) voltar a ser violeta, porque não haverá violeta com quem
+  // brigar.
   const cta = !evento
-    ? { href: "/painel/criar", label: "Criar meu convite", icone: IC.plus }
+    ? { href: "/painel/criar", label: "Criar meu convite", icone: IC.plus, forte: true }
     : rascunho
-      ? { href: `/painel/criar?id=${evento.id}`, label: "Continuar edição", icone: IC.edit }
+      ? { href: `/painel/criar?id=${evento.id}`, label: "Continuar edição", icone: IC.edit, forte: true }
       : podeCriarOutro
-        ? { href: "/painel/criar", label: "Novo convite", icone: IC.plus }
-        : null;
+        ? { href: "/painel/criar", label: "Novo convite", icone: IC.plus, forte: true }
+        : { href: "/painel/plano", label: "Mais convites", icone: IC.lock, forte: false };
 
-  const pct = pronto ? 100 : Math.min(90, 35 + feitos * 14);
-  // O anel só é violeta enquanto o convite está VIVO. Cheio de violeta num
-  // convite fora do ar, ele comemorava o que estava parado.
-  const anelCor = estado === "no-ar" || rascunho ? "#7C3AED" : "#64748b";
+  // O anel mede MONTAGEM, e montagem só está acontecendo no rascunho: publicado
+  // ele marcava sempre 100% (o site está montado), um círculo mudo ao lado do
+  // botão — enfeite para quem enxerga e, pior, um `aria-label` que contava ao
+  // leitor de tela mais do que a tela mostrava. Por isso ele agora só existe no
+  // rascunho, e ali é sempre violeta (o cinza saiu junto com o resto).
+  const pct = Math.min(90, 35 + feitos * 14);
+  // A legenda diz o PROGRESSO — "Quase pronto" a 35% era elogio falso.
+  const legendaAnel = pct >= 77 ? "Quase pronto" : pct >= 49 ? "Em andamento" : "Começando";
   const C = 2 * Math.PI * 35;
   const dashOff = (C * (1 - pct / 100)).toFixed(1);
 
@@ -160,15 +171,20 @@ export default async function DashboardPage() {
             Continue preparando uma noite inesquecível.
           </p>
         </div>
-        {cta ? (
-          <Link
-            href={cta.href}
-            className="flex min-h-[44px] items-center gap-2.5 rounded-[13px] bg-[#7C3AED] px-[22px] py-3 text-[14.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
-          >
-            <Ic d={cta.icone} size={15} stroke="#fff" width={2} />
-            {cta.label}
-          </Link>
-        ) : null}
+        {/* `!text-...` nos dois: `.dash :where(a…)` declara `color` fora das
+            @layer do Tailwind e vence a utility — sem o `!`, o rótulo do
+            contorno chega violeta na tela. */}
+        <Link
+          href={cta.href}
+          className={
+            cta.forte
+              ? "flex min-h-[44px] items-center gap-2.5 rounded-[13px] bg-[#7C3AED] px-[22px] py-3 text-[14.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
+              : "flex min-h-[44px] items-center gap-2.5 rounded-[13px] border border-[#ececf0] bg-white px-[22px] py-3 text-[14.5px] font-semibold !text-[#17171b] transition-colors hover:bg-[#f4f4f6]"
+          }
+        >
+          <Ic d={cta.icone} size={15} stroke={cta.forte ? "#fff" : "#17171B"} width={2} />
+          {cta.label}
+        </Link>
       </div>
 
       {/* HERO — começa aqui */}
@@ -286,14 +302,16 @@ export default async function DashboardPage() {
               <div className="mb-1.5 flex flex-wrap items-center gap-3">
                 <div className="text-[16.5px] font-bold tracking-[-0.01em]">{evento.title}</div>
                 {/* Mesmas quatro palavras da lista e da tela do convite
-                    (`ESTADO_LABEL`), e o mesmo cinza cheio do selo apagado. */}
+                    (`ESTADO_LABEL`), e o mesmo cinza cheio do selo apagado —
+                    pelo TOKEN (`--scv-muted`, via `.scv` do layout do grupo),
+                    e não por hex copiado que fica para trás quando ele mudar. */}
                 <span
                   className={`rounded-full px-3 py-1 text-[11.5px] font-bold ${
                     estado === "no-ar"
                       ? "bg-[#34A177]/[0.12] text-[#2E8A66]"
                       : rascunho
                         ? "bg-[#F3EFFE] text-[#7C3AED]"
-                        : "bg-[#64748b] text-white"
+                        : "bg-scv-muted text-white"
                   }`}
                 >
                   {estado ? ESTADO_LABEL[estado] : ""}
@@ -332,43 +350,37 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            {/* progresso circular */}
-            <div className="flex-none px-2 text-center">
-              {/* `role="img"` + rótulo: sem ele o leitor de tela anuncia "100%"
-                  solto — cem por cento de quê. */}
-              <div
-                className="relative size-[84px]"
-                role="img"
-                aria-label={`Convite ${pct}% montado`}
-              >
-                <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden>
-                  <circle cx="42" cy="42" r="35" fill="none" stroke="#F0F0F3" strokeWidth="8" />
-                  <circle
-                    cx="42"
-                    cy="42"
-                    r="35"
-                    fill="none"
-                    stroke={anelCor}
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    strokeDasharray={C.toFixed(1)}
-                    strokeDashoffset={dashOff}
-                    transform="rotate(-90 42 42)"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-[17px] font-extrabold tracking-[-0.02em]">
-                  {pct}%
+            {/* Progresso circular — SÓ no rascunho. Publicado, ele marcava
+                sempre 100%: um círculo mudo ao lado do botão, que não respondia
+                a nenhuma pergunta que o selo já não respondesse. Aqui o número
+                anda, e a legenda embaixo diz em palavras o mesmo que ele — por
+                isso nem `role="img"` nem `aria-label`: o leitor de tela lê a
+                mesma coisa que a tela mostra, nem mais nem menos. */}
+            {rascunho ? (
+              <div className="flex-none px-2 text-center">
+                <div className="relative size-[84px]">
+                  <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden>
+                    <circle cx="42" cy="42" r="35" fill="none" stroke="#F0F0F3" strokeWidth="8" />
+                    <circle
+                      cx="42"
+                      cy="42"
+                      r="35"
+                      fill="none"
+                      stroke="#7C3AED"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={C.toFixed(1)}
+                      strokeDashoffset={dashOff}
+                      transform="rotate(-90 42 42)"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center text-[17px] font-extrabold tracking-[-0.02em]">
+                    {pct}%
+                  </div>
                 </div>
+                <div className="mt-1.5 text-xs font-medium text-[#6e6e76]">{legendaAnel}</div>
               </div>
-              {/* A legenda é do ANEL, e o anel mede montagem — não
-                  disponibilidade. Repetindo o estado ("Fora do ar"), ela dizia
-                  duas vezes, a dois centímetros do selo, a mesma coisa; e num
-                  medidor que, com o site publicado, está sempre em 100%. Só o
-                  rascunho tem progresso para legendar. */}
-              {rascunho ? (
-                <div className="mt-1.5 text-xs font-medium text-[#6e6e76]">Quase pronto</div>
-              ) : null}
-            </div>
+            ) : null}
 
             {/* ações */}
             <ConviteMenu url={linkFull} fid={evento.id} estado={estado ?? "rascunho"} />

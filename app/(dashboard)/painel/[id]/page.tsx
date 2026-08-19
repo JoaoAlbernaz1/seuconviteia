@@ -493,7 +493,7 @@ export default async function AcompanharEventoPage({
                 frase lia como ROTULO do estado atual; "Se voce tirar do ar" diz
                 que e uma condicao, e nao o que esta acontecendo agora. */}
             {noAr
-              ? "Se você tirar do ar, quem abrir o link vê um aviso de convite indisponível — e dá para trazer de volta quando quiser."
+              ? "Se você tirar do ar, quem abrir o link vê um aviso de convite indisponível — e você traz de volta quando quiser."
               : "Apague este convite de vez. Não tem volta."}
           </div>
         </div>
