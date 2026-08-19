@@ -6,7 +6,7 @@
 //
 //   PAGAMENTO_DB_TESTS=1 DATABASE_URL=postgresql://postgres:...@127.0.0.1:5433/seuconviteia \
 //     npx vitest run lib/passeEdicao.test.ts
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { PASSE_PRECO_CENTS, fimDoPasse } from "./edicao";
 import { confirmarPasseEdicao } from "./passeEdicao";
@@ -38,7 +38,11 @@ async function conviteFechado(db: PrismaClient) {
 }
 
 /** Cobranca do passe como a Task 4 a cria: nasce PENDING. */
-async function cobrancaPendente(db: PrismaClient, eventId: string, extra: { createdAt?: Date; kind?: string } = {}) {
+async function cobrancaPendente(
+  db: PrismaClient,
+  eventId: string,
+  extra: { createdAt?: Date; kind?: string; providerId?: string } = {},
+) {
   return db.transaction.create({
     data: {
       eventId,
@@ -46,6 +50,7 @@ async function cobrancaPendente(db: PrismaClient, eventId: string, extra: { crea
       kind: extra.kind ?? "EDIT_PASS",
       status: "PENDING",
       ...(extra.createdAt ? { createdAt: extra.createdAt } : {}),
+      ...(extra.providerId ? { providerId: extra.providerId } : {}),
     },
   });
 }
@@ -115,7 +120,7 @@ describe("confirmarPasseEdicao", () => {
     expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(agora).toISOString());
   });
 
-  it.skipIf(!enabled)("passe pago com a janela aberta ESTENDE, nunca encurta", async () => {
+  it.skipIf(!enabled)("passe pago com a janela CORRENDO empilha 48h no que ainda falta", async () => {
     const db = prisma!;
     const event = await conviteFechado(db);
     const longe = new Date(Date.now() + 10 * 24 * 60 * 60_000);
@@ -124,10 +129,61 @@ describe("confirmarPasseEdicao", () => {
 
     await confirmarPasseEdicao(tx.id, new Date());
 
-    // Quem pagou dois passes ganha tempo; 48h a partir de agora seria ENCURTAR.
+    // 48h a partir de AGORA seria encurtar de 10 dias para 2; e 48h a partir do
+    // fim vigente e o que ele comprou.
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
-    expect(depois.edicaoAte?.toISOString()).toBe(longe.toISOString());
+    expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(longe).toISOString());
     expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PAID");
+  });
+
+  it.skipIf(!enabled)("DOIS pagamentos distintos = 96h (quem pagou duas vezes ganha duas janelas)", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const um = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-cob-a-${Date.now()}` });
+    const dois = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-cob-b-${Date.now()}` });
+    const agora = new Date();
+
+    await confirmarPasseEdicao(um.id, agora);
+    await confirmarPasseEdicao(dois.id, agora);
+
+    // Sao duas cobrancas pagas; ficar com o dinheiro e devolver 48h nao e opcao.
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(fimDoPasse(agora)).toISOString());
+  });
+
+  it.skipIf(!enabled)("confirmar grava o vinculo (`providerId`) na linha orfa", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const tx = await cobrancaPendente(db, event.id); // sem providerId: o buraco da Task 4
+    const cobranca = `${MARCA}-orfa-${Date.now()}`;
+
+    await confirmarPasseEdicao(tx.id, new Date(), cobranca);
+
+    // Sem o vinculo, o indice unico do ledger deixa de ser rede contra lancar o
+    // mesmo pagamento duas vezes.
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).providerId).toBe(cobranca);
+  });
+
+  it.skipIf(!enabled)("vinculo que ja e de outra cobranca nao impede a janela de abrir", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const cobranca = `${MARCA}-colidida-${Date.now()}`;
+    await cobrancaPendente(db, event.id, { providerId: cobranca }); // dona do `@unique`
+    const tx = await cobrancaPendente(db, event.id);
+    const agora = new Date();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await confirmarPasseEdicao(tx.id, agora, cobranca);
+
+    // O dinheiro entrou: a janela abre mesmo sem conseguir gravar o vinculo — e
+    // a colisao vai para o log, alto, porque alguem precisa olhar.
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(agora).toISOString());
+    const confirmada = await db.transaction.findUniqueOrThrow({ where: { id: tx.id } });
+    expect(confirmada.status).toBe("PAID");
+    expect(confirmada.providerId).toBeNull();
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
   });
 
   it.skipIf(!enabled)("lancamento que nao e passe de edicao nao abre nada", async () => {

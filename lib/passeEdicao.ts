@@ -8,6 +8,11 @@
 import { prisma } from "@/lib/db";
 import { fimDoPasse } from "@/lib/edicao";
 
+/** Violacao de indice unico do Prisma (`providerId` @unique). */
+function ehDuplicata(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === "P2002";
+}
+
 /**
  * Confirma o passe pago e ABRE a janela de 48h.
  *
@@ -20,12 +25,42 @@ import { fimDoPasse } from "@/lib/edicao";
  *
  * A janela e contada a partir de `agora`, nao da criacao da cobranca: um Pix
  * pago dias depois abre normalmente. A pessoa pagou.
+ *
+ * `providerId` e o id da cobranca no MP: grava-lo junto com o PAID conserta a
+ * linha orfa (cobranca criada, vinculo nao gravado) e devolve ao ledger a rede
+ * do indice unico.
  */
-export async function confirmarPasseEdicao(transactionId: string, agora: Date): Promise<void> {
+export async function confirmarPasseEdicao(
+  transactionId: string,
+  agora: Date,
+  providerId?: string | null,
+): Promise<void> {
+  try {
+    await aplicarPasse(transactionId, agora, providerId ?? null);
+  } catch (err) {
+    if (!ehDuplicata(err)) throw err;
+    // O `providerId` ja pertence a OUTRA linha. O dinheiro entrou de qualquer
+    // jeito, entao a janela abre sem o vinculo — e a colisao vai para o log,
+    // alto, porque um 500 aqui faria o MP reentregar a mesma notificacao para
+    // sempre, sem nunca conceder nada.
+    console.error(
+      `[passe-edicao] providerId ${providerId} ja e de outra cobrança — tx=${transactionId} confirmada SEM vínculo`,
+      err,
+    );
+    await aplicarPasse(transactionId, agora, null);
+  }
+}
+
+/** O compare-and-set e a abertura da janela, numa transacao so. */
+async function aplicarPasse(
+  transactionId: string,
+  agora: Date,
+  providerId: string | null,
+): Promise<void> {
   await prisma.$transaction(async (db) => {
     const marcada = await db.transaction.updateMany({
       where: { id: transactionId, kind: "EDIT_PASS", status: "PENDING" },
-      data: { status: "PAID" },
+      data: { status: "PAID", ...(providerId ? { providerId } : {}) },
     });
     if (marcada.count !== 1) return; // ja confirmada, ou nao e passe de edicao
 
@@ -40,16 +75,12 @@ export async function confirmarPasseEdicao(transactionId: string, agora: Date): 
       select: { edicaoAte: true },
     });
 
-    // Segundo passe pago com a janela ainda aberta ESTENDE, nunca encurta: quem
-    // pagou duas vezes ganha tempo em vez de perder o dinheiro em silencio (nao
-    // estornamos automaticamente).
-    const ate = fimDoPasse(agora);
-    await db.event.update({
-      where: { id: tx.eventId },
-      data: {
-        edicaoAte: evento.edicaoAte && evento.edicaoAte > ate ? evento.edicaoAte : ate,
-      },
-    });
+    // EMPILHA: as 48h contam do fim da janela que ainda corre (ou de agora, se
+    // ja venceu). Quem pagou dois passes ganha 96h — pagar duas vezes pela mesma
+    // janela seria ficar com R$ 39,80 e entregar 48h. Sem teto: cinco passes,
+    // cinco janelas; ele pagou por elas.
+    const base = evento.edicaoAte && evento.edicaoAte > agora ? evento.edicaoAte : agora;
+    await db.event.update({ where: { id: tx.eventId }, data: { edicaoAte: fimDoPasse(base) } });
   });
 }
 

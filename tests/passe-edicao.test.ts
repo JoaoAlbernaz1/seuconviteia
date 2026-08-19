@@ -283,6 +283,8 @@ describe("passe de edicao", () => {
 
     const aberto = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(aberto.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+    // E o vinculo que faltava fica gravado: o `@unique` do ledger volta a valer.
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).providerId).toBe("mp-999");
   });
 
   it.skipIf(!enabled)("pagamento que nao e nosso: 200 e a janela continua fechada", async () => {

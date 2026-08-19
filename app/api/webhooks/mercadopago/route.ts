@@ -97,7 +97,9 @@ export async function POST(req: Request): Promise<Response> {
           // AQUI, e so aqui, que a janela de edicao de um convite publicado
           // abre — a compra no painel deixa a cobranca PENDING de proposito.
           const passe = await acharPasseEdicao(dataId, referencia);
-          if (passe) await confirmarPasseEdicao(passe, new Date());
+          // `dataId` vai junto: quando a linha foi achada pela referencia (o
+          // vinculo nao gravou na compra), e agora que ele se conserta.
+          if (passe) await confirmarPasseEdicao(passe, new Date(), dataId);
         }
       }
     } else if (tipo === "assinatura") {
