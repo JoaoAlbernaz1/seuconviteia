@@ -10,6 +10,7 @@
 // FakePaymentProvider — o teste nao fala com o Mercado Pago de verdade.
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
+import { FakePaymentProvider } from "@/lib/pagamentos";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
@@ -18,6 +19,17 @@ const MARCA = "passe-edicao-teste";
 /** A action le a sessao do Auth.js; aqui ela e fixada na conta do teste. */
 const sessionMock = vi.hoisted(() => vi.fn());
 vi.mock("@/auth", () => ({ auth: sessionMock, signIn: vi.fn(), signOut: vi.fn() }));
+
+/**
+ * `getPaymentProvider()` e chamado em runtime, entao da para trocar o provider
+ * por teste. O padrao continua sendo o Fake (o resto do modulo fica real); so o
+ * caso "gateway fora do ar" derruba a cobranca de proposito.
+ */
+const providerMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/pagamentos", async (original) => {
+  const real = await original<typeof import("@/lib/pagamentos")>();
+  return { ...real, getPaymentProvider: providerMock };
+});
 
 const { comprarPasseEdicao } = await import("@/app/(dashboard)/painel/[id]/liberar/acoes");
 
@@ -46,7 +58,21 @@ async function conviteFechado(db: PrismaClient, plan: "BASICO" | "CLASSICO" | "P
 
 beforeEach(() => {
   sessionMock.mockReset();
+  providerMock.mockReset();
+  providerMock.mockImplementation(() => new FakePaymentProvider());
 });
+
+/** Provider que sempre recusa — simula o Mercado Pago fora do ar. */
+function gatewayQueCai() {
+  return {
+    nome: "fake",
+    criarCobrancaPix: vi.fn(async () => {
+      throw new Error("gateway fora do ar");
+    }),
+    consultarCobranca: vi.fn(async () => ({ status: "PENDING" as const })),
+    transferir: vi.fn(async () => ({ transferId: "x", status: "PAID" as const })),
+  };
+}
 
 describe("passe de edicao", () => {
   afterAll(async () => {
@@ -107,5 +133,71 @@ describe("passe de edicao", () => {
     const r = await comprarPasseEdicao(event.id);
     expect(r).toEqual({ ok: false, erro: "Esta festa já passou. Crie um convite novo para a próxima." });
     expect(await db.transaction.count({ where: { eventId: event.id } })).toBe(0);
+  });
+
+  it.skipIf(!enabled)("dois cliques seguidos reaproveitam a MESMA cobranca", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+
+    const primeiro = await comprarPasseEdicao(event.id);
+    const segundo = await comprarPasseEdicao(event.id);
+
+    // Sem isto sao dois Pix de verdade: o `X-Idempotency-Key` do provider e a
+    // referencia (o id da linha), entao linha nova = cobranca nova = R$ 39,80.
+    expect(await db.transaction.count({ where: { eventId: event.id } })).toBe(1);
+    expect(primeiro).toEqual(segundo);
+  });
+
+  it.skipIf(!enabled)("sem sessao (ou sessao sem id) nao vende passe", async () => {
+    const db = prisma!;
+    const { prof, event } = await conviteFechado(db);
+
+    sessionMock.mockResolvedValue(null);
+    expect(await comprarPasseEdicao(event.id)).toEqual({
+      ok: false,
+      erro: "Sua sessão expirou. Entre de novo.",
+    });
+
+    // Sessao legada sem `id`: o Prisma ignora `undefined` no where, entao a
+    // consulta viraria "qualquer convite com esse id".
+    sessionMock.mockResolvedValue({ user: { email: prof.email } });
+    expect(await comprarPasseEdicao(event.id)).toEqual({
+      ok: false,
+      erro: "Sua sessão expirou. Entre de novo.",
+    });
+
+    expect(await db.transaction.count({ where: { eventId: event.id } })).toBe(0);
+  });
+
+  it.skipIf(!enabled)("gateway fora do ar: marca FAILED e nao entrega Pix", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    providerMock.mockImplementation(gatewayQueCai);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await comprarPasseEdicao(event.id);
+    expect(r).toEqual({ ok: false, erro: "Não foi possível gerar o Pix agora. Tente de novo." });
+
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+    expect(tx.status).toBe("FAILED");
+    expect(tx.providerId).toBeNull();
+    log.mockRestore();
+  });
+
+  it.skipIf(!enabled)("cobranca ja aberta nao vira FAILED quando o gateway cai depois", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    await comprarPasseEdicao(event.id); // Pix vivo
+
+    providerMock.mockImplementation(gatewayQueCai);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await comprarPasseEdicao(event.id);
+    expect(r.ok).toBe(false);
+    log.mockRestore();
+
+    // Derrubar a linha derrubaria o unico rastro de um Pix que continua pagavel.
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+    expect(tx.status).toBe("PENDING");
+    expect(tx.providerId).toBeTruthy();
   });
 });
