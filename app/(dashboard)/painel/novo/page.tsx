@@ -4,7 +4,7 @@
 // favorito ou historico do navegador — e manda direto pro editor.
 //
 // O limite de convites do plano continua valendo: quem grava e a action
-// `criarConvite` (`../criar/acoes.ts`), que barra com mensagem propria.
+// `salvarDocumentoConvite` (`../criar/acoes.ts`), que barra com mensagem propria.
 import { redirect } from "next/navigation";
 
 export default function NovoEventoPage() {
