@@ -318,8 +318,6 @@ export function LiberarCliente({
             </button>
 
             <Garantias horas={horas} foraDoAr={foraDoAr} className="mt-5" />
-
-            {erro ? <Erro texto={erro} /> : null}
           </div>
         ) : (
           <div>

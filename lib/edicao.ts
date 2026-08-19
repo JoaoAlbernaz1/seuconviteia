@@ -21,11 +21,12 @@ export const PASSE_HORAS = 48;
 export const CORTESIA_MINUTOS = 60;
 
 /**
- * A resposta para quem tenta liberar a edicao de uma festa que ja aconteceu.
+ * A resposta para quem tenta mexer numa festa que ja aconteceu.
  *
- * Mora aqui porque e a MESMA frase em tres lugares (as duas actions do passe e a
- * tela, que a diz antes do clique para nao oferecer um botao que so da erro).
- * Tres copias a mao viravam tres frases diferentes no primeiro ajuste de texto.
+ * Mora aqui porque e a MESMA frase em toda porta que recusa por data vencida:
+ * as actions do passe, as de salvar e publicar, e a tela — que a diz antes do
+ * clique, para nao oferecer um botao que so da erro. Copiada a mao, viraria uma
+ * frase diferente por porta no primeiro ajuste de texto.
  */
 export const RECUSA_FESTA_PASSOU = "Esta festa já passou. Crie um convite novo para a próxima.";
 

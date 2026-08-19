@@ -28,7 +28,7 @@ import type { EventEditorDocument } from "@/lib/event-editor/document";
 import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
 import { planGiftSync } from "@/lib/event-editor/gift-sync";
 import { conviteEncerrado } from "@/lib/event";
-import { edicaoAberta, fimDaCortesia } from "@/lib/edicao";
+import { RECUSA_FESTA_PASSOU, edicaoAberta, fimDaCortesia } from "@/lib/edicao";
 
 export type SalvarDocumentoResult =
   | { ok: true; id: string; version: number; savedAt: string; host: string; url: string }
@@ -191,7 +191,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
   // onde se conserta o ano digitado errado, e mandar jogar fora o trabalho por
   // causa do erro que a pessoa veio corrigir seria o pior fim possivel.
   if (owned.status !== "DRAFT" && conviteEncerrado(owned, new Date())) {
-    return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
+    return { ok: false, kind: "not_found", error: RECUSA_FESTA_PASSOU };
   }
   // A PORTA de SALVAR. O editor fechado nem abre (`criar/page.tsx`), mas a
   // action é um endereço público: sem esta linha, uma aba velha ainda gravaria
@@ -242,7 +242,7 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const agora = new Date();
   // Rascunho de fora da pergunta, como em `salvarDocumentoConvite`.
   if (event.status !== "DRAFT" && conviteEncerrado(event, agora)) {
-    return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
+    return { ok: false, kind: "not_found", error: RECUSA_FESTA_PASSOU };
   }
   // A PORTA de REPUBLICAR. Republicar é o que troca o site que os convidados
   // veem: fora da janela, é exatamente isso que a regra impede.
