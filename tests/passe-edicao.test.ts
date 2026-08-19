@@ -25,6 +25,10 @@ const URL_WEBHOOK = "https://seuconvite.orivya.com.br/api/webhooks/mercadopago";
 /** A action le a sessao do Auth.js; aqui ela e fixada na conta do teste. */
 const sessionMock = vi.hoisted(() => vi.fn());
 vi.mock("@/auth", () => ({ auth: sessionMock, signIn: vi.fn(), signOut: vi.fn() }));
+// `revalidatePath` so existe dentro de um request do Next (fora dele o proprio
+// Next lanca "static generation store missing"); aqui o que importa e o banco.
+const revalidateMock = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }));
 
 /**
  * `getPaymentProvider()` e chamado em runtime, entao da para trocar o provider
@@ -48,7 +52,7 @@ async function conviteFechado(
   // Assinatura VIVA por padrao nos planos pagos: `planoEfetivo` rebaixa para
   // BASICO quando `assinaturaAte` e nulo ou passado, entao um "CLASSICO" criado
   // so na coluna `plan` nao teria liberacao incluida nenhuma.
-  assinaturaAte: Date | null = plan === "BASICO" ? null : new Date(Date.now() + 30 * 24 * 60 * 60_000),
+  assinatura: { ate?: Date | null; status?: string | null } = {},
 ) {
   const sufixo = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const prof = await db.professional.create({
@@ -57,8 +61,14 @@ async function conviteFechado(
       email: `${MARCA}-${sufixo}@exemplo.test`,
       passwordHash: "x",
       plan,
-      assinaturaStatus: plan === "BASICO" ? null : "authorized",
-      assinaturaAte,
+      assinaturaStatus:
+        assinatura.status !== undefined ? assinatura.status : plan === "BASICO" ? null : "authorized",
+      assinaturaAte:
+        assinatura.ate !== undefined
+          ? assinatura.ate
+          : plan === "BASICO"
+            ? null
+            : new Date(Date.now() + 30 * 24 * 60 * 60_000),
     },
   });
   const event = await db.event.create({
@@ -78,8 +88,27 @@ async function conviteFechado(
   return { prof, event };
 }
 
+/**
+ * Rascunho com a data JA VENCIDA — o convite cuja data a pessoa esta consertando.
+ * E o unico estado em que a ORDEM das duas guardas muda a resposta.
+ */
+async function rascunhoVencido(db: PrismaClient, plan: "BASICO" | "CLASSICO" | "PREMIUM" = "PREMIUM") {
+  const { prof, event } = await conviteFechado(db, plan);
+  await db.event.update({
+    where: { id: event.id },
+    data: {
+      status: "DRAFT",
+      eventDate: new Date("2020-01-01T00:00:00Z"),
+      expiresAt: new Date("2020-02-01T00:00:00Z"),
+      edicaoAte: null,
+    },
+  });
+  return { prof, event };
+}
+
 beforeEach(() => {
   sessionMock.mockReset();
+  revalidateMock.mockClear();
   providerMock.mockReset();
   providerMock.mockImplementation(() => new FakePaymentProvider());
 });
@@ -405,6 +434,11 @@ describe("passe de edicao", () => {
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.passesGratisUsados).toBe(1);
     expect(depois.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+    // A janela abriu AGORA: sem revalidar, o painel em cache continuaria
+    // mandando a pessoa pagar pelo que ela acabou de liberar.
+    expect(revalidateMock.mock.calls.flat()).toEqual(
+      expect.arrayContaining(["/painel", `/painel/${event.id}`]),
+    );
 
     // Fecha a janela na mao para pedir a SEGUNDA liberacao do mesmo convite.
     await db.event.update({ where: { id: event.id }, data: { edicaoAte: new Date(Date.now() - 1000) } });
@@ -415,12 +449,13 @@ describe("passe de edicao", () => {
     expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(1);
   });
 
-  it.skipIf(!enabled)("Basico nao tem liberacao incluida", async () => {
+  it.skipIf(!enabled)("Gratis ouve que o PLANO nao inclui (nunca teve liberacao nenhuma)", async () => {
     const db = prisma!;
     const { event } = await conviteFechado(db, "BASICO");
+    // "Voce ja usou" seria mentira: ele nunca teve nenhuma para usar.
     expect(await usarPasseIncluido(event.id)).toEqual({
       ok: false,
-      erro: "Você já usou as liberações incluídas neste convite.",
+      erro: "Seu plano não inclui liberações de edição.",
     });
     expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
   });
@@ -443,17 +478,34 @@ describe("passe de edicao", () => {
     expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(3);
   });
 
-  it.skipIf(!enabled)("Estudio com assinatura VENCIDA nao tem liberacao incluida", async () => {
+  it.skipIf(!enabled)("Estudio com assinatura VENCIDA ouve que a ASSINATURA venceu", async () => {
     const db = prisma!;
     // A coluna `plan` continua PREMIUM: quem diz o direito de hoje e
     // `planoEfetivo`. Ler `prof.plan` daria 3 liberacoes a quem parou de pagar.
-    const { event } = await conviteFechado(db, "PREMIUM", new Date(Date.now() - 24 * 60 * 60_000));
+    const { event } = await conviteFechado(db, "PREMIUM", { ate: new Date(Date.now() - 24 * 60 * 60_000) });
 
+    // Das tres recusas, esta e a unica com conserto na mao do dono: renovar.
+    // Escondê-la atras de "voce ja usou" tirava dele a saida.
     expect(await usarPasseIncluido(event.id)).toEqual({
       ok: false,
-      erro: "Você já usou as liberações incluídas neste convite.",
+      erro: "Sua assinatura venceu, então este convite não tem mais liberações incluídas.",
     });
     expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
+  });
+
+  it.skipIf(!enabled)("assinatura CANCELADA dentro da carencia ainda libera", async () => {
+    const db = prisma!;
+    // Cancelar nao corta na hora: o mes corrente ja foi pago (lib/plans.ts).
+    // Quem manda e o VENCIMENTO, nao o status — este teste existe para que
+    // ninguem "conserte" isso um dia trocando `assinaturaAte` por
+    // `assinaturaStatus`.
+    const { event } = await conviteFechado(db, "CLASSICO", {
+      status: "cancelled",
+      ate: new Date(Date.now() + 10 * 24 * 60 * 60_000),
+    });
+
+    expect(await usarPasseIncluido(event.id)).toEqual({ ok: true });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(1);
   });
 
   it.skipIf(!enabled)("com a janela ja aberta, nao gasta cota", async () => {
@@ -520,8 +572,9 @@ describe("passe de edicao", () => {
     // antes de se cruzarem. O que morde e travar a linha do evento numa conexao
     // separada (`FOR UPDATE`): o `SELECT` do MVCC passa, entao as duas leem
     // `passesGratisUsados = 0`, e os dois UPDATEs ficam pendurados na trava — o
-    // interleaving exato do bug. Sem `passesGratisUsados` no WHERE as DUAS voltariam
-    // `ok: true` (a linha ainda marcaria 1, e a cota unica teria virado duas).
+    // interleaving exato do bug. Quem prova o compare-and-set e o teste da
+    // leitura velha, logo abaixo; aqui o que se prova e que UM clique duplo
+    // gasta UMA cota e ninguem ouve erro.
     const bloqueador = new PrismaClient();
     let cliques: Promise<UsarPasseIncluidoResult[]> | undefined;
     // `finally` porque a conexao extra tem de fechar mesmo se a trava estourar:
@@ -535,13 +588,68 @@ describe("passe de edicao", () => {
       });
 
       const resultados = await cliques!;
-      expect(resultados.filter((r) => r.ok)).toHaveLength(1);
-      expect(resultados.filter((r) => !r.ok)).toEqual([{ ok: false, erro: "Tente de novo." }]);
+      // Quem perdeu o compare-and-set NAO leva erro: a janela que ele pediu
+      // esta aberta (foi o proprio dono clicando duas vezes) e nenhuma cota
+      // extra foi gasta. "Tente de novo" faria a pessoa clicar achando que
+      // falhou — e o clique seguinte ouviria "ja esta liberada", pior ainda.
+      expect(resultados).toEqual([{ ok: true }, { ok: true }]);
       const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
       expect(depois.passesGratisUsados).toBe(1);
       expect(depois.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
     } finally {
       await bloqueador.$disconnect();
     }
+  });
+
+  it.skipIf(!enabled)("leitura VELHA nao regride o contador (a prova do compare-and-set)", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db, "PREMIUM");
+
+    // O que o CAS protege de verdade: a action LE `passesGratisUsados` e escreve
+    // depois — e no meio o numero pode ter mudado. Aqui a mudanca e forcada: a
+    // linha e travada numa conexao separada (o UPDATE da action fica pendurado)
+    // e, dentro da mesma transacao, o contador vai para 2. Quando a trava solta,
+    // a escrita da action esta velha. Com `passesGratisUsados` no WHERE ela nao
+    // acha linha e desiste; sem ele, gravaria 0 + 1 = 1 — o convite RECUPERARIA
+    // uma cota ja gasta, com 48h de brinde.
+    const bloqueador = new PrismaClient();
+    try {
+      let clique: Promise<UsarPasseIncluidoResult> | undefined;
+      await bloqueador.$transaction(async (trava) => {
+        await trava.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${event.id} FOR UPDATE`;
+        clique = usarPasseIncluido(event.id);
+        // Tempo de a action ler (o SELECT do MVCC passa pela trava) e pendurar.
+        await new Promise((r) => setTimeout(r, 300));
+        await trava.$executeRaw`UPDATE "Event" SET "passesGratisUsados" = 2 WHERE "id" = ${event.id}`;
+      });
+
+      // A janela continua fechada, entao "Tente de novo." e a resposta honesta.
+      expect(await clique!).toEqual({ ok: false, erro: "Tente de novo." });
+      const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+      expect(depois.passesGratisUsados).toBe(2);
+      expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+    } finally {
+      await bloqueador.$disconnect();
+    }
+  });
+
+  it.skipIf(!enabled)("rascunho com a data vencida ouve `ja esta liberada`, nao `a festa passou`", async () => {
+    const db = prisma!;
+    const { event } = await rascunhoVencido(db, "PREMIUM");
+
+    // A ORDEM das guardas e a regra: `edicaoAberta` e DRAFT-primeiro. Invertida,
+    // a resposta viraria "crie um convite novo" — jogar fora justamente o
+    // convite cuja data a pessoa esta consertando.
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "A edição deste convite já está liberada.",
+    });
+    expect(await comprarPasseEdicao(event.id)).toEqual({
+      ok: false,
+      erro: "A edição deste convite já está liberada.",
+    });
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.passesGratisUsados).toBe(0);
+    expect(await db.transaction.count({ where: { eventId: event.id } })).toBe(0);
   });
 });

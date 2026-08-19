@@ -12,12 +12,19 @@
  * reconsultar o pagamento no MP; a action so sabe pedir a cobranca.
  */
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
-import { PASSE_PRECO_CENTS, edicaoAberta, fimDoPasse, temPasseIncluido } from "@/lib/edicao";
+import {
+  PASSE_PRECO_CENTS,
+  edicaoAberta,
+  fimDoPasse,
+  passesIncluidos,
+  temPasseIncluido,
+} from "@/lib/edicao";
 import { conviteEncerrado } from "@/lib/event";
-import { SELECT_ASSINATURA, planoEfetivo } from "@/lib/plans";
+import { SELECT_ASSINATURA, planoEfetivo, type ContaAssinatura } from "@/lib/plans";
 
 export type ComprarPasseResult =
   | { ok: true; pixCode: string; pixQrUrl: string; transactionId: string }
@@ -198,16 +205,16 @@ export async function usarPasseIncluido(eventId: string): Promise<UsarPasseInclu
   if (conviteEncerrado(event, agora)) {
     return { ok: false, erro: "Esta festa já passou. Crie um convite novo para a próxima." };
   }
-  if (!temPasseIncluido(planoEfetivo(prof, agora), event.passesGratisUsados)) {
-    return { ok: false, erro: "Você já usou as liberações incluídas neste convite." };
-  }
+  const recusa = recusaDaCota(prof, event.passesGratisUsados, agora);
+  if (recusa) return { ok: false, erro: recusa };
 
-  // COMPARE-AND-SET: `passesGratisUsados` entra no WHERE com o valor que acabou de ser
-  // lido. Dois cliques simultaneos leem o mesmo 0, os dois UPDATEs disputam a
-  // MESMA linha e o Postgres reavalia o WHERE do segundo depois do commit do
-  // primeiro — ele nao acha linha e nao consome a segunda cota. Sem isto os dois
-  // gravariam 1 e o convite teria recebido duas liberacoes por uma so cota (e
-  // por isso nao ha transacao explicita aqui: e um UPDATE unico e condicional).
+  // COMPARE-AND-SET: `passesGratisUsados` entra no WHERE com o valor que acabou
+  // de ser lido, entao esta escrita so vale se NINGUEM tiver mexido no contador
+  // no meio. O que ela impede e a escrita VELHA: entre o SELECT e o UPDATE o
+  // numero pode ter virado 2, e gravar "o que eu li + 1" o faria voltar para 1 —
+  // uma cota gasta ressuscitada, com 48h de brinde. Nao ha transacao explicita
+  // porque e um UPDATE unico e condicional: o Postgres trava a linha, e o
+  // segundo a chegar reavalia o WHERE depois do commit do primeiro.
   //
   // `fimDoPasse(agora)` SOBRESCREVE em vez de empilhar de proposito: so se chega
   // ate aqui com a janela fechada, entao nao ha tempo vivo para encurtar.
@@ -215,8 +222,59 @@ export async function usarPasseIncluido(eventId: string): Promise<UsarPasseInclu
     where: { id: event.id, passesGratisUsados: event.passesGratisUsados },
     data: { passesGratisUsados: event.passesGratisUsados + 1, edicaoAte: fimDoPasse(agora) },
   });
-  // Perdeu a corrida (ou a linha sumiu). "Tente de novo" e a verdade util: no
-  // recarregar, a tela ja mostra a edicao liberada pelo clique que venceu.
-  if (aplicado.count !== 1) return { ok: false, erro: "Tente de novo." };
+
+  if (aplicado.count !== 1) {
+    // Nao aplicou. O caso comum e o proprio dono clicando duas vezes: o outro
+    // clique ja abriu a janela e gastou UMA cota so. Por isso releia antes de
+    // dar erro — dizer "tente de novo" com a edicao ja liberada faz a pessoa
+    // clicar de novo achando que falhou.
+    const atual = await prisma.event.findUnique({
+      where: { id: event.id },
+      select: { status: true, expiresAt: true, edicaoAte: true },
+    });
+    if (!atual || !edicaoAberta(atual, new Date())) {
+      return { ok: false, erro: "Tente de novo." };
+    }
+    revalidarConvite(event.id);
+    return { ok: true };
+  }
+
+  revalidarConvite(event.id);
   return { ok: true };
+}
+
+/**
+ * Por que a liberacao incluida foi recusada — ou `null` quando ela pode sair.
+ *
+ * Sao TRES estados diferentes, e uma frase so os escondia. O que mais doia era o
+ * do meio: quem assinou, publicou e deixou a assinatura vencer ouvia "voce ja
+ * usou" sem nunca ter usado nada — e sem descobrir que renovar resolvia.
+ */
+function recusaDaCota(prof: ContaAssinatura, usadas: number, agora: Date): string | null {
+  if (temPasseIncluido(planoEfetivo(prof, agora), usadas)) return null;
+
+  // Teto do plano CONTRATADO: o maior que esta conta ja deu a este convite.
+  const contratado = passesIncluidos(prof.plan);
+  // Gastou tudo o que o plano dava. Renovar nao devolve — a cota e por convite.
+  if (contratado > 0 && usadas >= contratado) {
+    return "Você já usou as liberações incluídas neste convite.";
+  }
+  // Ainda sobrava cota e mesmo assim o direito sumiu: so o vencimento faz isso
+  // (`planoEfetivo` rebaixa para Basico). E a unica das tres com conserto na mao
+  // do dono.
+  if (contratado > 0) {
+    return "Sua assinatura venceu, então este convite não tem mais liberações incluídas.";
+  }
+  return "Seu plano não inclui liberações de edição.";
+}
+
+/**
+ * A janela abriu AGORA e o proximo clique da pessoa e em "editar": sem
+ * revalidar, o painel serviria do cache a versao que ainda diz "fechado" — e o
+ * botao que ela acabou de usar continuaria dizendo para pagar. A publicacao
+ * (`painel/criar/acoes.ts`) faz o mesmo.
+ */
+function revalidarConvite(eventId: string): void {
+  revalidatePath("/painel");
+  revalidatePath(`/painel/${eventId}`);
 }
