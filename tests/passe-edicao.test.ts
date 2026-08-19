@@ -287,15 +287,72 @@ describe("passe de edicao", () => {
     expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).providerId).toBe("mp-999");
   });
 
-  it.skipIf(!enabled)("pagamento que nao e nosso: 200 e a janela continua fechada", async () => {
+  it.skipIf(!enabled)("pagamento aprovado SEM DONO: 200, nada concedido e INCIDENTE no log", async () => {
     const db = prisma!;
     const { event } = await conviteFechado(db);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    mpResponde({ id: "mp-de-outro", status: "approved", external_reference: "nao-existe" });
-    expect((await POST(notificacao("payment", "mp-de-outro"))).status).toBe(200);
+    mpResponde({ id: "mp-sem-dono", status: "approved", external_reference: "nao-existe" });
+    // 200 de proposito: 5xx faria o MP reentregar isto para sempre.
+    expect((await POST(notificacao("payment", "mp-sem-dono"))).status).toBe(200);
 
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+    // A conta do MP e NOSSA: dinheiro que entrou sem dono nao pode sair calado.
+    expect(log.mock.calls.flat().join(" ")).toContain("mp-sem-dono");
+    log.mockRestore();
+  });
+
+  it.skipIf(!enabled)("MP diz `pending`: nada e concedido (o gate do PAID)", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    await comprarPasseEdicao(event.id);
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+
+    mpResponde({ id: tx.providerId, status: "pending", external_reference: tx.id });
+    expect((await POST(notificacao("payment", tx.providerId!))).status).toBe(200);
+
+    // Pix gerado nao e Pix pago.
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PENDING");
+  });
+
+  it.skipIf(!enabled)("MP diz `rejected`: nada e concedido", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    await comprarPasseEdicao(event.id);
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+
+    mpResponde({ id: tx.providerId, status: "rejected", external_reference: tx.id });
+    expect((await POST(notificacao("payment", tx.providerId!))).status).toBe(200);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PENDING");
+  });
+
+  it.skipIf(!enabled)("estorno marca REFUNDED, loga e NAO fecha a janela", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    await comprarPasseEdicao(event.id);
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+
+    mpResponde({ id: tx.providerId, status: "approved", external_reference: tx.id });
+    await POST(notificacao("payment", tx.providerId!));
+    const aberto = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mpResponde({ id: tx.providerId, status: "refunded", external_reference: tx.id });
+    expect((await POST(notificacao("payment", tx.providerId!))).status).toBe(200);
+
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("REFUNDED");
+    // Fechar a janela seria tirar do dono, no meio do trabalho, o que ele pagou.
+    expect(
+      (await db.event.findUniqueOrThrow({ where: { id: event.id } })).edicaoAte!.toISOString(),
+    ).toBe(aberto.edicaoAte!.toISOString());
+    expect(log.mock.calls.flat().join(" ")).toContain("ESTORNO");
+    log.mockRestore();
   });
 
   it.skipIf(!enabled)("consulta ao MP que falha devolve 5xx e nao abre a janela", async () => {

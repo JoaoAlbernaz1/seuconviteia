@@ -5,8 +5,9 @@
 // confirmar o dinheiro; nunca o clique no painel (a action `comprarPasseEdicao`
 // so pede a cobranca e a deixa PENDING). Mesmo principio do presente do
 // convidado em `presentearCore.ts` e da assinatura em `assinaturaCore.ts`.
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fimDoPasse } from "@/lib/edicao";
+import { PASSE_HORAS } from "@/lib/edicao";
 
 /** Violacao de indice unico do Prisma (`providerId` @unique). */
 function ehDuplicata(err: unknown): boolean {
@@ -62,7 +63,10 @@ async function aplicarPasse(
       where: { id: transactionId, kind: "EDIT_PASS", status: "PENDING" },
       data: { status: "PAID", ...(providerId ? { providerId } : {}) },
     });
-    if (marcada.count !== 1) return; // ja confirmada, ou nao e passe de edicao
+    if (marcada.count !== 1) {
+      await avisarQueNaoAplicou(db, transactionId, providerId);
+      return;
+    }
 
     // O evento existe: `Transaction.eventId` e FK com cascade, entao linha viva
     // implica convite vivo.
@@ -70,18 +74,76 @@ async function aplicarPasse(
       where: { id: transactionId },
       select: { eventId: true },
     });
-    const evento = await db.event.findUniqueOrThrow({
-      where: { id: tx.eventId },
-      select: { edicaoAte: true },
-    });
 
-    // EMPILHA: as 48h contam do fim da janela que ainda corre (ou de agora, se
-    // ja venceu). Quem pagou dois passes ganha 96h — pagar duas vezes pela mesma
-    // janela seria ficar com R$ 39,80 e entregar 48h. Sem teto: cinco passes,
-    // cinco janelas; ele pagou por elas.
-    const base = evento.edicaoAte && evento.edicaoAte > agora ? evento.edicaoAte : agora;
-    await db.event.update({ where: { id: tx.eventId }, data: { edicaoAte: fimDoPasse(base) } });
+    // EMPILHA, e a soma e feita PELO BANCO num UPDATE so.
+    //
+    // Ler `edicaoAte` aqui e escrever depois perde atualizacao: a transacao
+    // interativa do Prisma roda em READ COMMITTED, entao duas notificacoes do MP
+    // em paralelo leem a MESMA base e a segunda sobrescreve a primeira — duas
+    // cobrancas pagas, 48h entregues. No UPDATE atomico a linha do evento fica
+    // travada e a segunda soma em cima do valor ja commitado: 96h.
+    //
+    // As 48h contam do fim da janela que ainda corre (ou de `agora`, se ja
+    // venceu). Sem teto: cinco passes, cinco janelas; ele pagou por elas.
+    //
+    // SQL cru porque o Prisma nao expressa `GREATEST(...) + interval` num update
+    // so; o banco e Postgres no local E na producao (cabecalho do schema), e
+    // `PASSE_HORAS` continua sendo a fonte do prazo — nao ha 48 escrito aqui.
+    await db.$executeRaw`
+      UPDATE "Event"
+         SET "edicaoAte" = GREATEST(COALESCE("edicaoAte", ${agora}), ${agora})
+                           + make_interval(hours => ${PASSE_HORAS}::int)
+       WHERE "id" = ${tx.eventId}
+    `;
   });
+}
+
+/**
+ * A confirmacao NAO aplicou. Reentrega da mesma notificacao e rotina (a linha ja
+ * esta PAID com a mesma cobranca) e sai calada; o resto e incidente de DINHEIRO
+ * e vai para o log alto. A conta do Mercado Pago e NOSSA: todo pagamento
+ * aprovado que chega aqui e nosso, entao "nao consegui aplicar" nunca e normal.
+ */
+async function avisarQueNaoAplicou(
+  db: Prisma.TransactionClient,
+  transactionId: string,
+  providerId: string | null,
+): Promise<void> {
+  const tx = await db.transaction.findUnique({
+    where: { id: transactionId },
+    select: { status: true, kind: true, providerId: true, eventId: true },
+  });
+  if (!tx) {
+    console.error(
+      `[passe-edicao] pagamento aprovado para cobrança que sumiu — tx=${transactionId} charge=${providerId ?? "-"}`,
+    );
+    return;
+  }
+  if (tx.status === "PAID" && (!providerId || tx.providerId === providerId)) return; // reentrega
+
+  console.error(
+    "[passe-edicao] pagamento APROVADO que não abriu janela nenhuma — " +
+      `tx=${transactionId} status=${tx.status} kind=${tx.kind} ` +
+      `vínculo=${tx.providerId ?? "-"} charge=${providerId ?? "-"} evento=${tx.eventId}`,
+  );
+}
+
+/**
+ * Estorno de um passe: marca a linha e LOGA. A janela NAO fecha — o dono pode
+ * ja ter editado, e tirar no meio do trabalho o que ele pagou e pior do que o
+ * prejuizo. Fica visivel no ledger para alguem olhar.
+ */
+export async function registrarEstornoPasse(transactionId: string, dataId: string): Promise<void> {
+  const marcada = await prisma.transaction.updateMany({
+    where: { id: transactionId, kind: "EDIT_PASS", status: { not: "REFUNDED" } },
+    data: { status: "REFUNDED" },
+  });
+  if (marcada.count !== 1) return; // ja registrado — reentrega da mesma notificacao
+
+  console.error(
+    `[passe-edicao] ESTORNO de passe — tx=${transactionId} charge=${dataId}. ` +
+      "A janela de edição continua aberta de propósito (o dono pode já estar editando).",
+  );
 }
 
 /**

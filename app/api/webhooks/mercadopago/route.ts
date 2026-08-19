@@ -19,7 +19,7 @@ import {
   verificarAssinaturaMp,
   webhookDesprotegido,
 } from "@/lib/pagamentos/mercadopago";
-import { acharPasseEdicao, confirmarPasseEdicao } from "@/lib/passeEdicao";
+import { acharPasseEdicao, confirmarPasseEdicao, registrarEstornoPasse } from "@/lib/passeEdicao";
 import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
 
 export const dynamic = "force-dynamic";
@@ -97,10 +97,24 @@ export async function POST(req: Request): Promise<Response> {
           // AQUI, e so aqui, que a janela de edicao de um convite publicado
           // abre — a compra no painel deixa a cobranca PENDING de proposito.
           const passe = await acharPasseEdicao(dataId, referencia);
-          // `dataId` vai junto: quando a linha foi achada pela referencia (o
-          // vinculo nao gravou na compra), e agora que ele se conserta.
-          if (passe) await confirmarPasseEdicao(passe, new Date(), dataId);
+          if (passe) {
+            // `dataId` vai junto: quando a linha foi achada pela referencia (o
+            // vinculo nao gravou na compra), e agora que ele se conserta.
+            await confirmarPasseEdicao(passe, new Date(), dataId);
+          } else {
+            // A conta do Mercado Pago e NOSSA: pagamento aprovado sem dono e
+            // dinheiro que entrou sem entregar nada. Incidente, nao rotina —
+            // mas 200 mesmo assim, senao o MP reentrega isto para sempre.
+            console.error(
+              `[webhook mercadopago] pagamento APROVADO sem dono — data.id=${dataId} ` +
+                `external_reference=${referencia ?? "-"}. Nada foi concedido.`,
+            );
+          }
         }
+      } else if (status === "REFUNDED") {
+        // Estorno: registra no ledger e NAO fecha a janela (ver registrarEstornoPasse).
+        const passe = await acharPasseEdicao(dataId, referencia);
+        if (passe) await registrarEstornoPasse(passe, dataId);
       }
     } else if (tipo === "assinatura") {
       // Mudou o estado da assinatura (autorizou, pausou, cancelou).

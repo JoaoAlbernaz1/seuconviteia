@@ -151,6 +151,22 @@ describe("confirmarPasseEdicao", () => {
     expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(fimDoPasse(agora)).toISOString());
   });
 
+  it.skipIf(!enabled)("dois pagamentos CONCORRENTES tambem somam 96h (lost update)", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const um = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-par-a-${Date.now()}` });
+    const dois = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-par-b-${Date.now()}` });
+    const agora = new Date();
+
+    // O MP entrega as duas notificacoes ao mesmo tempo. Ler `edicaoAte` e
+    // escrever depois faz a segunda sobrescrever a primeira (READ COMMITTED):
+    // duas linhas PAID e 48h entregues — metade do que foi pago, em silencio.
+    await Promise.all([confirmarPasseEdicao(um.id, agora), confirmarPasseEdicao(dois.id, agora)]);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(fimDoPasse(agora)).toISOString());
+  });
+
   it.skipIf(!enabled)("confirmar grava o vinculo (`providerId`) na linha orfa", async () => {
     const db = prisma!;
     const event = await conviteFechado(db);
@@ -183,6 +199,50 @@ describe("confirmarPasseEdicao", () => {
     expect(confirmada.status).toBe("PAID");
     expect(confirmada.providerId).toBeNull();
     expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it.skipIf(!enabled)("Pix pago de uma linha FAILED nao abre nada, mas GRITA no log", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const tx = await cobrancaPendente(db, event.id);
+    await db.transaction.update({ where: { id: tx.id }, data: { status: "FAILED" } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await confirmarPasseEdicao(tx.id, new Date(), `${MARCA}-cob-failed`);
+
+    // Marcamos como falha e o cliente pagou assim mesmo: dinheiro nosso, sem
+    // nada entregue. Sair calado daqui e o que esconde o caso para sempre.
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+    expect(log.mock.calls.flat().join(" ")).toContain(tx.id);
+    log.mockRestore();
+  });
+
+  it.skipIf(!enabled)("SEGUNDO Pix sobre a mesma cobranca ja paga vira incidente no log", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const tx = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-cob-1-${Date.now()}` });
+    await confirmarPasseEdicao(tx.id, new Date(), `${MARCA}-cob-1-${Date.now()}`);
+
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    // Outra cobranca (outro `data.id`) apontando para a MESMA linha, ja PAID.
+    await confirmarPasseEdicao(tx.id, new Date(), `${MARCA}-cob-2`);
+    expect(log.mock.calls.flat().join(" ")).toContain("APROVADO");
+    log.mockRestore();
+  });
+
+  it.skipIf(!enabled)("reentrega da MESMA notificacao sai calada (e rotina, nao incidente)", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const cobranca = `${MARCA}-cob-re-${Date.now()}`;
+    const tx = await cobrancaPendente(db, event.id, { providerId: cobranca });
+    await confirmarPasseEdicao(tx.id, new Date(), cobranca);
+
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await confirmarPasseEdicao(tx.id, new Date(), cobranca);
+    // Log de incidente que grita em cima de rotina treina todo mundo a ignorar.
+    expect(log).not.toHaveBeenCalled();
     log.mockRestore();
   });
 
