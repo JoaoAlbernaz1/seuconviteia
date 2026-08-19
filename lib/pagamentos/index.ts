@@ -26,10 +26,20 @@ export interface Transferencia {
   status: PayStatus;
 }
 
+/**
+ * Estado de uma cobranca no gateway. `referencia` e o `external_reference` que
+ * mandamos na criacao (o id da nossa linha): e por ele que o webhook reencontra
+ * o dono do pagamento quando o id da cobranca nao casa com nada aqui dentro.
+ */
+export interface EstadoCobranca {
+  status: PayStatus;
+  referencia: string | null;
+}
+
 export interface PaymentProvider {
   readonly nome: string;
   criarCobrancaPix(input: CobrancaPixInput): Promise<CobrancaPix>;
-  consultarCobranca(chargeId: string): Promise<{ status: PayStatus }>;
+  consultarCobranca(chargeId: string): Promise<EstadoCobranca>;
   transferir(input: TransferirInput): Promise<Transferencia>;
 }
 
@@ -52,8 +62,12 @@ export class FakePaymentProvider implements PaymentProvider {
     const pixCode = `00020126FAKE-${input.referencia}-${input.valorCents}5204000053039865802BR6009SEUCONVITE`;
     return { chargeId, pixCode, pixQrUrl: fakeQrDataUri(input.referencia), status: "PENDING" };
   }
-  async consultarCobranca(): Promise<{ status: PayStatus }> {
-    return { status: "PENDING" }; // no fake, quem confirma e a action confirmarPresente
+  async consultarCobranca(chargeId: string): Promise<EstadoCobranca> {
+    // No fake, quem confirma e a action confirmarPresente; o `chargeId` carrega
+    // a referencia (ver `criarCobrancaPix`), entao devolve-la mantem o simulado
+    // com a mesma forma do Mercado Pago.
+    const referencia = chargeId?.startsWith("fake_") ? chargeId.slice("fake_".length) : null;
+    return { status: "PENDING", referencia };
   }
   async transferir(input: TransferirInput): Promise<Transferencia> {
     return { transferId: `faketransfer_${input.referencia}`, status: "PAID" };

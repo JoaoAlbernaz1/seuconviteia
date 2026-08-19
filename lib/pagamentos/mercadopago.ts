@@ -10,7 +10,13 @@
 //     (consultarCobranca) como rede de segurança.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PayStatus } from "./contribuicao";
-import type { CobrancaPix, CobrancaPixInput, PaymentProvider, Transferencia } from "./index";
+import type {
+  CobrancaPix,
+  CobrancaPixInput,
+  EstadoCobranca,
+  PaymentProvider,
+  Transferencia,
+} from "./index";
 
 const MP_API = "https://api.mercadopago.com";
 
@@ -89,7 +95,7 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     };
   }
 
-  async consultarCobranca(chargeId: string): Promise<{ status: PayStatus }> {
+  async consultarCobranca(chargeId: string): Promise<EstadoCobranca> {
     const res = await fetch(`${MP_API}/v1/payments/${encodeURIComponent(chargeId)}`, {
       headers: { Authorization: `Bearer ${this.token()}` },
     });
@@ -97,7 +103,11 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     if (!res.ok || !data) {
       throw new Error(`Mercado Pago: consulta falhou (HTTP ${res.status}).`);
     }
-    return { status: mapMpStatus(data.status as string | undefined) };
+    return {
+      status: mapMpStatus(data.status as string | undefined),
+      // `external_reference` e o id que NOS mandamos na criacao da cobranca.
+      referencia: typeof data.external_reference === "string" ? data.external_reference : null,
+    };
   }
 
   async transferir(): Promise<Transferencia> {
