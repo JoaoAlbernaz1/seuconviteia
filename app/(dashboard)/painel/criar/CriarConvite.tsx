@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { publicarDocumentoConvite, salvarDocumentoConvite, type SalvarDocumentoResult } from "./acoes";
 import { planoPermite, podeVitrine, rotuloPlano, type Plan } from "@/lib/plans";
+import { PASSE_HORAS, PASSE_PRECO_CENTS } from "@/lib/edicao";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
 import { SeletorFontes } from "../_ui/SeletorFontes";
@@ -42,6 +43,30 @@ import { BotaoBloqueado, RecursoBloqueado } from "@/components/plano/RecursoBloq
 // painel: escrito na mão, o editor mostrava um endereço que não existe (faltava
 // o `.br`) e ignorava o dev, mandando o link de produção em localhost.
 const ROOT_DOMAIN = rootDomain();
+
+// Preco e prazo do passe SAEM de `lib/edicao` (nunca escritos a mao): a tela que
+// avisa e a tela que cobra precisam dizer o mesmo numero no dia em que ele mudar.
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const PRECO_PASSE = BRL.format(PASSE_PRECO_CENTS / 100);
+
+// Fuso FIXO (America/Sao_Paulo), como no resto do painel. Sem ele o servidor
+// renderiza no fuso da Vercel e o navegador no do cliente — a hora pisca na
+// hidratacao e o React reclama.
+const HORA_JANELA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** "20/08 às 18h40" — curto de proposito: cabe numa faixa de 390px. */
+function horaDaJanela(iso: string): string {
+  const partes = HORA_JANELA.formatToParts(new Date(iso));
+  const parte = (t: Intl.DateTimeFormatPartTypes) => partes.find((p) => p.type === t)?.value ?? "";
+  return `${parte("day")}/${parte("month")} às ${parte("hour")}h${parte("minute")}`;
+}
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
@@ -520,12 +545,21 @@ export function CriarConvite({
   initialDocument,
   initialEventId = null,
   initialDraftVersion = 0,
+  slugTravado = false,
+  subdomainPublicado = null,
+  edicaoAte = null,
   storageScope,
 }: {
   plano?: Plan;
   initialDocument?: EventEditorDocument;
   initialEventId?: string | null;
   initialDraftVersion?: number;
+  /** O convite ja foi publicado uma vez: o endereco congelou no servidor. */
+  slugTravado?: boolean;
+  /** O endereco que esta REALMENTE no ar (so quando travado). */
+  subdomainPublicado?: string | null;
+  /** Fim da janela de edicao, em ISO (so quando o convite ja esta publicado). */
+  edicaoAte?: string | null;
   storageScope: string;
 }) {
   const router = useRouter();
@@ -560,6 +594,11 @@ export function CriarConvite({
   const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
+  // Publicar em DOIS toques: o primeiro so revela a confirmacao. Publicar fecha
+  // o site, e fechar por engano custa dinheiro — mas `window.confirm` e um
+  // popup do navegador que a pessoa fecha no automatico. Mesmo padrao inline de
+  // `ListaConvites.tsx` e `ExcluirEvento.tsx`.
+  const [confirmandoPub, setConfirmandoPub] = useState(false);
   // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
   // cliente so via "Nao foi possivel salvar" e nao sabia o que fazer.
   const [salvarErro, setSalvarErro] = useState("");
@@ -844,7 +883,11 @@ export function CriarConvite({
   const req = (v: string) => !!v && v.trim().length > 0;
   const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
   const slugTaken = ["maria15", "festa15"].includes(S.slug);
-  const slugOk = slugValid && !slugTaken;
+  // Endereco travado nao tem o que validar: quem manda e a coluna `subdomain`,
+  // que o servidor nem le do rascunho. Sem esta saida, um rascunho com slug
+  // esquisito reprovava no checklist e barrava o "Publicar alteracoes" de um
+  // convite cujo link ja esta com os convidados.
+  const slugOk = slugTravado || (slugValid && !slugTaken);
   // Obrigatórios por passo: nome na Capa (passo 1); data/local no Conteúdo (passo 2);
   // link/endereço no Revisar (passo final, antes de publicar).
   const reqNome = req(S.nome);
@@ -860,15 +903,23 @@ export function CriarConvite({
       return { ...s, step, showErr: false, foco: focoDoPasso(step, s.acc) };
     });
   };
-  const prev = () =>
+  const prev = () => {
+    setConfirmandoPub(false);
     setS((s) => {
       const step = Math.max(1, s.step - 1);
       return { ...s, step, showErr: false, foco: focoDoPasso(step, s.acc) };
     });
-  const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false, foco: focoDoPasso(n, s.acc) }));
+  };
+  const goStep = (n: number) => {
+    setConfirmandoPub(false);
+    setS((s) => ({ ...s, step: n, showErr: false, foco: focoDoPasso(n, s.acc) }));
+  };
 
-  const linkPublico = pubInfo?.url ?? eventPublicUrl(S.slug, ROOT_DOMAIN);
-  const hostPublico = pubInfo?.host ?? `${S.slug}.${ROOT_DOMAIN}`;
+  // O endereco que a tela mostra. Publicado, e o do banco — o do rascunho pode
+  // ter sido digitado depois e nunca ter valido.
+  const slugExibido = (slugTravado ? subdomainPublicado : null) ?? S.slug;
+  const linkPublico = pubInfo?.url ?? eventPublicUrl(slugExibido, ROOT_DOMAIN);
+  const hostPublico = pubInfo?.host ?? `${slugExibido}.${ROOT_DOMAIN}`;
 
   const copyLink = () => {
     navigator.clipboard?.writeText(linkPublico).catch(() => {});
@@ -939,14 +990,25 @@ export function CriarConvite({
   // Salva o documento canônico e, ao publicar, cria um snapshot imutável.
   const enviar = (publicar: boolean) => {
     // Antes de publicar, o link precisa estar válido — está no passo final.
+    // (Travado, ele não é mais um campo: `slugOk` já responde `true`.)
     if (publicar && !slugOk) {
       setS((s) => ({ ...s, step: STEP_NAMES.length, showErr: true }));
       return;
     }
     setErroPub(null);
+    // A confirmação já cumpriu o papel dela: some antes do trabalho começar,
+    // para o rodapé voltar a mostrar "Publicando…" e, se der erro, o erro.
+    setConfirmandoPub(false);
     iniciarGravacao(async () => {
       const saved = await salvarComRecuperacao(editor.document);
       if (!saved.ok) {
+        // A janela fechou (venceu enquanto esta aba estava aberta). Isso não é
+        // erro de digitação: é uma porta, e a porta tem uma tela. Mandar para
+        // ela é a única saída que resolve — a linha vermelha aqui só informaria.
+        if (saved.kind === "fechado" && eventIdRef.current) {
+          router.push(`/painel/${eventIdRef.current}/liberar`);
+          return;
+        }
         setErroPub(saved.error);
         if (saved.kind === "conflict") setS((state) => ({ ...state, sv: "erro" }));
         return;
@@ -958,6 +1020,10 @@ export function CriarConvite({
       if (publicar) {
         const published = await publicarDocumentoConvite({ id: saved.id, expectedDraftVersion: saved.version });
         if (!published.ok) {
+          if (published.kind === "fechado") {
+            router.push(`/painel/${saved.id}/liberar`);
+            return;
+          }
           setErroPub(published.error);
           return;
         }
@@ -1207,6 +1273,26 @@ export function CriarConvite({
             onClick={onFocoCampo}
             onKeyDown={marcarInteracao}
           >
+            {/* A JANELA. Convite já publicado edita com prazo, e o prazo precisa
+                estar no campo de visão o tempo todo — não escondido no passo 6.
+                A segunda frase é a que evita o susto: o que está na tela ainda
+                NÃO é o que os convidados veem. Teal (e não âmbar) porque isto é
+                estado, não consequência: o âmbar da tela é o aviso de publicar. */}
+            {edicaoAte && (
+              <div
+                role="status"
+                className="flex items-start gap-3 rounded-[14px] border border-scv-teal/25 bg-scv-teal/10 px-4 py-3.5 text-[13px] leading-relaxed"
+              >
+                <i className="bi bi-unlock mt-0.5 text-[17px] text-scv-teal" aria-hidden />
+                <div className="min-w-0">
+                  <p className="font-semibold text-scv-ink">
+                    Edição liberada até <span className="whitespace-nowrap">{horaDaJanela(edicaoAte)}</span>.
+                  </p>
+                  <p className="mt-0.5 text-scv-text2">O público ainda vê a versão anterior.</p>
+                </div>
+              </div>
+            )}
+
             {/* STEP 1 — Capa (o nome da debutante mora aqui) */}
             {S.step === 1 && (
               <div data-foco="capa" className={cardCls}>
@@ -2337,14 +2423,42 @@ export function CriarConvite({
                 <div className={cardCls}>
                   <div className="text-[15.5px] font-bold">Endereço do seu convite</div>
                   <div className="mb-3.5 mt-1 text-[13px] text-[#6e6e76]">É o link que seus convidados vão receber.</div>
-                  <div className="flex items-center overflow-hidden rounded-[11px] border bg-[#F4F4F6]" style={{ borderColor: S.showErr && !slugOk ? "#FF2D8D" : "#E4E4EA" }}>
-                    <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
-                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.{ROOT_DOMAIN}</span>
-                  </div>
-                  <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
-                    <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
-                    {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
-                  </div>
+                  {slugTravado ? (
+                    /* Travado, mas VISÍVEL: o endereço é a coisa que a pessoa mais
+                       procura nesta tela (é o que ela cola no WhatsApp). Esconder
+                       o campo resolveria o "não dá para editar" criando um
+                       problema pior — some justo o dado que ela veio buscar. Um
+                       toque seleciona tudo, para copiar sem o mouse. */
+                    <>
+                      <label htmlFor="endereco-travado" className="sr-only">Endereço do convite</label>
+                      <div className="flex items-center overflow-hidden rounded-[11px] border border-[#E4E4EA] bg-[#F4F4F6]">
+                        <input
+                          id="endereco-travado"
+                          readOnly
+                          value={slugExibido}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onClick={(e) => e.currentTarget.select()}
+                          className="min-h-[44px] min-w-[60px] flex-1 border-none bg-transparent px-3 text-[14px] font-semibold text-[#6e6e76] outline-none"
+                        />
+                        <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.{ROOT_DOMAIN}</span>
+                      </div>
+                      <div className="mt-2 flex items-start gap-1.5 text-[12.5px] leading-relaxed text-[#6e6e76]">
+                        <i className="bi bi-lock mt-px text-[13px]" aria-hidden />
+                        <span>O endereço não muda depois de publicado — o link que você já enviou continua valendo.</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center overflow-hidden rounded-[11px] border bg-[#F4F4F6]" style={{ borderColor: S.showErr && !slugOk ? "#FF2D8D" : "#E4E4EA" }}>
+                        <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
+                        <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.{ROOT_DOMAIN}</span>
+                      </div>
+                      <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
+                        <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
+                        {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className={cardCls}>
                   <div className="mb-2 text-[14.5px] font-bold">Antes de publicar</div>
@@ -2358,6 +2472,29 @@ export function CriarConvite({
                     </div>
                   ))}
                   <div className="mt-2.5 text-[12px] text-[#A6A6AE]">Itens opcionais não bloqueiam a publicação.</div>
+                </div>
+                {/* O AVISO. Vem depois do checklist (o último olhar na conferência)
+                    e antes do cartão da marca — é a última coisa lida antes do
+                    rodapé de publicar, e não uma nota de rodapé perdida no meio.
+                    ÂMBAR, não vermelho: publicar é o caminho certo, com uma
+                    consequência; vermelho é erro, exclusão e recusa.
+                    As três frases são obrigatórias juntas — sem a terceira, o
+                    cliente lê "fecha" e entende "congelou minha festa inteira". */}
+                <div
+                  role="note"
+                  className="flex items-start gap-3 rounded-[14px] border border-scv-warn-ink/20 bg-scv-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-scv-warn-ink"
+                >
+                  <i className="bi bi-exclamation-triangle mt-0.5 text-[17px]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="font-semibold">Publicar fecha a edição</p>
+                    <p className="mt-0.5">
+                      O site continua no ar com esta versão. Para mexer nele de novo, é preciso uma
+                      liberação incluída no seu plano ou um passe de {PRECO_PASSE} por {PASSE_HORAS} horas.
+                    </p>
+                    <p className="mt-1.5">
+                      Confirmações, recados e presentes recebidos você continua acompanhando normalmente.
+                    </p>
+                  </div>
                 </div>
                 {/* Rodapé do convite: quem assina publica com a PRÓPRIA marca;
                     no grátis fica a nossa, e o cadeado explica o que muda. */}
@@ -2422,23 +2559,53 @@ export function CriarConvite({
         </div>
       </div>
 
-      {/* ACTION BAR */}
-      <div className="sticky bottom-0 z-30 flex items-center gap-2.5 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
-        <div className="hidden text-[12.5px] text-[#8b8b93] sm:block">Etapa {S.step} de {STEP_NAMES.length} · {STEP_NAMES[S.step - 1]}</div>
-        {erroPub && (
-          <div className="text-[12.5px] font-semibold text-[#d9376e]" role="alert">
-            {erroPub}
+      {/* ACTION BAR — dois modos. No modo de confirmação a barra fica com UMA
+          pergunta e DUAS saídas: "Voltar", "Salvar rascunho" e a etapa somem,
+          porque a essa altura já não há terceira coisa a fazer. No celular as
+          duas saídas empilham (nada de rolagem lateral) e o botão que fecha o
+          site fica embaixo, no alcance do polegar. */}
+      <div className="sticky bottom-0 z-30 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
+        {confirmandoPub ? (
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+            <p className="text-[12.5px] leading-snug text-[#6e6e76] sm:flex-1" role="status">
+              O site vai ao ar com esta versão e a edição fecha.
+            </p>
+            <button
+              onClick={() => setConfirmandoPub(false)}
+              className="min-h-[44px] w-full cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] sm:w-auto"
+            >
+              Continuar revisando
+            </button>
+            <button
+              onClick={() => enviar(true)}
+              disabled={gravando}
+              className="min-h-[44px] w-full cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {gravando ? "Publicando…" : "Sim, publicar e fechar edição"}
+            </button>
           </div>
-        )}
-        <div className="flex-1" />
-        {S.step > 1 && (
-          <button onClick={prev} disabled={gravando} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50">Voltar</button>
-        )}
-        <button onClick={() => enviar(false)} disabled={gravando} className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50 sm:block">{gravando ? "Salvando…" : "Salvar rascunho"}</button>
-        {S.step < STEP_NAMES.length ? (
-          <button onClick={next} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Continuar</button>
         ) : (
-          <button onClick={() => enviar(true)} disabled={gravando} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60">{gravando ? "Publicando…" : "Publicar convite"}</button>
+          <div className="flex items-center gap-2.5">
+            <div className="hidden text-[12.5px] text-[#8b8b93] sm:block">Etapa {S.step} de {STEP_NAMES.length} · {STEP_NAMES[S.step - 1]}</div>
+            {erroPub && (
+              <div className="text-[12.5px] font-semibold text-[#d9376e]" role="alert">
+                {erroPub}
+              </div>
+            )}
+            <div className="flex-1" />
+            {S.step > 1 && (
+              <button onClick={prev} disabled={gravando} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50">Voltar</button>
+            )}
+            <button onClick={() => enviar(false)} disabled={gravando} className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50 sm:block">{gravando ? "Salvando…" : "Salvar rascunho"}</button>
+            {S.step < STEP_NAMES.length ? (
+              <button onClick={next} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Continuar</button>
+            ) : (
+              /* O PRIMEIRO toque não publica: revela a confirmação. */
+              <button onClick={() => setConfirmandoPub(true)} disabled={gravando} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60">
+                {gravando ? "Publicando…" : slugTravado ? "Publicar alterações" : "Publicar convite"}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

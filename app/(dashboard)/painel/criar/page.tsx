@@ -22,6 +22,12 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
   let initialDocument: EventEditorDocument | undefined;
   let initialEventId: string | undefined;
   let initialDraftVersion = 0;
+  // Dados do SERVIDOR que a tela precisa para contar a verdade sobre a edicao:
+  // se o endereco ja congelou e ate quando a janela desta sessao vai. Derivar
+  // isso no cliente seria adivinhar — a regra mora nas actions e no banco.
+  let slugTravado = false;
+  let subdomainPublicado: string | null = null;
+  let edicaoAte: string | null = null;
   if (session?.user?.id) {
     const prof = await prisma.professional.findUnique({
       where: { id: session.user.id },
@@ -85,6 +91,25 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
       if (event && !edicaoAberta(event, new Date())) {
         redirect(`/painel/${event.id}/liberar`);
       }
+
+      // Daqui para baixo o convite EXISTE e a janela esta aberta. Duas verdades
+      // saem para a tela:
+      //
+      //  1. O endereco so e sorteado na PRIMEIRA publicacao (`acoes.ts`): depois
+      //     dela o servidor ignora o campo, porque o link ja foi para o WhatsApp
+      //     dos convidados. A MESMA condicao de la (`primeiraPublicacao`), para
+      //     nao existir uma segunda definicao de "travado" que discorde.
+      //  2. Ate quando esta janela vai — a faixa do editor precisa da hora, e
+      //     quem sabe a hora e o banco.
+      if (event) {
+        const primeiraPublicacao = event.status !== "PUBLISHED" && event.publishedAt === null;
+        slugTravado = !primeiraPublicacao;
+        // O endereco de verdade e o `subdomain` da linha, nao o do rascunho: sao
+        // campos diferentes, e mostrar o do rascunho seria mostrar um link que
+        // nao existe.
+        subdomainPublicado = slugTravado ? event.subdomain : null;
+        edicaoAte = slugTravado && event.edicaoAte ? event.edicaoAte.toISOString() : null;
+      }
     }
   }
   return (
@@ -93,6 +118,9 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
       initialDocument={initialDocument}
       initialEventId={initialEventId}
       initialDraftVersion={initialDraftVersion}
+      slugTravado={slugTravado}
+      subdomainPublicado={subdomainPublicado}
+      edicaoAte={edicaoAte}
       storageScope={session?.user?.id ?? "anonymous"}
     />
   );
