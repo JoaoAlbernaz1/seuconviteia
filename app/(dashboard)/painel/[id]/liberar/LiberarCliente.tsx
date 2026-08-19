@@ -323,7 +323,7 @@ export function LiberarCliente({
           </div>
         ) : (
           <div>
-            <Garantias horas={horas} foraDoAr={foraDoAr} comOQueAbre />
+            <Garantias horas={horas} foraDoAr={foraDoAr} incluido={temIncluido} comOQueAbre />
 
             {/* A recusa vem ANTES da decisao porque e ela que explica por que a
                 decisao mudou de cara ("a cota acabou" -> agora e o Pix). Depois
@@ -404,15 +404,24 @@ export function LiberarCliente({
  * No estado do Pix a primeira frase sai (o que abre ja foi lido antes do clique)
  * e as tres que restam continuam no MESMO peso: quem esta pagando e justamente
  * quem precisa das garantias legiveis.
+ *
+ * A ULTIMA linha muda com o caminho. "Compra unica, sem assinatura e sem
+ * renovacao" existe para tirar o medo de mensalidade de quem VAI PAGAR; dita a
+ * quem esta usando a liberacao do plano, ela fala de uma compra que nao existe.
+ * O desenho e o peso sao os mesmos — muda a frase, que precisa ser verdade nos
+ * dois estados.
  */
 function Garantias({
   horas,
   foraDoAr,
+  incluido = false,
   comOQueAbre = false,
   className = "",
 }: {
   horas: number;
   foraDoAr: boolean;
+  /** A liberacao vem da cota do plano (nao ha compra). */
+  incluido?: boolean;
   comOQueAbre?: boolean;
   className?: string;
 }) {
@@ -441,7 +450,17 @@ function Garantias({
         <b className="font-semibold text-scv-ink">Acesso por {horas} horas.</b>
       </Linha>
       <Linha icone="bi-tag">
-        <b className="font-semibold text-scv-ink">Compra única</b>, sem assinatura e sem renovação.
+        {incluido ? (
+          <>
+            <b className="font-semibold text-scv-ink">Sem cobrança:</b> não consome nada além da
+            liberação do seu plano.
+          </>
+        ) : (
+          <>
+            <b className="font-semibold text-scv-ink">Compra única</b>, sem assinatura e sem
+            renovação.
+          </>
+        )}
       </Linha>
     </ul>
   );
