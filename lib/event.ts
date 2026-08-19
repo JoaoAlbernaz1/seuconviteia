@@ -49,10 +49,12 @@ export function conviteEncerrado(
  *
  *  - `null`        -> nao existe                  -> `inexistente`
  *  - `DRAFT`       -> ainda nao publicado         -> `rascunho`
+ *  - encerrado     -> festa passou / `EXPIRED`    -> `expirado`
  *  - `foraDoAr`    -> o dono pausou o convite     -> `fora-do-ar`
- *  - `EXPIRED`     -> expirado por status         -> `expirado`
- *  - `expiresAt`   -> ja passou (`< agora`)       -> `expirado`
  *  - caso contrario (PUBLISHED e dentro do prazo) -> `ok: true`
+ *
+ * A ORDEM e a mesma de `estadoDoConvite` (o painel do dono), e isso e o ponto:
+ * as duas pontas precisam contar a MESMA historia sobre o mesmo convite.
  */
 export function eventoPublico(
   ev: EventoVisivel | null,
@@ -60,11 +62,14 @@ export function eventoPublico(
 ): VisibilidadeEvento {
   if (!ev) return { ok: false, motivo: "inexistente" };
   if (ev.status === "DRAFT") return { ok: false, motivo: "rascunho" };
-  // Antes da expiracao: fora do ar nao e prazo vencido, e o convidado merece o
-  // aviso certo — o convite volta quando o dono quiser.
+  // Encerrado ANTES de pausado: "fora do ar" promete volta ("volte mais tarde")
+  // e "expirado" e definitivo. Um convite pausado sempre acaba vencendo
+  // (`expiresAt` = data da festa + 2 dias), e nesse dia o painel do dono passa a
+  // dizer "Festa encerrada" e recolhe o "Voltar ao ar" — o visitante ficaria
+  // esperando uma volta que ninguem pode mais dar.
+  if (conviteEncerrado(ev, agora)) return { ok: false, motivo: "expirado" };
+  // Dentro do prazo, a pausa e do dono e tem volta: o convidado merece o aviso
+  // certo, e nao o de festa vencida.
   if (ev.foraDoAr) return { ok: false, motivo: "fora-do-ar" };
-  if (ev.status === "EXPIRED" || ev.expiresAt.getTime() < agora.getTime()) {
-    return { ok: false, motivo: "expirado" };
-  }
   return { ok: true };
 }

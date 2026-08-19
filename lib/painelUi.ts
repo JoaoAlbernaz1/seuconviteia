@@ -1,7 +1,13 @@
 // Helpers de apresentação do PAINEL (puros, sem prisma) — compartilhados pela
-// visão geral, pela grade de eventos e pelo editor. Rótulos/ícones de nicho,
-// visual de status e formatação de moeda.
-import type { EventType, EventStatus } from "@prisma/client";
+// visão geral, pela grade de eventos e pelo editor. Rótulos/ícones de nicho e
+// formatação de moeda.
+//
+// O visual de status NAO mora mais aqui: `STATUS_INFO`/`FILTROS_STATUS` eram
+// código morto com o vocabulário velho ("Publicado", "Rascunho", "Encerrado") —
+// uma quinta cópia da palavra, esperando alguém reaproveitar a errada. Quem
+// responde por estado e palavra é `lib/estadoConvite`, e pelo selo, `SELO_ESTADO`
+// (app/(dashboard)/painel/_ui/estilos).
+import type { EventType } from "@prisma/client";
 
 export const TIPO_LABEL: Record<EventType, string> = {
   CASAMENTO: "Casamento",
@@ -18,31 +24,6 @@ export const TIPO_ICON: Record<EventType, string> = {
   BODAS: "bi-gem",
   ANIVERSARIO: "bi-balloon-heart",
 };
-
-export type StatusVisual = {
-  /** Rótulo amigável (no painel "Encerrado" = expirado). */
-  label: string;
-  /** Classes da pílula de status (fundo + texto). */
-  pill: string;
-  /** Só a cor do texto (pílula sobre fundo claro, ex.: banner). */
-  text: string;
-  /** Cor do ponto/realce. */
-  dot: string;
-};
-
-export const STATUS_INFO: Record<EventStatus, StatusVisual> = {
-  PUBLISHED: { label: "Publicado", pill: "bg-teal/10 text-teal", text: "text-teal", dot: "bg-teal" },
-  DRAFT: { label: "Rascunho", pill: "bg-amber-100 text-amber-700", text: "text-amber-700", dot: "bg-amber-500" },
-  EXPIRED: { label: "Encerrado", pill: "bg-slate-100 text-slate-500", text: "text-slate-500", dot: "bg-slate-400" },
-};
-
-/** Os filtros da grade de eventos (rótulo → status; "Todos" = null). */
-export const FILTROS_STATUS: { label: string; status: EventStatus | null }[] = [
-  { label: "Todos", status: null },
-  { label: "Publicados", status: "PUBLISHED" },
-  { label: "Rascunhos", status: "DRAFT" },
-  { label: "Encerrados", status: "EXPIRED" },
-];
 
 /** Formata centavos como moeda BR (R$ 1.234,56). */
 export function moedaBRL(cents: number): string {

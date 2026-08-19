@@ -38,11 +38,19 @@ describe("eventoPublico", () => {
   });
 
   // O caso que separa a ORDEM das checagens: prazo vencido E fora do ar ao mesmo
-  // tempo. Se `foraDoAr` for perguntado depois da expiracao, este vira "expirado".
-  it("fora do ar com prazo vencido -> fora-do-ar (fora do ar vem antes)", () => {
+  // tempo.
+  //
+  // A ordem MUDOU em 19/08/2026 (era `foraDoAr` primeiro). O motivo: a tela de
+  // "fora do ar" diz ao visitante "volte mais tarde", e todo convite pausado
+  // acaba vencendo (`expiresAt` = festa + 2 dias). Depois do vencimento o painel
+  // do dono passa a dizer "Festa encerrada" e nao oferece mais "Voltar ao ar" —
+  // o convidado ficava esperando uma volta impossivel. Agora as duas pontas
+  // respondem igual: `eventoPublico` e `estadoDoConvite` (lib/estadoConvite)
+  // perguntam o fim da festa ANTES da pausa. Nao inverta sem trocar as duas.
+  it("fora do ar com prazo vencido -> expirado (encerrada vence a pausa)", () => {
     expect(
       eventoPublico({ status: "PUBLISHED", expiresAt: passado, foraDoAr: true }, agora),
-    ).toEqual({ ok: false, motivo: "fora-do-ar" });
+    ).toEqual({ ok: false, motivo: "expirado" });
   });
 
   it("publicado, no prazo e no ar -> ok", () => {

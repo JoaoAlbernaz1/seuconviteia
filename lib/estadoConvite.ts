@@ -17,7 +17,7 @@
  * diferentes para quem nao e tecnico (e, no banco, um convite fora do ar
  * continua PUBLISHED).
  */
-import { conviteEncerrado } from "./event";
+import { conviteEncerrado, type StatusEvento } from "./event";
 
 /**
  * Os quatro estados que um convite pode ter no painel.
@@ -31,7 +31,9 @@ export type EstadoConvite = "rascunho" | "no-ar" | "fora-do-ar" | "encerrada";
 
 /** Subconjunto do Event necessario para decidir o estado. */
 export type EventoEstado = {
-  status: string;
+  /** Tipado (e nao `string`): esta e a lib que as tres telas consultam — solta,
+   *  ela aceitaria um `"Published"` de dedo torto e devolveria "rascunho". */
+  status: StatusEvento;
   expiresAt: Date;
   /** Pausa do dono. Nao mexe no status: sair do ar nao destrava a edicao. */
   foraDoAr: boolean;
