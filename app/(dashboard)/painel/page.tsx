@@ -2,12 +2,19 @@
 // Saudação + CTA, hero "começa aqui" (3 passos), resumo (bloqueado no plano de
 // entrada / com números no plano completo) e o card "Seu convite" com anel de
 // progresso — tudo ligado ao convite em destaque (o mais recente) do usuário.
+//
+// O card "Seu convite" pergunta o ESTADO (`lib/estadoConvite`), não o status do
+// banco. Perguntando ao status, esta tela — a primeira depois de entrar — dizia
+// "Publicado", em verde e com 100% no anel, para o convite que o dono tinha
+// tirado do ar e para a festa que já tinha acontecido; e o menu oferecia
+// "Pausar convite" a quem já estava pausado.
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
 import { TIPO_LABEL } from "@/lib/painelUi";
+import { ESTADO_LABEL, estadoDoConvite } from "@/lib/estadoConvite";
 import { planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
 import { Ic, IC } from "./_shell/Ic";
 import { CopyLinkButton, ConviteMenu } from "./_shell/ConviteMenu";
@@ -65,9 +72,10 @@ export default async function DashboardPage() {
     }),
   ]);
 
+  const agora = new Date();
   const primeiro = (prof?.name ?? "").split(" ")[0] || "você";
   // Plano EFETIVO: assinatura vencida volta a valer como Básico.
-  const planoPago = (prof ? planoEfetivo(prof, new Date()) : "BASICO") !== "BASICO";
+  const planoPago = (prof ? planoEfetivo(prof, agora) : "BASICO") !== "BASICO";
   const temConvite = !!evento;
   // "Continuar edição" abre o editor em 6 passos — o mesmo de "Criar meu
   // convite", agora carregando o convite existente. Antes caía nas telas
@@ -91,7 +99,12 @@ export default async function DashboardPage() {
   }
 
   // Convite em destaque — derivados.
-  const publicado = evento?.status === "PUBLISHED";
+  const estado = evento ? estadoDoConvite(evento, agora) : null;
+  const rascunho = estado === "rascunho";
+  // "Pronto" = o site existe e não está mais sendo montado (no ar, pausado ou
+  // com a festa já encerrada). É o que o anel mede; se ele responde AGORA é
+  // outra pergunta, e quem responde é o selo.
+  const pronto = estado !== null && !rascunho;
   const kicker = evento ? (TIPO_LABEL[evento.type] ?? evento.type) : "";
   const local = evento ? lerCustomStr(evento.customization, "local") : undefined;
   const fotoUrl = evento ? lerCustomStr(evento.customization, "fotoUrl") : undefined;
@@ -101,11 +114,14 @@ export default async function DashboardPage() {
   const hora = evento ? HORA.format(evento.eventDate) : "";
   const dataPontos = evento ? DMY.format(evento.eventDate).replace(/\//g, " · ") : "";
 
-  // Progresso: publicado = 100%; senão, heurística por preenchimento.
+  // Progresso: site publicado = 100%; senão, heurística por preenchimento.
   const feitos = evento
     ? [!!fotoUrl, evento._count.gifts > 0, evento._count.guests > 0, !!local].filter(Boolean).length
     : 0;
-  const pct = publicado ? 100 : Math.min(90, 35 + feitos * 14);
+  const pct = pronto ? 100 : Math.min(90, 35 + feitos * 14);
+  // O anel só é violeta enquanto o convite está VIVO. Cheio de violeta num
+  // convite fora do ar, ele comemorava o que estava parado.
+  const anelCor = estado === "no-ar" || rascunho ? "#7C3AED" : "#64748b";
   const C = 2 * Math.PI * 35;
   const dashOff = (C * (1 - pct / 100)).toFixed(1);
 
@@ -242,12 +258,18 @@ export default async function DashboardPage() {
             <div className="min-w-0 flex-1">
               <div className="mb-1.5 flex flex-wrap items-center gap-3">
                 <div className="text-[16.5px] font-bold tracking-[-0.01em]">{evento.title}</div>
+                {/* Mesmas quatro palavras da lista e da tela do convite
+                    (`ESTADO_LABEL`), e o mesmo cinza cheio do selo apagado. */}
                 <span
                   className={`rounded-full px-3 py-1 text-[11.5px] font-bold ${
-                    publicado ? "bg-[#34A177]/[0.12] text-[#2E8A66]" : "bg-[#F3EFFE] text-[#7C3AED]"
+                    estado === "no-ar"
+                      ? "bg-[#34A177]/[0.12] text-[#2E8A66]"
+                      : rascunho
+                        ? "bg-[#F3EFFE] text-[#7C3AED]"
+                        : "bg-[#64748b] text-white"
                   }`}
                 >
-                  {publicado ? "Publicado" : "Em criação"}
+                  {estado ? ESTADO_LABEL[estado] : ""}
                 </span>
               </div>
               <div className="text-[13.5px] text-[#6e6e76]">
@@ -291,7 +313,7 @@ export default async function DashboardPage() {
                     cy="42"
                     r="35"
                     fill="none"
-                    stroke="#7C3AED"
+                    stroke={anelCor}
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray={C.toFixed(1)}
@@ -304,12 +326,12 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <div className="mt-1.5 text-xs font-medium text-[#6e6e76]">
-                {publicado ? "Publicado" : "Quase pronto"}
+                {estado && !rascunho ? ESTADO_LABEL[estado] : "Quase pronto"}
               </div>
             </div>
 
             {/* ações */}
-            <ConviteMenu url={linkFull} fid={evento.id} publicado={!!publicado} />
+            <ConviteMenu url={linkFull} fid={evento.id} estado={estado ?? "rascunho"} />
           </div>
         </>
       ) : (

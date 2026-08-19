@@ -3,9 +3,14 @@
 // Ações interativas do card "Seu convite": botão de copiar o link (com feedback
 // "Copiado!") e o menu "⋯" (visualizar, copiar, compartilhar, pausar, excluir).
 // Ações destrutivas levam à página de gestão do convite — nada é apagado inline.
+//
+// O menu segue o ESTADO do convite, não o status do banco: ele oferecia "Pausar
+// convite" a quem já estava pausado, e "copiar/compartilhar" o link de uma festa
+// que já aconteceu — cujo site responde com o aviso de convite encerrado.
 import { useState } from "react";
 import Link from "next/link";
 import { Ic, IC } from "./Ic";
+import type { EstadoConvite } from "@/lib/estadoConvite";
 
 function useCopiado(texto: string) {
   const [copiado, setCopiado] = useState(false);
@@ -36,14 +41,26 @@ export function CopyLinkButton({ url }: { url: string }) {
 export function ConviteMenu({
   url,
   fid,
-  publicado,
+  estado,
 }: {
   url: string;
   fid: string;
-  publicado: boolean;
+  estado: EstadoConvite;
 }) {
   const [open, setOpen] = useState(false);
   const { copiado, copiar } = useCopiado(url);
+  const rascunho = estado === "rascunho";
+  const encerrada = estado === "encerrada";
+  // A quarta linha do menu é a que MUDA o estado do convite — e por isso ela só
+  // existe quando há mudança possível. Depois da festa não há: o servidor não
+  // reabre nem republica, e um item que só leva a uma negativa é ruído.
+  const virar = rascunho
+    ? { label: "Publicar", href: `/painel/criar?id=${fid}` }
+    : estado === "no-ar"
+      ? { label: "Pausar convite", href: `/painel/${fid}` }
+      : estado === "fora-do-ar"
+        ? { label: "Voltar ao ar", href: `/painel/${fid}` }
+        : null;
 
   const compartilhar = async () => {
     setOpen(false);
@@ -68,10 +85,10 @@ export function ConviteMenu({
           ele parou. Sao dois verbos diferentes e nao devem cair no mesmo
           lugar. */}
       <Link
-        href={publicado ? `/painel/${fid}` : `/painel/criar?id=${fid}`}
+        href={rascunho ? `/painel/criar?id=${fid}` : `/painel/${fid}`}
         className="cursor-pointer rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
       >
-        {publicado ? "Gerenciar convite" : "Continuar edição"}
+        {rascunho ? "Continuar edição" : "Gerenciar convite"}
       </Link>
       <button
         onClick={() => setOpen((v) => !v)}
@@ -92,19 +109,25 @@ export function ConviteMenu({
             <a href={url} target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className={itemCls}>
               Visualizar site
             </a>
-            <button onClick={() => { void copiar(); setOpen(false); }} className={itemCls}>
-              {copiado ? "Copiado!" : "Copiar link"}
-            </button>
-            <button onClick={compartilhar} className={itemCls}>
-              Compartilhar
-            </button>
-            <Link
-              href={publicado ? `/painel/${fid}` : `/painel/criar?id=${fid}`}
-              onClick={() => setOpen(false)}
-              className={itemCls}
-            >
-              {publicado ? "Pausar convite" : "Publicar"}
-            </Link>
+            {/* Copiar e compartilhar somem com a festa encerrada: o link ainda
+                existe, mas quem abrir lê que o convite acabou — espalhá-lo é
+                convidar para uma porta fechada. "Visualizar site" fica: é assim
+                que o dono vê o que o convidado vê. */}
+            {encerrada ? null : (
+              <>
+                <button onClick={() => { void copiar(); setOpen(false); }} className={itemCls}>
+                  {copiado ? "Copiado!" : "Copiar link"}
+                </button>
+                <button onClick={compartilhar} className={itemCls}>
+                  Compartilhar
+                </button>
+              </>
+            )}
+            {virar ? (
+              <Link href={virar.href} onClick={() => setOpen(false)} className={itemCls}>
+                {virar.label}
+              </Link>
+            ) : null}
             <Link
               href={`/painel/${fid}`}
               onClick={() => setOpen(false)}

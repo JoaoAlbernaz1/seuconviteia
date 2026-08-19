@@ -41,8 +41,10 @@ export type ConviteResumo = {
 const PONTO_ESTADO: Record<EstadoConvite, string> = {
   "no-ar": "bg-[#0EA5A6]",
   rascunho: "bg-[#F59E0B]",
-  "fora-do-ar": "bg-[#a6a6ae]",
-  encerrada: "bg-[#a6a6ae]",
+  // #64748b = o mesmo cinza do selo apagado (`PILL_FORA`, `bg-scv-muted`). Com
+  // #a6a6ae o MESMO convite aparecia em dois cinzas diferentes na mesma tela.
+  "fora-do-ar": "bg-[#64748b]",
+  encerrada: "bg-[#64748b]",
 };
 
 function iniciais(nome: string): string {
