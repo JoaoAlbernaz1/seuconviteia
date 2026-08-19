@@ -292,8 +292,12 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                       e a unica porta de edicao da tela, e no celular nao existe
                       hover — cinza de 12,5px sem sublinhado lia como legenda do
                       card, nao como link. "Discreto" nao e "invisivel".
-                      `!text-` porque `.dash a` pinta todo link de violeta de
-                      fora das @layer, e utility sem `!` perde essa briga. */}
+                      `!text-` E `!underline` porque `.dash :where(a…)` declara
+                      `color` e `text-decoration: none` FORA das @layer do
+                      Tailwind v4 — e regra sem camada vence utility com camada,
+                      qualquer que seja a especificidade. Sem o `!`, o
+                      sublinhado sai do JSX e nao chega na tela (conferido no
+                      `getComputedStyle`, nao no olho). */}
                   {mostraEdicao ? (
                     <Link
                       href={
@@ -301,7 +305,7 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                           ? `/painel/criar?id=${ev.id}`
                           : `/painel/${ev.id}/liberar`
                       }
-                      className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] !text-scv-muted underline underline-offset-4 transition-colors hover:!text-scv-ink"
+                      className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] !text-scv-muted !underline underline-offset-4 transition-colors hover:!text-scv-ink"
                     >
                       {ev.edicaoLiberada
                         ? "Editar o site agora"
