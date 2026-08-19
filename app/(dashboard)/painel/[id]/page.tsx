@@ -182,7 +182,12 @@ export default async function AcompanharEventoPage({
       {/* cartão-herói: prévia + link + a ação que o estado permite */}
       <div className={`${CARD} mt-6`}>
         <div className="flex flex-col gap-5 p-4 sm:flex-row sm:items-stretch sm:gap-6 sm:p-6">
-          <div className="shrink-0 overflow-hidden rounded-[16px] ring-1 ring-black/5 sm:w-[300px]">
+          {/* `sm:self-start`: no desktop a capa tem altura propria (180px) e NAO
+              se estica com a coluna — esticada, o estado com aviso deixava uma
+              faixa branca embaixo da foto, que le como imagem quebrada. So a
+              partir do `sm` porque no celular a linha e coluna: ali `self-start`
+              encolheria a LARGURA da capa. */}
+          <div className="shrink-0 overflow-hidden rounded-[16px] ring-1 ring-black/5 sm:w-[300px] sm:self-start">
             <CapaEvento
               tema={lerTemaKey(event.customization)}
               fontes={lerFonteKey(event.customization)}
@@ -218,7 +223,12 @@ export default async function AcompanharEventoPage({
             {/* link público */}
             <div className="mt-3 flex flex-wrap items-center gap-2.5 rounded-xl border border-scv-line bg-scv-field px-3.5 py-2.5">
               <i className="bi bi-link-45deg text-lg text-scv-violet" aria-hidden />
-              <span className="min-w-0 flex-1 truncate text-[13.5px] text-scv-ink">{host}</span>
+              {/* `basis-[160px]`: em 390px os dois botoes espremiam o endereco
+                  ate "maria-...". Com uma base minima, quem nao cabe e o BOTAO,
+                  que desce para a segunda linha — o link fica legivel inteiro. */}
+              <span className="min-w-0 flex-1 basis-[160px] truncate text-[13.5px] text-scv-ink">
+                {host}
+              </span>
               <CopiarLink url={url} className={`${BTN_CARD} min-h-[44px]`} />
               <a
                 href={url}

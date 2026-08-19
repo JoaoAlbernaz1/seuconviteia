@@ -36,7 +36,7 @@ export function ExcluirEvento({ eventId, titulo }: { eventId: string; titulo: st
       <button
         type="button"
         onClick={() => setArmado(true)}
-        className="cursor-pointer text-[12.5px] font-medium text-scv-faint transition-colors duration-200 hover:text-red-600"
+        className="inline-flex min-h-[44px] cursor-pointer items-center text-[12.5px] font-medium text-scv-faint transition-colors duration-200 hover:text-red-600"
       >
         <i className="bi bi-trash3 mr-1" aria-hidden />
         Excluir este site
