@@ -3,7 +3,8 @@
 // qualquer coisa. Idempotente. Sem auth de sessão — a segurança é a assinatura.
 //
 // Dois negócios chegam AQUI, no mesmo endpoint:
-//  - `payment` .................. Pix do convidado presenteando (contribuição);
+//  - `payment` .................. Pix do convidado presenteando (contribuição)
+//                                 OU o passe de edição que o dono comprou;
 //  - `subscription_preapproval` . assinatura do SaaS que o profissional paga;
 //  - `subscription_authorized_payment` .. a cobrança mensal dessa assinatura.
 //
@@ -18,6 +19,7 @@ import {
   verificarAssinaturaMp,
   webhookDesprotegido,
 } from "@/lib/pagamentos/mercadopago";
+import { acharPasseEdicao, confirmarPasseEdicao } from "@/lib/passeEdicao";
 import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
 
 export const dynamic = "force-dynamic";
@@ -83,12 +85,20 @@ export async function POST(req: Request): Promise<Response> {
   try {
     // 4) Re-consulta o estado REAL no MP (fonte da verdade) e aplica.
     if (tipo === "pagamento") {
-      const { status } = await provider.consultarCobranca(dataId);
+      const { status, referencia } = await provider.consultarCobranca(dataId);
       if (status === "PAID") {
         const contrib = await prisma.giftContribution.findFirst({
           where: { providerChargeId: dataId },
         });
-        if (contrib) await confirmarContribuicaoPaga(contrib.id);
+        if (contrib) {
+          await confirmarContribuicaoPaga(contrib.id);
+        } else {
+          // Nao e presente de convidado: pode ser o passe de edicao do dono. E
+          // AQUI, e so aqui, que a janela de edicao de um convite publicado
+          // abre — a compra no painel deixa a cobranca PENDING de proposito.
+          const passe = await acharPasseEdicao(dataId, referencia);
+          if (passe) await confirmarPasseEdicao(passe, new Date());
+        }
       }
     } else if (tipo === "assinatura") {
       // Mudou o estado da assinatura (autorizou, pausou, cancelou).

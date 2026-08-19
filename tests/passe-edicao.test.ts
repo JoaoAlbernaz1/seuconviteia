@@ -8,13 +8,18 @@
 //
 // Sem `MERCADO_PAGO_ACCESS_TOKEN` no ambiente, `getPaymentProvider()` devolve o
 // FakePaymentProvider — o teste nao fala com o Mercado Pago de verdade.
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { POST } from "@/app/api/webhooks/mercadopago/route";
 import { FakePaymentProvider } from "@/lib/pagamentos";
+import { MercadoPagoPaymentProvider } from "@/lib/pagamentos/mercadopago";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
 const MARCA = "passe-edicao-teste";
+const SEGREDO = "segredo-do-webhook";
+const URL_WEBHOOK = "https://seuconvite.orivya.com.br/api/webhooks/mercadopago";
 
 /** A action le a sessao do Auth.js; aqui ela e fixada na conta do teste. */
 const sessionMock = vi.hoisted(() => vi.fn());
@@ -60,6 +65,46 @@ beforeEach(() => {
   sessionMock.mockReset();
   providerMock.mockReset();
   providerMock.mockImplementation(() => new FakePaymentProvider());
+});
+
+/** Notificacao assinada como o MP assina (`x-signature: ts=..,v1=..`). */
+function notificacao(tipo: string, dataId: string): Request {
+  const ts = "1700000000";
+  const requestId = "req-1";
+  const v1 = createHmac("sha256", SEGREDO)
+    .update(`id:${dataId.toLowerCase()};request-id:${requestId};ts:${ts};`)
+    .digest("hex");
+  return new Request(URL_WEBHOOK, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-request-id": requestId,
+      "x-signature": `ts=${ts},v1=${v1}`,
+    },
+    body: JSON.stringify({ type: tipo, data: { id: dataId } }),
+  });
+}
+
+function respostaMp(json: unknown, ok = true, status = 200) {
+  return { ok, status, json: async () => json };
+}
+
+/**
+ * Liga o Mercado Pago DE VERDADE no webhook (token + segredo + provider real) e
+ * fixa o que a consulta do pagamento vai responder. Sem isto o `getPaymentProvider`
+ * mockado devolve o Fake e a rota responde "provider inativo" sem processar nada.
+ */
+function mpResponde(json: unknown) {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respostaMp(json)));
+  providerMock.mockImplementation(() => new MercadoPagoPaymentProvider());
+  process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+  process.env.MERCADO_PAGO_WEBHOOK_SECRET = SEGREDO;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete process.env.MERCADO_PAGO_ACCESS_TOKEN;
+  delete process.env.MERCADO_PAGO_WEBHOOK_SECRET;
 });
 
 /** Provider que sempre recusa — simula o Mercado Pago fora do ar. */
@@ -199,5 +244,76 @@ describe("passe de edicao", () => {
     const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
     expect(tx.status).toBe("PENDING");
     expect(tx.providerId).toBeTruthy();
+  });
+
+  it.skipIf(!enabled)("Pix aprovado abre 48h — e a reentrega nao abre de novo", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    const r = await comprarPasseEdicao(event.id);
+    expect(r.ok).toBe(true);
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+
+    // O webhook re-consulta o MP: aqui ele responde "aprovado".
+    mpResponde({ id: tx.providerId, status: "approved", external_reference: tx.id });
+
+    expect((await POST(notificacao("payment", tx.providerId!))).status).toBe(200);
+
+    const aberto = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(aberto.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PAID");
+
+    // Reentrega da MESMA notificacao: 200 e a janela nao anda de novo.
+    const antes = aberto.edicaoAte!.toISOString();
+    expect((await POST(notificacao("payment", tx.providerId!))).status).toBe(200);
+    expect(
+      (await db.event.findUniqueOrThrow({ where: { id: event.id } })).edicaoAte!.toISOString(),
+    ).toBe(antes);
+  });
+
+  it.skipIf(!enabled)("cobranca sem providerId ainda e achada pelo external_reference", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    await comprarPasseEdicao(event.id);
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+    // O buraco real da Task 4: a cobranca existe no MP, mas gravar o vinculo falhou.
+    await db.transaction.update({ where: { id: tx.id }, data: { providerId: null } });
+
+    mpResponde({ id: "mp-999", status: "approved", external_reference: tx.id });
+    expect((await POST(notificacao("payment", "mp-999"))).status).toBe(200);
+
+    const aberto = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(aberto.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
+  });
+
+  it.skipIf(!enabled)("pagamento que nao e nosso: 200 e a janela continua fechada", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+
+    mpResponde({ id: "mp-de-outro", status: "approved", external_reference: "nao-existe" });
+    expect((await POST(notificacao("payment", "mp-de-outro"))).status).toBe(200);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+  });
+
+  it.skipIf(!enabled)("consulta ao MP que falha devolve 5xx e nao abre a janela", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    await comprarPasseEdicao(event.id);
+    const tx = await db.transaction.findFirstOrThrow({ where: { eventId: event.id } });
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respostaMp({}, false, 500)));
+    providerMock.mockImplementation(() => new MercadoPagoPaymentProvider());
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-teste";
+    process.env.MERCADO_PAGO_WEBHOOK_SECRET = SEGREDO;
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // 5xx = o MP reenvia depois; conceder sem saber o status e que nao pode.
+    expect((await POST(notificacao("payment", tx.providerId!))).status).toBe(500);
+    log.mockRestore();
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PENDING");
   });
 });
