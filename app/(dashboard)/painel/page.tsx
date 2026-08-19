@@ -7,7 +7,7 @@
 // banco. Perguntando ao status, esta tela — a primeira depois de entrar — dizia
 // "Publicado", em verde e com 100% no anel, para o convite que o dono tinha
 // tirado do ar e para a festa que já tinha acontecido; e o menu oferecia
-// "Pausar convite" a quem já estava pausado.
+// "Tirar do ar" a quem já estava fora do ar.
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -15,7 +15,7 @@ import { prisma } from "@/lib/db";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
 import { TIPO_LABEL } from "@/lib/painelUi";
 import { ESTADO_LABEL, estadoDoConvite } from "@/lib/estadoConvite";
-import { planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
+import { planoEfetivo, podeCriarEvento, SELECT_ASSINATURA } from "@/lib/plans";
 import { Ic, IC } from "./_shell/Ic";
 import { CopyLinkButton, ConviteMenu } from "./_shell/ConviteMenu";
 
@@ -75,7 +75,8 @@ export default async function DashboardPage() {
   const agora = new Date();
   const primeiro = (prof?.name ?? "").split(" ")[0] || "você";
   // Plano EFETIVO: assinatura vencida volta a valer como Básico.
-  const planoPago = (prof ? planoEfetivo(prof, agora) : "BASICO") !== "BASICO";
+  const plano = prof ? planoEfetivo(prof, agora) : "BASICO";
+  const planoPago = plano !== "BASICO";
   const temConvite = !!evento;
 
   // Números reais do convite em destaque.
@@ -113,15 +114,34 @@ export default async function DashboardPage() {
   const feitos = evento
     ? [!!fotoUrl, evento._count.gifts > 0, evento._count.guests > 0, !!local].filter(Boolean).length
     : 0;
-  // O CTA do topo levava ao editor com QUALQUER convite. Isso valia quando o
-  // editor abria sempre; hoje ele esta fechado depois de publicar (`lib/edicao`)
-  // e devolve a pessoa para a tela de liberar. Rascunho continua indo editar —
-  // e onde ele parou; publicado vai gerenciar, que e o que da para fazer.
+  // Vaga no plano — perguntada SO quando o convite em destaque ja esta
+  // publicado (e o unico caso em que o CTA do topo oferece comecar outro).
+  // O `&&` corta antes do `await`: em rascunho a query nem sai.
+  const podeCriarOutro =
+    !!evento &&
+    !rascunho &&
+    podeCriarEvento(
+      plano,
+      await prisma.event.count({
+        where: { professionalId: uid, expiresAt: { gt: agora } },
+      }),
+    );
+
+  // O CTA do topo COMEÇA coisa; o botão do card CUIDA do convite que já existe.
+  // Ele levava ao editor com qualquer convite — e, quando a edição passou a ser
+  // fechada depois de publicar (`lib/edicao`), virou "Gerenciar convite": o
+  // mesmo rótulo, a mesma cor e o mesmo destino do botão do card, duas vezes na
+  // mesma tela. Sem vaga no plano ele simplesmente não existe: sem vaga = plano
+  // Básico, e a faixa de resumo logo abaixo já é o convite a mudar de plano —
+  // dois botões violeta para /painel/plano na mesma tela seria a duplicação de
+  // novo, só que com outro nome.
   const cta = !evento
     ? { href: "/painel/criar", label: "Criar meu convite", icone: IC.plus }
     : rascunho
       ? { href: `/painel/criar?id=${evento.id}`, label: "Continuar edição", icone: IC.edit }
-      : { href: `/painel/${evento.id}`, label: "Gerenciar convite", icone: IC.grid };
+      : podeCriarOutro
+        ? { href: "/painel/criar", label: "Novo convite", icone: IC.plus }
+        : null;
 
   const pct = pronto ? 100 : Math.min(90, 35 + feitos * 14);
   // O anel só é violeta enquanto o convite está VIVO. Cheio de violeta num
@@ -140,13 +160,15 @@ export default async function DashboardPage() {
             Continue preparando uma noite inesquecível.
           </p>
         </div>
-        <Link
-          href={cta.href}
-          className="flex items-center gap-2.5 rounded-[13px] bg-[#7C3AED] px-[22px] py-3 text-[14.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
-        >
-          <Ic d={cta.icone} size={15} stroke="#fff" width={2} />
-          {cta.label}
-        </Link>
+        {cta ? (
+          <Link
+            href={cta.href}
+            className="flex min-h-[44px] items-center gap-2.5 rounded-[13px] bg-[#7C3AED] px-[22px] py-3 text-[14.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
+          >
+            <Ic d={cta.icone} size={15} stroke="#fff" width={2} />
+            {cta.label}
+          </Link>
+        ) : null}
       </div>
 
       {/* HERO — começa aqui */}
@@ -312,8 +334,14 @@ export default async function DashboardPage() {
 
             {/* progresso circular */}
             <div className="flex-none px-2 text-center">
-              <div className="relative size-[84px]">
-                <svg width="84" height="84" viewBox="0 0 84 84">
+              {/* `role="img"` + rótulo: sem ele o leitor de tela anuncia "100%"
+                  solto — cem por cento de quê. */}
+              <div
+                className="relative size-[84px]"
+                role="img"
+                aria-label={`Convite ${pct}% montado`}
+              >
+                <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden>
                   <circle cx="42" cy="42" r="35" fill="none" stroke="#F0F0F3" strokeWidth="8" />
                   <circle
                     cx="42"
@@ -332,9 +360,14 @@ export default async function DashboardPage() {
                   {pct}%
                 </div>
               </div>
-              <div className="mt-1.5 text-xs font-medium text-[#6e6e76]">
-                {estado && !rascunho ? ESTADO_LABEL[estado] : "Quase pronto"}
-              </div>
+              {/* A legenda é do ANEL, e o anel mede montagem — não
+                  disponibilidade. Repetindo o estado ("Fora do ar"), ela dizia
+                  duas vezes, a dois centímetros do selo, a mesma coisa; e num
+                  medidor que, com o site publicado, está sempre em 100%. Só o
+                  rascunho tem progresso para legendar. */}
+              {rascunho ? (
+                <div className="mt-1.5 text-xs font-medium text-[#6e6e76]">Quase pronto</div>
+              ) : null}
             </div>
 
             {/* ações */}
