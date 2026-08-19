@@ -1,21 +1,47 @@
 "use client";
 
 // Grade de "Meus convites" com MODO DE SELEÇÃO para apagar vários de uma vez.
-// Fora do modo: cards normais (Editar / Ver). No modo seleção: cada card vira um
-// alvo (checkbox na capa), e uma barra flutuante mostra quantos e o botão de
+// Fora do modo: cards normais (Gerenciar / Ver). No modo seleção: cada card vira
+// um alvo (checkbox na capa), e uma barra flutuante mostra quantos e o botão de
 // excluir — com confirmação em DOIS toques (mesmo padrão do resto do painel,
 // sem dialog do navegador). A exclusão em lote roda em `excluirEventos`.
+//
+// O CARD NÃO PROMETE EDIÇÃO. Publicou, fecha (ver `lib/edicao`), então o botão
+// de lápis saiu: ele oferecia num toque o que o servidor recusa. O que entrou no
+// lugar foi a verdade em dois níveis — o ESTADO do convite (um selo colorido,
+// sempre com a palavra junto) e, abaixo dele, se a edição está aberta ou fechada
+// (selo neutro, de apoio). São duas informações diferentes: um site pode estar
+// no ar e fechado para mexer, e é justamente esse o caso normal.
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { CapaEvento } from "../_ui/CapaEvento";
+import {
+  PILL_ATENCAO,
+  PILL_FORA,
+  PILL_NEUTRO,
+  PILL_NO_AR,
+  PILL_PREPARO,
+} from "../_ui/estilos";
 import { excluirEventos } from "../acoes";
+
+/**
+ * Os quatro estados que um convite pode ter nesta lista.
+ *
+ * "fora-do-ar" e "rascunho" são coisas MUITO diferentes (um site pausado pelo
+ * dono x um site que nunca existiu) e por isso não dividem selo: quem lesse
+ * "Em criação" num convite que já foi para o WhatsApp dos convidados acharia
+ * que perdeu o trabalho.
+ */
+export type EstadoConvite = "rascunho" | "no-ar" | "fora-do-ar" | "encerrada";
 
 export type ItemConvite = {
   id: string;
   title: string;
-  publicado: boolean;
+  estado: EstadoConvite;
+  /** A janela de edição do site está aberta agora (cortesia, plano ou passe). */
+  edicaoLiberada: boolean;
   kicker: string;
   fotoUrl?: string;
   tema?: string;
@@ -23,6 +49,22 @@ export type ItemConvite = {
   local?: string;
   url: string;
   dataLabel: string;
+};
+
+/**
+ * O selo de ESTADO — cor + palavra, nunca só cor.
+ *
+ * O pontinho só existe no "Publicado" porque ali ele significa alguma coisa (o
+ * sinal de vivo, o mesmo da tela do convite). Nos outros seria enfeite.
+ */
+const SELO: Record<
+  EstadoConvite,
+  { texto: string; cls: string; ponto?: boolean; icone?: string }
+> = {
+  "no-ar": { texto: "Publicado", cls: PILL_NO_AR, ponto: true },
+  rascunho: { texto: "Em criação", cls: PILL_PREPARO },
+  "fora-do-ar": { texto: "Fora do ar", cls: PILL_FORA, icone: "bi-eye-slash" },
+  encerrada: { texto: "Festa encerrada", cls: PILL_FORA },
 };
 
 export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[]; podeCriar?: boolean }) {
@@ -77,8 +119,9 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[27px] font-bold tracking-[-0.025em]">Meus convites</h1>
+          {/* A linha antiga prometia "edite" — o que esta tela nao faz mais. */}
           <p className="mt-1.5 text-[14.5px] text-[#6e6e76]">
-            Veja, edite e publique todos os seus convites em um só lugar.
+            Acompanhe seus convites e continue os rascunhos.
           </p>
         </div>
 
@@ -126,8 +169,17 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((ev) => {
           const marcado = sel.has(ev.id);
+          const selo = SELO[ev.estado];
+          const rascunho = ev.estado === "rascunho";
+          // Festa encerrada nao mostra selo de edicao: ela nunca reabre, e
+          // "Edicao fechada" sem porta para abrir e so mais uma negativa.
+          const mostraEdicao = ev.estado === "no-ar" || ev.estado === "fora-do-ar";
+
           const capa = (
             <div className="relative">
+              {/* A capa ficou LIMPA: o selo de estado desceu para junto do nome,
+                  onde o fundo e branco. Sobre foto, o verde translucido do "No
+                  ar" dependia da sorte da imagem para ser legivel. */}
               <CapaEvento
                 tema={ev.tema}
                 fontes={ev.fontes}
@@ -147,13 +199,6 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                   {marcado && <Ic d={IC.check} size={15} stroke="#fff" width={3} />}
                 </span>
               )}
-              <span
-                className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur-sm ${
-                  ev.publicado ? "bg-[#34A177]/90 text-white" : "bg-white/90 text-[#7C3AED]"
-                }`}
-              >
-                {ev.publicado ? "Publicado" : "Em criação"}
-              </span>
             </div>
           );
 
@@ -165,35 +210,94 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                 {ev.dataLabel}
               </div>
 
+              {/* DOIS NIVEIS na mesma linha: o estado do convite (colorido) e,
+                  depois dele, o que da para mexer (neutro). A ordem e a
+                  hierarquia — o que vem primeiro e o que manda. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className={`${selo.cls} inline-flex items-center gap-1.5`}>
+                  {selo.ponto ? <span className="size-1.5 rounded-full bg-current" /> : null}
+                  {selo.icone ? <i className={`bi ${selo.icone}`} aria-hidden /> : null}
+                  {selo.texto}
+                </span>
+                {mostraEdicao ? (
+                  ev.edicaoLiberada ? (
+                    <span className={`${PILL_ATENCAO} inline-flex items-center gap-1.5`}>
+                      <i className="bi bi-unlock" aria-hidden /> Edição aberta
+                    </span>
+                  ) : (
+                    <span className={`${PILL_NEUTRO} inline-flex items-center gap-1.5`}>
+                      <i className="bi bi-lock" aria-hidden /> Edição fechada
+                    </span>
+                  )
+                ) : null}
+              </div>
+
               {!modo && (
-                <div className="mt-4 flex items-center gap-2.5 pt-1">
-                  {/* GERENCIAR = a tela do convite (`/painel/<id>`), nao o
-                      editor. Sao coisas diferentes: gerenciar e ver quem
-                      confirmou, quanto entrou e mexer nas partes do site;
-                      editar e o assistente de 6 passos, que continua no
-                      "Editar o site" de dentro dela. Enquanto o site nao esta
-                      no ar nao ha o que gerenciar: o botao leva ao editor, que
-                      e onde o rascunho vira site publicado. */}
-                  <Link
-                    href={ev.publicado ? `/painel/${ev.id}` : `/painel/criar?id=${ev.id}`}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[11px] bg-[#7C3AED] px-4 py-2.5 text-[13.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
-                  >
-                    <Ic d={IC.edit} size={14} stroke="#fff" width={2} />
-                    {ev.publicado ? "Gerenciar" : "Editar"}
-                  </Link>
-                  {/* "Ver" abre o site publico — que so existe depois de
-                      publicar. No rascunho ele fica de fora. */}
-                  {ev.publicado && (
-                    <a
-                      href={ev.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-2 rounded-[11px] border border-[#ececf0] bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[#17171b] transition-colors hover:bg-[#f4f4f6]"
+                /* `mt-auto` cola a area de acao no rodape do card: sem ele, um
+                   convite com endereco de duas linhas empurrava os botoes para
+                   baixo e a fileira inteira ficava desalinhada. */
+                <div className="mt-auto pt-4">
+                  <div className="flex items-center gap-2.5">
+                    {/* GERENCIAR = a tela do convite (`/painel/<id>`): quem
+                        confirmou, os recados, o que entrou de presente. Nao e o
+                        editor — e por isso o lapis saiu daqui. Ele oferecia num
+                        toque o que o servidor recusa depois de publicar; quem
+                        precisa mesmo mexer no site tem o link discreto abaixo.
+                        No rascunho ainda nao ha o que gerenciar: o botao leva ao
+                        editor, que e onde ele vira site publicado. */}
+                    <Link
+                      href={rascunho ? `/painel/criar?id=${ev.id}` : `/painel/${ev.id}`}
+                      aria-label={
+                        rascunho ? `Continuar ${ev.title}` : `Gerenciar ${ev.title}`
+                      }
+                      className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[11px] bg-[#7C3AED] px-4 py-2.5 text-[13.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
                     >
-                      <Ic d={IC.eye} size={14} stroke="#17171b" />
-                      Ver
-                    </a>
-                  )}
+                      <Ic
+                        d={rascunho ? IC.chevronRight : IC.grid}
+                        size={14}
+                        stroke="#fff"
+                        width={2}
+                      />
+                      {rascunho ? "Continuar" : "Gerenciar"}
+                    </Link>
+                    {/* "Ver" abre o site publico — que so existe depois de
+                        publicar. No rascunho ele fica de fora. Fora do ar ele
+                        FICA: e assim que o dono confere o que o convidado ve. */}
+                    {!rascunho && (
+                      <a
+                        href={ev.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Ver o site de ${ev.title} (abre em outra aba)`}
+                        className="flex min-h-[44px] items-center justify-center gap-2 rounded-[11px] border border-[#ececf0] bg-white px-4 py-2.5 text-[13.5px] font-semibold !text-[#17171b] transition-colors hover:bg-[#f4f4f6]"
+                      >
+                        <Ic d={IC.eye} size={14} stroke="#17171b" />
+                        Ver
+                      </a>
+                    )}
+                  </div>
+
+                  {/* A saida para quem precisa mexer no site. Discreta de
+                      proposito: e o caminho da excecao, nao o do dia a dia — e
+                      com a janela ja aberta ela vira o atalho direto para o
+                      editor, porque ai nao ha nada a liberar (a tela de liberar
+                      redireciona para la de qualquer jeito).
+                      `!text-` porque `.dash a` pinta todo link de violeta de
+                      fora das @layer, e utility sem `!` perde essa briga. */}
+                  {mostraEdicao ? (
+                    <Link
+                      href={
+                        ev.edicaoLiberada
+                          ? `/painel/criar?id=${ev.id}`
+                          : `/painel/${ev.id}/liberar`
+                      }
+                      className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] !text-[#6e6e76] transition-colors hover:!text-[#17171b] hover:underline"
+                    >
+                      {ev.edicaoLiberada
+                        ? "Editar o site agora"
+                        : "Precisa mudar algo no site?"}
+                    </Link>
+                  ) : null}
                 </div>
               )}
             </div>

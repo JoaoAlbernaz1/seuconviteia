@@ -51,6 +51,36 @@ export const PILL_NO_AR =
 export const PILL_PREPARO =
   "rounded-full bg-scv-warn-bg px-3 py-1 text-[10.5px] font-bold text-scv-warn-ink";
 
+/**
+ * Pill de status APAGADO: o site existe, mas ninguem o alcanca agora (fora do
+ * ar, festa encerrada).
+ *
+ * Tinta cheia de proposito. Ele divide a linha com o selo secundario neutro
+ * (`PILL_NEUTRO`), e dois cinzas lado a lado empatam — quem bate o olho nao
+ * saberia qual dos dois e o estado do convite.
+ */
+export const PILL_FORA =
+  "rounded-full bg-scv-btn px-3 py-1 text-[10.5px] font-bold text-scv-btn-ink";
+
+/**
+ * Pill SECUNDARIO neutro — informacao de apoio que NUNCA substitui o estado.
+ *
+ * `text-scv-text2` (e nao `text-scv-muted`): sobre `bg-scv-soft` o cinza
+ * secundario da 4,2:1, abaixo do minimo de 4,5:1 — e um selo ilegivel e um selo
+ * que nao existe.
+ */
+export const PILL_NEUTRO =
+  "rounded-full bg-scv-soft px-3 py-1 text-[10.5px] font-bold text-scv-text2";
+
+/**
+ * Pill secundario de OPORTUNIDADE (janela de edicao aberta, que expira).
+ *
+ * Violeta porque e a unica das informacoes de apoio que pede acao antes de um
+ * prazo; neutro, ela se perderia ao lado do estado.
+ */
+export const PILL_ATENCAO =
+  "rounded-full bg-scv-lilac px-3 py-1 text-[10.5px] font-bold text-scv-violet";
+
 /** Botao de voltar (quadrado com chevron). */
 export const BTN_VOLTAR =
   "grid size-9 shrink-0 cursor-pointer place-items-center rounded-[11px] border border-scv-line bg-scv-card text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field";

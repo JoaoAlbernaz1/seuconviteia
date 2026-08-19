@@ -1,17 +1,24 @@
-// "Meus convites" — o lugar único para VER e EDITAR todos os convites do
-// profissional. Grade de cards (capa real ou gradiente da paleta + nome, tipo,
-// data, status) com ações Editar (tela de gestão do convite) e Ver (site no ar),
-// mais "Novo convite" e a SELEÇÃO MÚLTIPLA para apagar vários (ver ListaConvites).
+// "Meus convites" — a lista de tudo que o profissional já criou. Grade de cards
+// (capa real ou gradiente da paleta + nome, data, estado) com ações Gerenciar
+// (tela do convite) e Ver (site no ar), mais "Novo convite" e a SELEÇÃO MÚLTIPLA
+// para apagar vários (ver ListaConvites).
+//
+// Esta tela NAO edita e nao promete editar: publicou, fecha (ver lib/edicao).
+// Por isso ela carrega tambem `foraDoAr`/`edicaoAte` — o card so consegue dizer
+// a verdade sobre um convite se souber em qual dos quatro estados ele esta e se
+// a janela de edicao esta aberta agora.
 // Mesmo visual do Dashboard (Claude Design, roxo #7C3AED).
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
+import { conviteEncerrado } from "@/lib/event";
+import { edicaoAberta } from "@/lib/edicao";
 import { TIPO_LABEL } from "@/lib/painelUi";
 import { planoEfetivo, podeCriarEvento, SELECT_ASSINATURA } from "@/lib/plans";
 import { Ic, IC } from "../_shell/Ic";
-import { ListaConvites, type ItemConvite } from "./ListaConvites";
+import { ListaConvites, type EstadoConvite, type ItemConvite } from "./ListaConvites";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +37,23 @@ function lerCustomStr(c: unknown, k: string): string | undefined {
     if (typeof v === "string" && v.trim()) return v.trim();
   }
   return undefined;
+}
+
+/**
+ * Em qual dos quatro estados este convite esta AGORA.
+ *
+ * A ordem das perguntas e a regra. "Festa encerrada" vem antes de "fora do ar"
+ * porque um convite pode ser as duas coisas, e a que manda e a definitiva: o
+ * dono pode religar o que ele mesmo pausou, mas nao pode desencerrar a festa.
+ */
+function estadoDoConvite(
+  ev: { status: string; expiresAt: Date; foraDoAr: boolean },
+  agora: Date,
+): EstadoConvite {
+  if (ev.status === "DRAFT") return "rascunho";
+  if (conviteEncerrado(ev, agora)) return "encerrada";
+  if (ev.foraDoAr) return "fora-do-ar";
+  return "no-ar";
 }
 
 export default async function MeusConvitesPage() {
@@ -59,7 +83,7 @@ export default async function MeusConvitesPage() {
         <div className="mb-7">
           <h1 className="text-[27px] font-bold tracking-[-0.025em]">Meus convites</h1>
           <p className="mt-1.5 text-[14.5px] text-[#6e6e76]">
-            Veja, edite e publique todos os seus convites em um só lugar.
+            Acompanhe seus convites e continue os rascunhos.
           </p>
         </div>
         <div className="rounded-[20px] border border-[#ececf0] bg-white px-10 py-14 text-center shadow-[0_2px_10px_rgba(23,23,27,0.04)]">
@@ -68,7 +92,7 @@ export default async function MeusConvitesPage() {
           </span>
           <div className="text-xl font-bold tracking-[-0.02em]">Você ainda não tem convites</div>
           <div className="mx-auto mt-2 max-w-md text-sm text-[#6e6e76]">
-            Crie o primeiro convite e ele aparece aqui para você ver e editar quando quiser.
+            Crie o primeiro convite e ele aparece aqui para você acompanhar.
           </div>
           <Link
             href="/painel/criar"
@@ -84,7 +108,11 @@ export default async function MeusConvitesPage() {
   const items: ItemConvite[] = eventos.map((ev) => ({
     id: ev.id,
     title: ev.title,
-    publicado: ev.status === "PUBLISHED",
+    estado: estadoDoConvite(ev, agora),
+    // A janela de edicao NAO se deduz do status: publicado e aberto convivem
+    // (a cortesia de 1h e o passe pago). Quem perguntasse ao status pintaria
+    // "Edicao fechada" em cima de um convite que a pessoa acabou de liberar.
+    edicaoLiberada: edicaoAberta(ev, agora),
     kicker: TIPO_LABEL[ev.type] ?? ev.type,
     fotoUrl: lerCustomStr(ev.customization, "fotoUrl"),
     tema: lerCustomStr(ev.customization, "tema"),
