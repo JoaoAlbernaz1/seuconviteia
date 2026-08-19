@@ -19,8 +19,9 @@ import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
 import { lerTemaKey } from "@/lib/temas";
 import { lerFonteKey } from "@/lib/fontes";
 import { textosDoNicho } from "@/lib/textos";
-import { edicaoAberta } from "@/lib/edicao";
+import { RECUSA_FESTA_PASSOU, edicaoAberta } from "@/lib/edicao";
 import { estadoDoConvite } from "@/lib/estadoConvite";
+import { planoEfetivo, podeCriarEvento } from "@/lib/plans";
 import { tirarDoAr, voltarAoAr } from "@/app/(dashboard)/actions";
 import { ExcluirEvento } from "./ExcluirEvento";
 import {
@@ -71,6 +72,32 @@ const DATA_LONGA = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
 });
 
+const SO_HORA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const DIA_E_HORA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/**
+ * Ate quando a janela de edicao esta aberta — em frase curta.
+ *
+ * "Edicao aberta" sozinho escondia o que a janela tem de mais importante: ela
+ * EXPIRA (a cortesia dura 1 hora). Hoje mostra so a hora, que e o dado que
+ * decide se da tempo; noutro dia entra tambem o dia.
+ */
+function ateQuando(fim: Date, agora: Date): string {
+  const hoje = DATA_DDMM.format(fim) === DATA_DDMM.format(agora);
+  return hoje ? `até ${SO_HORA.format(fim)}` : `até ${DIA_E_HORA.format(fim)}`;
+}
+
 /** Iniciais para o avatar (primeira + última palavra do nome). */
 function iniciais(nome: string): string {
   const p = nome.trim().split(/\s+/).filter(Boolean);
@@ -96,11 +123,27 @@ export default async function AcompanharEventoPage({
   // A janela de edição NÃO se deduz do estado: um convite no ar convive com a
   // edição aberta (a cortesia de 1h, a cota do plano, o passe pago).
   const podeEditar = edicaoAberta(event, agora);
+  // Festa encerrada e o unico estado sem nada a fazer NESTE convite — a saida e
+  // o proximo. So aqui a conta e consultada: perguntar vaga de plano em toda
+  // visita seria uma query a mais para nada.
+  const podeCriarOutro =
+    encerrada &&
+    podeCriarEvento(
+      planoEfetivo(event.professional, agora),
+      await prisma.event.count({
+        where: { professionalId: event.professionalId, expiresAt: { gt: agora } },
+      }),
+    );
 
   const host = hostDoEvento(event.subdomain);
   const url = urlDoEvento(event.subdomain);
   const base = `/painel/${event.id}`;
   const selo = SELO_ESTADO[estado];
+  // Uma string so (e nao texto + expressao soltos): num flex com `gap`, cada
+  // pedaco de texto vira um item e o selo ganhava um espaco duplo no meio.
+  const rotuloEdicao = `Edição aberta${
+    event.edicaoAte ? ` ${ateQuando(event.edicaoAte, agora)}` : ""
+  }`;
 
   const local = lerCustomStr(event.customization, "local");
   const subtitulo = [local, DATA_LONGA.format(event.eventDate)]
@@ -164,8 +207,11 @@ export default async function AcompanharEventoPage({
               {selo.texto}
             </span>
             {encerrada ? null : podeEditar ? (
+              // Com o prazo junto: a janela EXPIRA (a cortesia dura 1 hora), e
+              // "Edição aberta" sozinho escondia justamente isso.
               <span className={`${PILL_ATENCAO} inline-flex items-center gap-1.5`}>
-                <i className="bi bi-unlock" aria-hidden /> Edição aberta
+                <i className="bi bi-unlock" aria-hidden />
+                {rotuloEdicao}
               </span>
             ) : (
               <span className={`${PILL_NEUTRO} inline-flex items-center gap-1.5`}>
@@ -229,7 +275,12 @@ export default async function AcompanharEventoPage({
               <span className="min-w-0 flex-1 basis-[160px] truncate text-[13.5px] text-scv-ink">
                 {host}
               </span>
-              <CopiarLink url={url} className={`${BTN_CARD} min-h-[44px]`} />
+              {/* Copiar some com a festa encerrada: quem abrir o link le que o
+                  convite acabou, e espalhar isso nao serve a ninguem. "Ver
+                  site" fica — e como o dono confere o que o convidado ve. */}
+              {encerrada ? null : (
+                <CopiarLink url={url} className={`${BTN_CARD} min-h-[44px]`} />
+              )}
               <a
                 href={url}
                 target="_blank"
@@ -249,15 +300,20 @@ export default async function AcompanharEventoPage({
                 Quem abrir este link agora vê um aviso de convite indisponível.
               </p>
             ) : encerrada ? (
+              /* A MESMA frase que o servidor responde a quem tenta editar uma
+                 festa vencida (`RECUSA_FESTA_PASSOU`) — dita antes do clique, e
+                 nao depois dele, e escrita num lugar so. */
               <p className="mt-2.5 flex items-start gap-2 rounded-xl bg-scv-soft px-3.5 py-2.5 text-[12.5px] leading-relaxed text-scv-text2">
                 <i className="bi bi-archive mt-0.5" aria-hidden />
-                O site saiu do ar quando a data passou. As confirmações, os recados e
-                os presentes recebidos continuam aqui.
+                <span>
+                  {RECUSA_FESTA_PASSOU} As confirmações, os recados e os presentes
+                  recebidos continuam aqui.
+                </span>
               </p>
             ) : null}
 
             {/* ações principais */}
-            {fora || acaoEdicao ? (
+            {fora || acaoEdicao || encerrada ? (
               <div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
                 {fora ? (
                   <form action={voltarAoAr}>
@@ -269,6 +325,20 @@ export default async function AcompanharEventoPage({
                       </span>
                     </button>
                   </form>
+                ) : null}
+                {/* A unica saida de quem chegou ao fim: o proximo convite. Sem
+                    vaga no plano ele nao some — leva aos planos, dizendo por
+                    que (mesmo padrao da lista). */}
+                {encerrada ? (
+                  <Link
+                    href={podeCriarOutro ? "/painel/criar" : "/painel/plano"}
+                    className={CTA_DOMINANTE}
+                  >
+                    {podeCriarOutro ? "Criar convite novo" : "Ver planos"}
+                    <span className="grid size-7 place-items-center rounded-full bg-white/15 transition-transform duration-200 group-hover:translate-x-0.5">
+                      <i className="bi bi-arrow-right text-[13px]" aria-hidden />
+                    </span>
+                  </Link>
                 ) : null}
                 {acaoEdicao ? (
                   <Link
@@ -417,8 +487,10 @@ export default async function AcompanharEventoPage({
         <div className="min-w-0">
           <div className="text-[13px] font-semibold text-scv-ink">Ajustes do site</div>
           <div className="text-[12px] text-scv-muted">
+            {/* A consequencia ANTES do clique: "Tirar do ar" e um toque so, e
+                antes disso a pessoa so descobria o que tinha feito depois. */}
             {noAr
-              ? "Tire o convite do ar temporariamente ou apague de vez."
+              ? "Fora do ar, quem abrir o link vê um aviso de convite indisponível — e você traz de volta quando quiser."
               : "Apague este convite de vez. Não tem volta."}
           </div>
         </div>

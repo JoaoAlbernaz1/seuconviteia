@@ -266,6 +266,11 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                       e a unica porta de edicao da tela, e no celular nao existe
                       hover — cinza de 12,5px sem sublinhado lia como legenda do
                       card, nao como link. "Discreto" nao e "invisivel".
+                      O rotulo e o MESMO da tela do convite ("Liberar edicao"),
+                      que e o titulo do destino: com "Precisa mudar algo no
+                      site?" aqui, a mesma porta tinha dois nomes e parecia
+                      levar a lugares diferentes. Pergunta tambem nao diz o que
+                      acontece depois do clique.
                       `!text-` E `!underline` porque `.dash :where(a…)` declara
                       `color` e `text-decoration: none` FORA das @layer do
                       Tailwind v4 — e regra sem camada vence utility com camada,
@@ -281,9 +286,7 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
                       }
                       className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] !text-scv-muted !underline underline-offset-4 transition-colors hover:!text-scv-ink"
                     >
-                      {ev.edicaoLiberada
-                        ? "Editar o site agora"
-                        : "Precisa mudar algo no site?"}
+                      {ev.edicaoLiberada ? "Editar o site agora" : "Liberar edição"}
                     </Link>
                   ) : null}
                 </div>
