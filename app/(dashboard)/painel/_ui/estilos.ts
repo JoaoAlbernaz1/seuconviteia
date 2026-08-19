@@ -3,6 +3,7 @@
  * Tokens `scv-*` vem do globals.css (tema escuro padrao + claro por atributo).
  * Centralizadas aqui para as ~15 telas ficarem consistentes e enxutas.
  */
+import { ESTADO_LABEL, type EstadoConvite } from "@/lib/estadoConvite";
 
 /** Coluna central padrao das telas. */
 export const COLUNA = "mx-auto w-full max-w-[1080px] px-4 sm:px-7";
@@ -91,6 +92,31 @@ export const PILL_NEUTRO =
  */
 export const PILL_ATENCAO =
   "rounded-full bg-scv-lilac px-3 py-1 text-[10.5px] font-bold text-scv-violet";
+
+/**
+ * O SELO DE ESTADO do convite — cor + palavra, nunca so cor.
+ *
+ * Um mapa so para as duas telas que o mostram (a lista e a tela do convite).
+ * Separado, cada uma escolhia a sua palavra: a lista dizia "Publicado" e a tela
+ * do convite dizia "No ar" para o MESMO convite. A palavra vem de
+ * `ESTADO_LABEL` (lib), que e a mesma do seletor da topbar.
+ *
+ * O pontinho so existe no "No ar" porque ali ele significa alguma coisa (o
+ * sinal de vivo). Nos outros seria enfeite.
+ */
+export const SELO_ESTADO: Record<
+  EstadoConvite,
+  { texto: string; cls: string; ponto?: boolean; icone?: string }
+> = {
+  "no-ar": { texto: ESTADO_LABEL["no-ar"], cls: PILL_NO_AR, ponto: true },
+  rascunho: { texto: ESTADO_LABEL.rascunho, cls: PILL_PREPARO },
+  "fora-do-ar": {
+    texto: ESTADO_LABEL["fora-do-ar"],
+    cls: PILL_FORA,
+    icone: "bi-eye-slash",
+  },
+  encerrada: { texto: ESTADO_LABEL.encerrada, cls: PILL_FORA },
+};
 
 /** Botao de voltar (quadrado com chevron). */
 export const BTN_VOLTAR =

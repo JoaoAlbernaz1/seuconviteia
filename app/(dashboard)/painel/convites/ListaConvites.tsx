@@ -17,24 +17,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { CapaEvento } from "../_ui/CapaEvento";
-import {
-  PILL_ATENCAO,
-  PILL_FORA,
-  PILL_NEUTRO,
-  PILL_NO_AR,
-  PILL_PREPARO,
-} from "../_ui/estilos";
+import { PILL_ATENCAO, PILL_NEUTRO, SELO_ESTADO } from "../_ui/estilos";
+import type { EstadoConvite } from "@/lib/estadoConvite";
 import { excluirEventos } from "../acoes";
 
-/**
- * Os quatro estados que um convite pode ter nesta lista.
- *
- * "fora-do-ar" e "rascunho" são coisas MUITO diferentes (um site pausado pelo
- * dono x um site que nunca existiu) e por isso não dividem selo: quem lesse
- * "Em criação" num convite que já foi para o WhatsApp dos convidados acharia
- * que perdeu o trabalho.
- */
-export type EstadoConvite = "rascunho" | "no-ar" | "fora-do-ar" | "encerrada";
+// O tipo dos estados e o mapa de selos moram fora deste arquivo (`lib/
+// estadoConvite` e `_ui/estilos`): a tela do convite mostra os MESMOS quatro
+// estados, e enquanto cada tela tinha o seu mapa elas divergiam na palavra.
+export type { EstadoConvite };
 
 export type ItemConvite = {
   id: string;
@@ -49,22 +39,6 @@ export type ItemConvite = {
   local?: string;
   url: string;
   dataLabel: string;
-};
-
-/**
- * O selo de ESTADO — cor + palavra, nunca só cor.
- *
- * O pontinho só existe no "Publicado" porque ali ele significa alguma coisa (o
- * sinal de vivo, o mesmo da tela do convite). Nos outros seria enfeite.
- */
-const SELO: Record<
-  EstadoConvite,
-  { texto: string; cls: string; ponto?: boolean; icone?: string }
-> = {
-  "no-ar": { texto: "Publicado", cls: PILL_NO_AR, ponto: true },
-  rascunho: { texto: "Em criação", cls: PILL_PREPARO },
-  "fora-do-ar": { texto: "Fora do ar", cls: PILL_FORA, icone: "bi-eye-slash" },
-  encerrada: { texto: "Festa encerrada", cls: PILL_FORA },
 };
 
 export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[]; podeCriar?: boolean }) {
@@ -169,7 +143,7 @@ export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((ev) => {
           const marcado = sel.has(ev.id);
-          const selo = SELO[ev.estado];
+          const selo = SELO_ESTADO[ev.estado];
           const rascunho = ev.estado === "rascunho";
           // Festa encerrada nao mostra selo de edicao: ela nunca reabre, e
           // "Edicao fechada" sem porta para abrir e so mais uma negativa.

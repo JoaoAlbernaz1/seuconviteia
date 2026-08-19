@@ -14,17 +14,35 @@ import { usePathname, useRouter } from "next/navigation";
 import { sair } from "../../actions";
 import { Ic, IC } from "./Ic";
 import { abasDoPainel, hrefDoConvite } from "@/lib/navPainel";
+import { ESTADO_LABEL, type EstadoConvite } from "@/lib/estadoConvite";
 
 type NavItem = { label: string; d: string; href: string; match: (p: string) => boolean };
 
 export type ConviteResumo = {
   id: string;
   title: string;
-  noAr: boolean;
+  /** O estado do convite AGORA (`lib/estadoConvite`), nao o status do banco. */
+  estado: EstadoConvite;
   /** Confirmacao de presenca ATIVA neste convite (plano ∩ liga/desliga). */
   rsvp: boolean;
   /** Lista de presentes ATIVA neste convite. */
   presentes: boolean;
+};
+
+/**
+ * A cor do pontinho do seletor.
+ *
+ * Ele so distinguia "publicado" de "resto" — e pintava de teal o convite que o
+ * dono tirou do ar e a festa que ja passou. Teal e para o que RESPONDE agora;
+ * ambar para o que ainda esta sendo feito; cinza para o que existe mas ninguem
+ * alcanca. A palavra vai junto (`sr-only` no botao, visivel na lista) porque cor
+ * sozinha nao e informacao.
+ */
+const PONTO_ESTADO: Record<EstadoConvite, string> = {
+  "no-ar": "bg-[#0EA5A6]",
+  rascunho: "bg-[#F59E0B]",
+  "fora-do-ar": "bg-[#a6a6ae]",
+  encerrada: "bg-[#a6a6ae]",
 };
 
 function iniciais(nome: string): string {
@@ -254,9 +272,10 @@ export function DashShell({
               >
                 <span className="hidden text-[11px] font-medium text-[#8b8b93] md:inline">Convite</span>
                 <span
-                  className={`size-2 shrink-0 rounded-full ${ativo.noAr ? "bg-[#0EA5A6]" : "bg-[#F59E0B]"}`}
+                  className={`size-2 shrink-0 rounded-full ${PONTO_ESTADO[ativo.estado]}`}
                   aria-hidden
                 />
+                <span className="sr-only">{ESTADO_LABEL[ativo.estado]}:</span>
                 <span className="max-w-[120px] truncate text-[13.5px] font-semibold text-[#17171b] sm:max-w-[180px]">
                   {ativo.title}
                 </span>
@@ -288,14 +307,14 @@ export function DashShell({
                           }`}
                         >
                           <span
-                            className={`size-2 shrink-0 rounded-full ${c.noAr ? "bg-[#0EA5A6]" : "bg-[#F59E0B]"}`}
+                            className={`size-2 shrink-0 rounded-full ${PONTO_ESTADO[c.estado]}`}
                             aria-hidden
                           />
                           <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#17171b]">
                             {c.title}
                           </span>
                           <span className={`shrink-0 text-[10.5px] ${sel ? "text-[#7C3AED]" : "text-[#a6a6ae]"}`}>
-                            {sel ? "✓" : c.noAr ? "No ar" : "Rascunho"}
+                            {sel ? "✓" : ESTADO_LABEL[c.estado]}
                           </span>
                         </button>
                       );

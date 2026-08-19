@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { DashShell } from "./_shell/DashShell";
 import { recursosDoSite } from "@/lib/recursos";
+import { estadoDoConvite } from "@/lib/estadoConvite";
 import { planoEfetivo, podeCriarEvento, SELECT_ASSINATURA } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,16 @@ export default async function PainelLayout({
     prisma.event.findMany({
       where: { professionalId: session.user.id },
       orderBy: { createdAt: "desc" },
-      select: { id: true, title: true, status: true, customization: true, expiresAt: true },
+      // `foraDoAr` vem junto porque o pontinho do seletor mostra o ESTADO, e
+      // estado nao se deduz do status: fora do ar continua PUBLISHED.
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        customization: true,
+        expiresAt: true,
+        foraDoAr: true,
+      },
     }),
   ]);
 
@@ -56,7 +66,10 @@ export default async function PainelLayout({
         return {
           id: c.id,
           title: c.title,
-          noAr: c.status === "PUBLISHED",
+          // O pontinho dizia "no ar" para QUALQUER convite publicado — inclusive
+          // o que o dono pausou e a festa que ja aconteceu. Mesma resposta das
+          // outras duas telas agora (`lib/estadoConvite`).
+          estado: estadoDoConvite(c, agora),
           rsvp: r.rsvp,
           presentes: r.presentes,
         };

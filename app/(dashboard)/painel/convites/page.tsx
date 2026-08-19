@@ -13,12 +13,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
-import { conviteEncerrado } from "@/lib/event";
+import { estadoDoConvite } from "@/lib/estadoConvite";
 import { edicaoAberta } from "@/lib/edicao";
 import { TIPO_LABEL } from "@/lib/painelUi";
 import { planoEfetivo, podeCriarEvento, SELECT_ASSINATURA } from "@/lib/plans";
 import { Ic, IC } from "../_shell/Ic";
-import { ListaConvites, type EstadoConvite, type ItemConvite } from "./ListaConvites";
+import { ListaConvites, type ItemConvite } from "./ListaConvites";
 
 export const dynamic = "force-dynamic";
 
@@ -37,23 +37,6 @@ function lerCustomStr(c: unknown, k: string): string | undefined {
     if (typeof v === "string" && v.trim()) return v.trim();
   }
   return undefined;
-}
-
-/**
- * Em qual dos quatro estados este convite esta AGORA.
- *
- * A ordem das perguntas e a regra. "Festa encerrada" vem antes de "fora do ar"
- * porque um convite pode ser as duas coisas, e a que manda e a definitiva: o
- * dono pode religar o que ele mesmo pausou, mas nao pode desencerrar a festa.
- */
-function estadoDoConvite(
-  ev: { status: string; expiresAt: Date; foraDoAr: boolean },
-  agora: Date,
-): EstadoConvite {
-  if (ev.status === "DRAFT") return "rascunho";
-  if (conviteEncerrado(ev, agora)) return "encerrada";
-  if (ev.foraDoAr) return "fora-do-ar";
-  return "no-ar";
 }
 
 export default async function MeusConvitesPage() {
