@@ -30,6 +30,35 @@ export const CORTESIA_MINUTOS = 60;
  */
 export const RECUSA_FESTA_PASSOU = "Esta festa já passou. Crie um convite novo para a próxima.";
 
+/** Subconjunto do Event necessario para decidir se o endereco ja congelou. */
+export type EventoEndereco = {
+  status: StatusEvento;
+  publishedAt: Date | null;
+};
+
+/**
+ * O endereco (subdominio) deste convite ja esta CONGELADO?
+ *
+ * Trava a partir da SEGUNDA publicacao: na primeira o servidor ainda sorteia o
+ * subdominio (`gerarSlugUnico`); depois dela o link ja foi para o WhatsApp dos
+ * convidados e mudar o nome da debutante nao pode derrubar quem guardou o
+ * convite.
+ *
+ * `status` sozinho so seria seguro porque hoje "tirar do ar" mantem PUBLISHED;
+ * `publishedAt` continua honesto se alguem reintroduzir um "despublicar" que
+ * volte para DRAFT. Os dois juntos porque convite legado publicado pelo painel
+ * antigo tem `publishedAt` nulo — sozinho, ele recalcularia o endereco de um
+ * convite que JA esta no ar.
+ *
+ * Mora aqui porque a regra tem DOIS leitores que precisam concordar: a action
+ * que decide se recalcula o subdominio e a tela que decide se mostra o campo
+ * como editavel. Copiada, elas divergem no primeiro ajuste — e a divergencia
+ * seria a tela deixando editar um endereco que o servidor ignora.
+ */
+export function enderecoTravado(ev: EventoEndereco): boolean {
+  return !(ev.status !== "PUBLISHED" && ev.publishedAt === null);
+}
+
 /** Subconjunto do Event necessario para decidir a edicao. */
 export type EventoEdicao = {
   status: StatusEvento;

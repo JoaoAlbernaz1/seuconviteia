@@ -28,7 +28,7 @@ import type { EventEditorDocument } from "@/lib/event-editor/document";
 import { documentToLegacyCustomization } from "@/lib/event-editor/legacy";
 import { planGiftSync } from "@/lib/event-editor/gift-sync";
 import { conviteEncerrado } from "@/lib/event";
-import { RECUSA_FESTA_PASSOU, edicaoAberta, fimDaCortesia } from "@/lib/edicao";
+import { RECUSA_FESTA_PASSOU, edicaoAberta, enderecoTravado, fimDaCortesia } from "@/lib/edicao";
 
 export type SalvarDocumentoResult =
   | { ok: true; id: string; version: number; savedAt: string; host: string; url: string }
@@ -263,13 +263,9 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
 
   // O endereço só é calculado na PRIMEIRA publicação. Depois dela o link já foi
   // mandado no WhatsApp: mudar o nome da debutante não pode mudar o subdomínio
-  // e derrubar quem guardou o convite.
-  // Primeira publicacao = nunca esteve no ar. `status` sozinho so e seguro
-  // porque hoje "tirar do ar" mantem PUBLISHED; `publishedAt` continua honesto
-  // se alguem reintroduzir um "despublicar" que volte para DRAFT. Os dois juntos
-  // porque convite legado publicado pelo painel antigo tem `publishedAt` nulo —
-  // sozinho, ele recalcularia o endereco de um convite que ja esta no ar.
-  const primeiraPublicacao = event.status !== "PUBLISHED" && event.publishedAt === null;
+  // e derrubar quem guardou o convite. A regra mora em `lib/edicao` porque a
+  // TELA precisa da mesma resposta para travar o campo (`criar/page.tsx`).
+  const primeiraPublicacao = !enderecoTravado(event);
   const subdomain = primeiraPublicacao
     ? await gerarSlugUnico(document.data.basic.slug || document.data.basic.name || "convite", async (slug) =>
         slug !== event.subdomain && Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),

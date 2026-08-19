@@ -4,6 +4,7 @@ import {
   PASSE_HORAS,
   PASSE_PRECO_CENTS,
   edicaoAberta,
+  enderecoTravado,
   fimDaCortesia,
   fimDoPasse,
   passesIncluidos,
@@ -116,5 +117,38 @@ describe("cota incluida no plano", () => {
     expect(passesIncluidos("PREMIUM")).toBe(3);
     expect(temPasseIncluido("PREMIUM", 2)).toBe(true);
     expect(temPasseIncluido("PREMIUM", 3)).toBe(false);
+  });
+});
+
+describe("enderecoTravado", () => {
+  const publicado = new Date("2026-08-01T12:00:00Z");
+
+  it("rascunho que nunca foi ao ar NAO trava (o servidor ainda sorteia o endereco)", () => {
+    expect(enderecoTravado({ status: "DRAFT", publishedAt: null })).toBe(false);
+  });
+
+  it("trava depois da primeira publicacao", () => {
+    expect(enderecoTravado({ status: "PUBLISHED", publishedAt: publicado })).toBe(true);
+  });
+
+  it("convite legado (publicado sem publishedAt) trava — o link ja esta com os convidados", () => {
+    expect(enderecoTravado({ status: "PUBLISHED", publishedAt: null })).toBe(true);
+  });
+
+  it("um 'despublicar' que volte para DRAFT nao destrava o que ja foi ao ar", () => {
+    expect(enderecoTravado({ status: "DRAFT", publishedAt: publicado })).toBe(true);
+  });
+
+  it("responde o OPOSTO de 'primeira publicacao' — e a regra que a action usa", () => {
+    const casos = [
+      { status: "DRAFT", publishedAt: null },
+      { status: "PUBLISHED", publishedAt: publicado },
+      { status: "PUBLISHED", publishedAt: null },
+      { status: "DRAFT", publishedAt: publicado },
+    ] as const;
+    for (const ev of casos) {
+      const primeiraPublicacao = ev.status !== "PUBLISHED" && ev.publishedAt === null;
+      expect(enderecoTravado(ev)).toBe(!primeiraPublicacao);
+    }
   });
 });

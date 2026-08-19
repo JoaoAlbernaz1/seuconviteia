@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { publicarDocumentoConvite, salvarDocumentoConvite, type SalvarDocumentoResult } from "./acoes";
 import { planoPermite, podeVitrine, rotuloPlano, type Plan } from "@/lib/plans";
-import { PASSE_HORAS, PASSE_PRECO_CENTS, passesIncluidos } from "@/lib/edicao";
+import { CORTESIA_MINUTOS, PASSE_HORAS, PASSE_PRECO_CENTS, passesIncluidos } from "@/lib/edicao";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
 import { SeletorFontes } from "../_ui/SeletorFontes";
@@ -68,6 +68,30 @@ function horaDaJanela(iso: string): string {
   const parte = (t: Intl.DateTimeFormatPartTypes) => partes.find((p) => p.type === t)?.value ?? "";
   return `${parte("day")}/${parte("month")} às ${parte("hour")}h${parte("minute")}`;
 }
+
+/** "18h40" — a cortesia acaba dentro da hora, entao o dia so faria ruido. */
+function horaDoDia(iso: string): string {
+  const partes = HORA_JANELA.formatToParts(new Date(iso));
+  const parte = (t: Intl.DateTimeFormatPartTypes) => partes.find((p) => p.type === t)?.value ?? "";
+  return `${parte("hour")}h${parte("minute")}`;
+}
+
+/** A cortesia por extenso, derivada do minuto que vale no servidor. */
+const CORTESIA_TEXTO =
+  CORTESIA_MINUTOS % 60 === 0
+    ? `${CORTESIA_MINUTOS / 60} hora${CORTESIA_MINUTOS === 60 ? "" : "s"}`
+    : `${CORTESIA_MINUTOS} minutos`;
+
+/**
+ * Quanto tempo o botao de confirmar IGNORA cliques depois de nascer.
+ *
+ * Ele aparece exatamente em cima do gatilho ("Publicar convite"), e no celular
+ * os dois ocupam a largura inteira na mesma altura. Sem esta janela morta, o
+ * segundo clique de um DUPLO-CLIQUE — o gesto de quem esta inseguro — acerta o
+ * botao novo e publica sem ninguem ler a confirmacao. Trocar a ordem dos botoes
+ * nao resolveria: em 390px eles se sobrepoem de qualquer jeito.
+ */
+const ESPERA_CONFIRMA_MS = 400;
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
@@ -593,7 +617,7 @@ export function CriarConvite({
   // Fila de um só: o save em curso, para o próximo esperar em vez de correr junto.
   const filaGravacao = useRef<Promise<SalvarDocumentoResult> | null>(null);
   const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
-  const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
+  const [pubInfo, setPubInfo] = useState<{ host: string; url: string; cortesiaAte: string | null } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
   // Publicar em DOIS toques: o primeiro so revela a confirmacao. Publicar fecha
   // o site, e fechar por engano custa dinheiro — mas `window.confirm` e um
@@ -609,6 +633,12 @@ export function CriarConvite({
   // render), senão ele ainda agenda um save e reacende o "Salvando…".
   const [janelaFechada, setJanelaFechada] = useState(false);
   const janelaFechadaRef = useRef(false);
+  // Quando a confirmação nasceu — o relógio da janela morta do duplo-clique.
+  const armadoEm = useRef(0);
+  // O RELÓGIO DO NAVEGADOR passou da hora do fim. Só troca o VISUAL da faixa
+  // (que a essa altura estaria mentindo "liberada até 18h40" às 18h45); quem
+  // recusa continua sendo o servidor, então isto NÃO para o autosave.
+  const [janelaVencida, setJanelaVencida] = useState(false);
   const fecharJanelaNaTela = useCallback(() => {
     janelaFechadaRef.current = true;
     setJanelaFechada(true);
@@ -899,8 +929,24 @@ export function CriarConvite({
   // barra trocou de assunto. Foca a PERGUNTA (e não um dos botões): assim nada
   // publica por repetição de tecla, e a consequência é lida antes da escolha.
   useEffect(() => {
-    if (confirmandoPub) perguntaPub.current?.focus();
+    if (!confirmandoPub) return;
+    armadoEm.current = Date.now();
+    perguntaPub.current?.focus();
   }, [confirmandoPub]);
+
+  // A faixa teal promete uma hora que pode já ter passado enquanto a aba estava
+  // em segundo plano. Ao voltar para a aba, ela para de prometer. Só isso: o
+  // autosave continua tentando, e é o servidor que diz não.
+  useEffect(() => {
+    if (!edicaoAte) return;
+    const fim = new Date(edicaoAte).getTime();
+    const conferir = () => {
+      if (document.visibilityState === "visible" && Date.now() > fim) setJanelaVencida(true);
+    };
+    conferir();
+    document.addEventListener("visibilitychange", conferir);
+    return () => document.removeEventListener("visibilitychange", conferir);
+  }, [edicaoAte]);
 
   const req = (v: string) => !!v && v.trim().length > 0;
   const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
@@ -1051,7 +1097,17 @@ export function CriarConvite({
           setErroPub(published.error);
           return;
         }
-        setPubInfo({ host: published.host, url: published.url });
+        // A cortesia é gravada SÓ na primeira publicação (`acoes.ts`). Se o
+        // endereço ainda não estava travado, esta publicação foi a primeira —
+        // logo, a hora livre existe e a pessoa precisa saber dela AGORA, que é
+        // quando ela é acionável.
+        setPubInfo({
+          host: published.host,
+          url: published.url,
+          cortesiaAte: slugTravado
+            ? null
+            : new Date(new Date(published.publishedAt).getTime() + CORTESIA_MINUTOS * 60_000).toISOString(),
+        });
         setS((s) => ({ ...s, published: true }));
         try {
           localStorage.removeItem(localDraftKey(saved.id, storageScope));
@@ -1232,6 +1288,18 @@ export function CriarConvite({
     { name: "Rodapé", tag: "", kind: "rodape", st: "Preenchido", ok: true },
   ];
 
+  // O que reabre o site, na verdade DESTA conta: prometer "liberação incluída no
+  // seu plano" a quem está no Básico (cota sempre zero) é oferecer o que não
+  // existe. E, antes da primeira publicação, a cortesia é a parte da verdade que
+  // tira o susto — o aviso sem ela assusta mais do que a regra.
+  const comoReabrir =
+    passesIncluidos(plano) > 0
+      ? `uma liberação incluída no seu plano ou um passe de ${PRECO_PASSE} por ${PASSE_HORAS} horas`
+      : `um passe de ${PRECO_PASSE} por ${PASSE_HORAS} horas`;
+  const avisoFecha = slugTravado
+    ? `O site continua no ar com esta versão. Para mexer nele de novo, é preciso ${comoReabrir}.`
+    : `O site continua no ar com esta versão. Você ainda tem ${CORTESIA_TEXTO} para ajustar sem custo — depois disso, mexer no site pede ${comoReabrir}.`;
+
   const checklist = [
     { name: "Informações da festa preenchidas", ok: reqOk, note: "" },
     { name: "Foto da capa adicionada", ok: !!S.capaFoto, note: S.capaFoto ? "" : "usando imagem padrão" },
@@ -1323,24 +1391,36 @@ export function CriarConvite({
                 A segunda frase é a que evita o susto: o que está na tela ainda
                 NÃO é o que os convidados veem. Teal (e não âmbar) porque isto é
                 estado, não consequência: o âmbar da tela é o aviso de publicar. */}
-            {janelaFechada ? (
-              /* A janela venceu COM O EDITOR ABERTO. `role="alert"`: mudou
-                 sozinho, enquanto a pessoa digitava, e é a coisa mais
-                 importante da tela. Âmbar porque é consequência — e ocupa o
-                 mesmo lugar da faixa teal, que a essa altura virou mentira.
-                 A faixa não some e não redireciona: ela fica, com a saída
-                 dentro dela. */
+            {/* A FAIXA DA JANELA — `sticky`, e não um cartão qualquer. Quem
+                está digitando nos textos da capa já rolou o topo para fora da
+                tela: sem grudar, a pessoa que MAIS precisa do aviso (a que
+                estava escrevendo quando a janela venceu) é justamente a que não
+                o vê. `top-0` cola no alto da área rolável, logo abaixo da
+                topbar de 66px do painel.
+                Fundo OPACO nas duas versões: translúcido, o conteúdo passaria
+                por baixo e o texto ficaria ilegível ao rolar. */}
+            {janelaFechada || janelaVencida ? (
+              /* `role="alert"`: mudou sozinho, enquanto a pessoa digitava (ou
+                 enquanto a aba estava em segundo plano), e é a coisa mais
+                 importante da tela. Âmbar porque é consequência.
+                 A segunda frase só aparece quando o SERVIDOR já recusou: se
+                 quem falou foi só o relógio do navegador, os saves podem estar
+                 funcionando e dizer que não estão seria inventar. */
               <div
                 role="alert"
-                className="rounded-[14px] border border-scv-warn-ink/20 bg-scv-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-scv-warn-ink"
+                className="sticky top-0 z-20 rounded-[14px] border border-scv-warn-ink/25 bg-scv-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-scv-warn-ink shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
               >
                 <div className="flex items-start gap-3">
                   <i className="bi bi-exclamation-triangle mt-0.5 text-[17px]" aria-hidden />
                   <div className="min-w-0">
-                    <p className="font-semibold">A janela de edição terminou.</p>
+                    <p className="font-semibold">
+                      A janela de edição terminou
+                      {edicaoAte ? <> às <span className="whitespace-nowrap">{horaDoDia(edicaoAte)}</span></> : null}.
+                    </p>
                     <p className="mt-0.5">
-                      Suas alterações não estão sendo salvas. O que você escreveu continua guardado
-                      neste navegador e volta quando você liberar a edição.
+                      {janelaFechada
+                        ? "Suas alterações não estão sendo salvas. O que você escreveu continua guardado neste navegador e volta quando você liberar a edição."
+                        : "Libere a edição para continuar mexendo no site."}
                     </p>
                     {eventId && (
                       <Link
@@ -1356,7 +1436,7 @@ export function CriarConvite({
             ) : edicaoAte ? (
               <div
                 role="note"
-                className="flex items-start gap-3 rounded-[14px] border border-scv-teal/25 bg-scv-teal/10 px-4 py-3.5 text-[13px] leading-relaxed"
+                className="sticky top-0 z-20 flex items-start gap-3 rounded-[14px] border border-scv-teal/30 bg-scv-card px-4 py-3.5 text-[13px] leading-relaxed shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
               >
                 <i className="bi bi-unlock mt-0.5 text-[17px] text-scv-teal" aria-hidden />
                 <div className="min-w-0">
@@ -2562,12 +2642,7 @@ export function CriarConvite({
                   <i className="bi bi-exclamation-triangle mt-0.5 text-[17px]" aria-hidden />
                   <div className="min-w-0">
                     <p className="font-semibold">Publicar fecha a edição</p>
-                    <p className="mt-0.5">
-                      O site continua no ar com esta versão. Para mexer nele de novo, é preciso{" "}
-                      {passesIncluidos(plano) > 0
-                        ? `uma liberação incluída no seu plano ou um passe de ${PRECO_PASSE} por ${PASSE_HORAS} horas.`
-                        : `um passe de ${PRECO_PASSE} por ${PASSE_HORAS} horas.`}
-                    </p>
+                    <p className="mt-0.5">{avisoFecha}</p>
                     <p className="mt-1.5">
                       Confirmações, recados e presentes recebidos você continua acompanhando normalmente.
                     </p>
@@ -2644,12 +2719,18 @@ export function CriarConvite({
       <div className="sticky bottom-0 z-30 border-t border-[#ECECF0] bg-white px-4 py-3 sm:px-8">
         {confirmandoPub ? (
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+            {/* O ENDEREÇO na frase: até a primeira publicação a tela valida o
+                link com uma lista de exemplo, mas quem sorteia é o servidor
+                (`gerarSlugUnico`, que recusa reservados e emenda "-2"). Dizer
+                aqui onde o site vai ao ar é a última chance de ver a diferença
+                antes de o endereço congelar de vez. */}
             <p
               ref={perguntaPub}
               tabIndex={-1}
               className="text-[12.5px] leading-snug text-[#6e6e76] outline-none sm:flex-1"
             >
-              O site vai ao ar com esta versão e a edição fecha.
+              O site vai ao ar em{" "}
+              <strong className="font-semibold text-[#17171B]">{hostPublico}</strong> e a edição fecha.
             </p>
             <button
               onClick={() => setConfirmandoPub(false)}
@@ -2658,7 +2739,13 @@ export function CriarConvite({
               Continuar revisando
             </button>
             <button
-              onClick={() => enviar(true)}
+              onClick={() => {
+                // A janela morta do duplo-clique: este botão nasce em cima do
+                // gatilho, então o 2º clique de um duplo-clique cairia aqui e
+                // publicaria sem ninguém ler a pergunta.
+                if (Date.now() - armadoEm.current < ESPERA_CONFIRMA_MS) return;
+                enviar(true);
+              }}
               disabled={gravando}
               className="min-h-[44px] w-full cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
@@ -2677,9 +2764,27 @@ export function CriarConvite({
             {S.step > 1 && (
               <button onClick={prev} disabled={gravando} className="cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50">Voltar</button>
             )}
-            <button onClick={() => enviar(false)} disabled={gravando} className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50 sm:block">{gravando ? "Salvando…" : "Salvar rascunho"}</button>
+            {/* Janela vencida: "Salvar rascunho" some — só serviria para ouvir
+                "fechado" do servidor, e ainda arrancava a pessoa para /liberar
+                sem ela ter pedido para sair. "Continuar" FICA: ele só anda entre
+                os passos, não toca no servidor, e ela ainda precisa poder rever
+                o convite antes de decidir pagar. */}
+            {!janelaFechada && (
+              <button onClick={() => enviar(false)} disabled={gravando} className="hidden cursor-pointer rounded-[11px] border border-[#E4E4EA] bg-white px-5 py-2.5 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6] disabled:cursor-not-allowed disabled:opacity-50 sm:block">{gravando ? "Salvando…" : "Salvar rascunho"}</button>
+            )}
             {S.step < STEP_NAMES.length ? (
               <button onClick={next} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Continuar</button>
+            ) : janelaFechada ? (
+              /* No lugar de "Publicar": o MESMO caminho da faixa. Publicar daqui
+                 só renderia uma ida ao servidor para ouvir o que a tela já sabe. */
+              eventId && (
+                <Link
+                  href={`/painel/${eventId}/liberar`}
+                  className="inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-[11px] bg-scv-warn-ink px-6 text-[13.5px] font-semibold !text-white transition-opacity duration-200 hover:opacity-90"
+                >
+                  Liberar edição
+                </Link>
+              )
             ) : (
               /* O PRIMEIRO toque não publica: revela a confirmação. */
               <button onClick={() => setConfirmandoPub(true)} disabled={gravando} className="cursor-pointer rounded-[11px] bg-[#7C3AED] px-6 py-[11px] text-[13.5px] font-bold text-white hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-60">
@@ -2698,12 +2803,29 @@ export function CriarConvite({
               <Ic d={IC.check} size={28} stroke="#7C3AED" width={2.4} />
             </div>
             <div className="text-[22px] font-extrabold tracking-[-0.02em]">Seu convite está no ar</div>
-            <div className="mb-5 mt-2 text-[13.5px] leading-relaxed text-[#6e6e76]">Compartilhe o link com os convidados e acompanhe tudo pelo painel.</div>
+            <div className="mb-4 mt-2 text-[13.5px] leading-relaxed text-[#6e6e76]">Compartilhe o link com os convidados e acompanhe tudo pelo painel.</div>
+            {/* A CORTESIA, no único lugar em que ela é acionável: a pessoa
+                acabou de publicar e é AGORA que ela relê o convite e acha o
+                erro de digitação. Escondida, a rede que existe para esse erro
+                não protege ninguém. Só aparece na PRIMEIRA publicação, que é
+                quando o servidor a grava. */}
+            {pubInfo?.cortesiaAte && (
+              <div className="mb-4 rounded-[12px] bg-scv-warn-bg px-3.5 py-3 text-left text-[12.5px] leading-relaxed text-scv-warn-ink">
+                <i className="bi bi-clock-history mr-1.5" aria-hidden />
+                Achou algo para ajustar? Você ainda pode editar sem custo até{" "}
+                <strong className="font-semibold">{horaDoDia(pubInfo.cortesiaAte)}</strong>.
+              </div>
+            )}
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-3 py-2.5">
               <span className="flex-1 truncate text-left text-[13px] font-semibold text-[#7C3AED]">{hostPublico}</span>
               <button onClick={copyLink} className="cursor-pointer rounded-lg border border-[#E4E4EA] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">{S.copied ? "Copiado!" : "Copiar"}</button>
             </div>
-            <a href={linkPublico} target="_blank" rel="noopener noreferrer" className="mb-2 block w-full cursor-pointer rounded-xl bg-[#7C3AED] py-3 text-center text-[13.5px] font-semibold text-white hover:bg-[#6D28D9]">Ver meu convite ↗</a>
+            {/* `!text-white`: `.dash :where(a...)` mora FORA das camadas do
+                Tailwind (globals.css), e estilo sem camada ganha da utility por
+                mais especifica que ela seja — o rotulo saia violeta sobre
+                violeta, ou seja, um botao primario sem texto. O `!` e o mesmo
+                truque que as outras telas do painel ja usam. */}
+            <a href={linkPublico} target="_blank" rel="noopener noreferrer" className="mb-2 block w-full cursor-pointer rounded-xl bg-[#7C3AED] py-3 text-center text-[13.5px] font-semibold !text-white hover:bg-[#6D28D9]">Ver meu convite ↗</a>
             <button onClick={() => router.push("/painel")} className="w-full cursor-pointer rounded-xl border border-[#E4E4EA] bg-white py-3 text-[13.5px] font-semibold text-[#17171B] hover:bg-[#F4F4F6]">Voltar ao dashboard</button>
           </div>
         </div>

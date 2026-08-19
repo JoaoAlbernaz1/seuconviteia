@@ -9,7 +9,7 @@ import Link from "next/link";
 import { legacyEventToDocument } from "@/lib/event-editor/legacy";
 import { EventEditorDocumentSchema } from "@/lib/event-editor/schema";
 import type { EventEditorDocument } from "@/lib/event-editor/document";
-import { edicaoAberta } from "@/lib/edicao";
+import { edicaoAberta, enderecoTravado } from "@/lib/edicao";
 import { redirect } from "next/navigation";
 import { CriarConvite } from "./CriarConvite";
 
@@ -95,15 +95,14 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
       // Daqui para baixo o convite EXISTE e a janela esta aberta. Duas verdades
       // saem para a tela:
       //
-      //  1. O endereco so e sorteado na PRIMEIRA publicacao (`acoes.ts`): depois
-      //     dela o servidor ignora o campo, porque o link ja foi para o WhatsApp
-      //     dos convidados. A MESMA condicao de la (`primeiraPublicacao`), para
-      //     nao existir uma segunda definicao de "travado" que discorde.
+      //  1. O endereco so e sorteado na PRIMEIRA publicacao: depois dela o
+      //     servidor ignora o campo, porque o link ja foi para o WhatsApp dos
+      //     convidados. Quem responde e `enderecoTravado` — a MESMA funcao que a
+      //     action consulta, para nao existirem duas definicoes que discordem.
       //  2. Ate quando esta janela vai — a faixa do editor precisa da hora, e
       //     quem sabe a hora e o banco.
       if (event) {
-        const primeiraPublicacao = event.status !== "PUBLISHED" && event.publishedAt === null;
-        slugTravado = !primeiraPublicacao;
+        slugTravado = enderecoTravado(event);
         // O endereco de verdade e o `subdomain` da linha, nao o do rascunho: sao
         // campos diferentes, e mostrar o do rascunho seria mostrar um link que
         // nao existe.
