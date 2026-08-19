@@ -163,7 +163,7 @@ export function PerfilForm({ initial }: { initial: PerfilInitial }) {
         {state.ok ? (
           <p
             role="status"
-            className="flex items-center gap-2 rounded-lg bg-teal/10 px-3 py-2 text-sm text-scv-teal"
+            className="flex items-center gap-2 rounded-lg bg-teal/10 px-3 py-2 text-sm text-scv-teal-ink"
           >
             <i className="bi bi-check-circle" aria-hidden /> Perfil salvo!
           </p>

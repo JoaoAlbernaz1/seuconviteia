@@ -53,7 +53,12 @@
   --scv-dash: #cbd5e1; /* borda tracejada / trilho de toggle off */
   --scv-lilac: #ede9fe; /* superficie lilas (icones) */
   --scv-violet: #6d28d9; /* violeta (CTA/acentos) */
-  --scv-teal: #0ea5a6; /* teal de apoio */
+  --scv-teal: #0ea5a6; /* teal de apoio (PREENCHIMENTO: fundos, pontos, barras) */
+  /* Teal de TEXTO. O #0ea5a6 e um teal claro: sobre `bg-scv-teal/10` ele da
+     2,72:1 — abaixo dos 4,5:1 que texto exige, e abaixo ate dos 3:1 de
+     elemento grafico. Este escuro da 4,93:1 sobre o mesmo fundo. Regra: teal
+     que se LE usa `-ink`; teal que se PINTA usa o de cima. */
+  --scv-teal-ink: #0f766e;
   --scv-warn-bg: #fef3c7;
   --scv-warn-ink: #b45309;
   --scv-btn: #0f172a; /* botao "neutro forte" (tinta) */
@@ -86,6 +91,7 @@
   --color-scv-lilac: var(--scv-lilac);
   --color-scv-violet: var(--scv-violet);
   --color-scv-teal: var(--scv-teal);
+  --color-scv-teal-ink: var(--scv-teal-ink);
   --color-scv-warn-bg: var(--scv-warn-bg);
   --color-scv-warn-ink: var(--scv-warn-ink);
   --color-scv-btn: var(--scv-btn);

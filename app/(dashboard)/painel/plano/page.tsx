@@ -93,7 +93,7 @@ export default async function PlanoPage({
           return (
             <div key={p.key} className={`flex flex-col rounded-[18px] bg-scv-card p-6 ${borda}`}>
               {ehAtual ? (
-                <span className="self-start rounded-full bg-teal/10 px-3 py-1 text-[10.5px] font-bold text-scv-teal">
+                <span className="self-start rounded-full bg-teal/10 px-3 py-1 text-[10.5px] font-bold text-scv-teal-ink">
                   Seu plano <i className="bi bi-check-lg" aria-hidden />
                 </span>
               ) : p.destaque ? (
@@ -101,7 +101,7 @@ export default async function PlanoPage({
                   Mais popular
                 </span>
               ) : (
-                <span className="self-start rounded-full bg-scv-teal/10 px-3 py-1 text-[10.5px] font-bold text-scv-teal">
+                <span className="self-start rounded-full bg-scv-teal/10 px-3 py-1 text-[10.5px] font-bold text-scv-teal-ink">
                   Para profissionais
                 </span>
               )}

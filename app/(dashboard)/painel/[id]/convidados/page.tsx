@@ -16,7 +16,7 @@ import { BaixarConvidados } from "./BaixarConvidados";
 export const dynamic = "force-dynamic";
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  CONFIRMED: { label: "Confirmou", cls: "bg-scv-teal/10 text-scv-teal" },
+  CONFIRMED: { label: "Confirmou", cls: "bg-scv-teal/10 text-scv-teal-ink" },
   PENDING: { label: "Aguardando", cls: "bg-scv-warn-bg text-scv-warn-ink" },
   DECLINED: { label: "Não vai", cls: "bg-scv-soft text-scv-faint" },
 };
@@ -308,7 +308,7 @@ export default async function ConvidadosPage({
                                   {vao.map((p) => (
                                     <span
                                       key={`v-${p.nome}`}
-                                      className="rounded-full bg-scv-teal/10 px-2.5 py-1 text-[12px] font-medium text-scv-teal"
+                                      className="rounded-full bg-scv-teal/10 px-2.5 py-1 text-[12px] font-medium text-scv-teal-ink"
                                     >
                                       {p.nome}
                                       {p.tipo === "crianca" ? " · criança" : ""}

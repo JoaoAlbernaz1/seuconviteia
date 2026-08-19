@@ -43,9 +43,15 @@ export const TITULO = "font-display text-[28px] font-semibold tracking-tight tex
 /** Subtitulo/descricao de pagina. */
 export const SUB = "text-[13.5px] text-scv-muted";
 
-/** Pill de status "No ar". */
+/**
+ * Pill de status "No ar" — o selo que MANDA na tela.
+ *
+ * `text-scv-teal-ink` e nao `text-scv-teal`: o teal claro sobre `bg-scv-teal/10`
+ * dava 2,72:1. O selo mais importante do painel era o menos legivel dele, e um
+ * selo ilegivel e um selo que nao existe. O escuro da 4,93:1 no mesmo fundo.
+ */
 export const PILL_NO_AR =
-  "rounded-full bg-scv-teal/10 px-3 py-1 text-[10.5px] font-bold text-scv-teal";
+  "rounded-full bg-scv-teal/10 px-3 py-1 text-[10.5px] font-bold text-scv-teal-ink";
 
 /** Pill de status "Em preparação". */
 export const PILL_PREPARO =

@@ -295,10 +295,10 @@ export function LiberarCliente({
             <div
               role="status"
               aria-live="polite"
-              className="mt-4 rounded-xl bg-scv-teal/10 px-3.5 py-3 text-[13.5px] text-scv-teal"
+              className="mt-4 rounded-xl bg-scv-teal/10 px-3.5 py-3 text-[13.5px] text-scv-teal-ink"
             >
               <div className="flex items-center gap-2.5 font-semibold">
-                <span className="size-2 shrink-0 rounded-full bg-scv-teal" />
+                <span className="size-2 shrink-0 rounded-full bg-scv-teal-ink" />
                 {pollParado ? "Já pagou? Toque para conferir" : "Aguardando pagamento"}
               </div>
               <p className="mt-1 text-scv-text2">
