@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Event" ADD COLUMN     "edicaoAte" TIMESTAMP(3),
+ADD COLUMN     "foraDoAr" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "passesGratis" INTEGER NOT NULL DEFAULT 0;

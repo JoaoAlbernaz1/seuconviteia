@@ -152,6 +152,14 @@ model Event {
   publishedVersion Int        @default(0)
   schemaVersion   Int         @default(1)
   publishedAt     DateTime?
+  /// Ate quando a edicao do SITE esta liberada (cortesia, cota do plano ou
+  /// passe pago). Nulo = fechado. E a unica pergunta do sistema: `> agora`?
+  edicaoAte      DateTime?
+  /// Quantas liberacoes INCLUIDAS no plano ja foram usadas NESTE convite.
+  passesGratis   Int         @default(0)
+  /// Tirado do ar pelo dono. Nao volta para DRAFT — sair do ar nao pode ser um
+  /// destravamento gratuito da edicao.
+  foraDoAr       Boolean     @default(false)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

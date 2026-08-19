@@ -19,6 +19,11 @@ const CONTEUDO: Record<MotivoIndisponivel, { titulo: string; texto: string }> = 
     texto:
       "Este convite esta sendo preparado com carinho e ainda nao foi publicado. Volte em breve.",
   },
+  "fora-do-ar": {
+    titulo: "Convite fora do ar",
+    texto:
+      "Quem organiza a festa tirou este convite do ar por enquanto. Volte mais tarde ou fale com quem te convidou.",
+  },
 };
 
 export default function SiteIndisponivel({

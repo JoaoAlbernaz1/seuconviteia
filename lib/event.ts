@@ -10,7 +10,11 @@
 export type StatusEvento = "DRAFT" | "PUBLISHED" | "EXPIRED";
 
 /** Motivo pelo qual o site nao pode ser exibido (alimenta `<SiteIndisponivel>`). */
-export type MotivoIndisponivel = "inexistente" | "expirado" | "rascunho";
+export type MotivoIndisponivel =
+  | "inexistente"
+  | "expirado"
+  | "rascunho"
+  | "fora-do-ar";
 
 export interface VisibilidadeEvento {
   ok: boolean;
@@ -21,6 +25,8 @@ export interface VisibilidadeEvento {
 type EventoVisivel = {
   status: StatusEvento;
   expiresAt: Date;
+  /** Pausa do dono. Nao mexe no status: sair do ar nao destrava a edicao. */
+  foraDoAr: boolean;
 };
 
 /**
@@ -28,6 +34,7 @@ type EventoVisivel = {
  *
  *  - `null`        -> nao existe                  -> `inexistente`
  *  - `DRAFT`       -> ainda nao publicado         -> `rascunho`
+ *  - `foraDoAr`    -> o dono pausou o convite     -> `fora-do-ar`
  *  - `EXPIRED`     -> expirado por status         -> `expirado`
  *  - `expiresAt`   -> ja passou (`< agora`)       -> `expirado`
  *  - caso contrario (PUBLISHED e dentro do prazo) -> `ok: true`
@@ -53,6 +60,9 @@ export function eventoPublico(
 ): VisibilidadeEvento {
   if (!ev) return { ok: false, motivo: "inexistente" };
   if (ev.status === "DRAFT") return { ok: false, motivo: "rascunho" };
+  // Antes da expiracao: fora do ar nao e prazo vencido, e o convidado merece o
+  // aviso certo — o convite volta quando o dono quiser.
+  if (ev.foraDoAr) return { ok: false, motivo: "fora-do-ar" };
   if (ev.status === "EXPIRED" || ev.expiresAt.getTime() < agora.getTime()) {
     return { ok: false, motivo: "expirado" };
   }

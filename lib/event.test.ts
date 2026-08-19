@@ -14,26 +14,32 @@ describe("eventoPublico", () => {
   });
 
   it("status DRAFT -> rascunho", () => {
-    expect(eventoPublico({ status: "DRAFT", expiresAt: futuro }, agora)).toEqual(
-      { ok: false, motivo: "rascunho" },
-    );
+    expect(
+      eventoPublico({ status: "DRAFT", expiresAt: futuro, foraDoAr: false }, agora),
+    ).toEqual({ ok: false, motivo: "rascunho" });
   });
 
   it("status EXPIRED -> expirado (mesmo com expiresAt no futuro)", () => {
     expect(
-      eventoPublico({ status: "EXPIRED", expiresAt: futuro }, agora),
+      eventoPublico({ status: "EXPIRED", expiresAt: futuro, foraDoAr: false }, agora),
     ).toEqual({ ok: false, motivo: "expirado" });
   });
 
   it("expiresAt no passado -> expirado", () => {
     expect(
-      eventoPublico({ status: "PUBLISHED", expiresAt: passado }, agora),
+      eventoPublico({ status: "PUBLISHED", expiresAt: passado, foraDoAr: false }, agora),
     ).toEqual({ ok: false, motivo: "expirado" });
   });
 
-  it("PUBLISHED e dentro do prazo -> ok", () => {
+  it("fora do ar -> fora-do-ar (mesmo publicado e no prazo)", () => {
     expect(
-      eventoPublico({ status: "PUBLISHED", expiresAt: futuro }, agora),
+      eventoPublico({ status: "PUBLISHED", expiresAt: futuro, foraDoAr: true }, agora),
+    ).toEqual({ ok: false, motivo: "fora-do-ar" });
+  });
+
+  it("publicado, no prazo e no ar -> ok", () => {
+    expect(
+      eventoPublico({ status: "PUBLISHED", expiresAt: futuro, foraDoAr: false }, agora),
     ).toEqual({ ok: true });
   });
 });

@@ -189,7 +189,7 @@ export async function sair(): Promise<void> {
 }
 
 // ----------------------------------------------------------------------------
-// Status do site (despublicar) — ownership revalidado pela sessao
+// Status do site (tirar do ar / voltar ao ar) — ownership revalidado pela sessao
 // ----------------------------------------------------------------------------
 
 /** Ownership: o evento precisa ser do profissional logado. Retorna o id ou null. */
@@ -204,11 +204,24 @@ async function eventoDoDono(eventId: unknown): Promise<string | null> {
   return ev?.id ?? null;
 }
 
-/** Despublica o site (volta a rascunho — sai do ar). */
+/**
+ * Tira o site do ar SEM destravar a edicao (o status continua PUBLISHED).
+ *
+ * Voltar para DRAFT era a porta dos fundos: bastava tirar do ar para reabrir o
+ * editor de graca e publicar tudo de novo.
+ */
 export async function despublicarEvento(formData: FormData) {
   const id = await eventoDoDono(formData.get("eventId"));
   if (!id) redirect("/entrar");
-  await prisma.event.update({ where: { id }, data: { status: "DRAFT" } });
+  await prisma.event.update({ where: { id }, data: { foraDoAr: true } });
+  revalidatePath("/painel");
+}
+
+/** Coloca o site de volta no ar. */
+export async function voltarAoAr(formData: FormData) {
+  const id = await eventoDoDono(formData.get("eventId"));
+  if (!id) redirect("/entrar");
+  await prisma.event.update({ where: { id }, data: { foraDoAr: false } });
   revalidatePath("/painel");
 }
 
