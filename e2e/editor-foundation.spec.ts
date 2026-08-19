@@ -270,5 +270,31 @@ test.describe("fundação do editor", () => {
     await page.goto(`/painel/criar?id=${evento.id}`);
     await expect(page).toHaveURL(/\/painel\/criar/);
     await expect(nameInput(page)).toBeEditable();
+
+    // Convite LEGADO (publicado antes do editor novo, sem `draftData`) e ja
+    // fechado: a porta tem que barrar DEPOIS do bootstrap. Se ela vier antes, o
+    // legado nunca congela o snapshot e fica preso no unico modo em que o painel
+    // antigo edita o site AO VIVO.
+    const legado = await prisma!.event.create({
+      data: {
+        professionalId: dono.id,
+        type: "QUINZE_ANOS",
+        subdomain: `${slugFechado}-legado-${Date.now()}`,
+        title: "Convite legado E2E",
+        eventDate: new Date(Date.now() + 30 * 86_400_000),
+        expiresAt: new Date(Date.now() + 60 * 86_400_000),
+        status: "PUBLISHED",
+        plan: "PREMIUM",
+        edicaoAte: new Date(Date.now() - 1_000),
+      },
+    });
+    await page.goto(`/painel/criar?id=${legado.id}`);
+    await expect(page).toHaveURL(new RegExp(`/painel/${legado.id}/liberar`));
+    const congelado = await prisma!.event.findUniqueOrThrow({
+      where: { id: legado.id },
+      select: { draftData: true, publishedData: true },
+    });
+    expect(congelado.draftData).not.toBeNull();
+    expect(congelado.publishedData).not.toBeNull();
   });
 });

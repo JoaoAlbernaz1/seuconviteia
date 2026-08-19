@@ -46,13 +46,6 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
         include: { gifts: { orderBy: { id: "asc" } }, photos: { orderBy: { order: "asc" } } },
       });
 
-      // A PORTA de ABRIR o editor. Publicou, fecha: sem uma janela aberta o
-      // convite nao volta para a tela de edicao, vai para a tela que explica e
-      // libera. Botao escondido nao seria bloqueio — o link direto passaria.
-      if (event && !edicaoAberta(event, new Date())) {
-        redirect(`/painel/${event.id}/liberar`);
-      }
-
       if (event) {
         const legacyDocument = legacyEventToDocument(event);
         const draft = EventEditorDocumentSchema.safeParse(event.draftData);
@@ -76,6 +69,21 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
             data: { draftData: documentJson, publishedData: documentJson, schemaVersion: legacyDocument.schemaVersion },
           });
         }
+      }
+
+      // A PORTA de ABRIR o editor. Publicou, fecha: sem uma janela aberta o
+      // convite nao volta para a tela de edicao, vai para a tela que explica e
+      // libera. Botao escondido nao seria bloqueio — o link direto passaria.
+      //
+      // A ORDEM importa e nao e otimizavel: esta porta vem DEPOIS do bootstrap
+      // acima. Congelar o snapshot do convite legado e o que impede o painel
+      // antigo de editar o site AO VIVO; barrando antes, o convite legado
+      // fechado nunca ganharia o snapshot e ficaria preso justamente no modo
+      // perigoso. O bootstrap nao muda uma virgula do que esta no ar (grava a
+      // mesma coisa em draft e published), entao passar por ele antes de mandar
+      // a pessoa para a tela de liberar nao abre brecha nenhuma.
+      if (event && !edicaoAberta(event, new Date())) {
+        redirect(`/painel/${event.id}/liberar`);
       }
     }
   }

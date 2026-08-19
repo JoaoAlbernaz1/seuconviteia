@@ -24,10 +24,19 @@ vi.mock("@/auth", () => ({ auth: sessionMock, signIn: vi.fn(), signOut: vi.fn() 
 // `revalidatePath` so existe dentro de um request do Next; aqui o que importa e
 // o que ficou gravado no banco.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// As acoes do painel legado nao devolvem erro: elas REDIRECIONAM. O mock deixa o
+// destino visivel (o `redirect` de verdade so lanca um digest opaco).
+const redirectMock = vi.hoisted(() =>
+  vi.fn((url: string): never => {
+    throw new Error(`REDIRECT:${url}`);
+  }),
+);
+vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
 const { salvarDocumentoConvite, publicarDocumentoConvite } = await import(
   "@/app/(dashboard)/painel/criar/acoes"
 );
+const { atualizarDetalhes, adicionarConvidado } = await import("@/app/(dashboard)/painel/acoes");
 
 const FECHADO = "Este convite está publicado. Libere a edição para mexer no site.";
 
@@ -98,9 +107,11 @@ describe("portas do editor no convite fechado", () => {
 
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.status).toBe("PUBLISHED");
-    const minutos = (depois.edicaoAte!.getTime() - Date.now()) / 60_000;
-    expect(minutos).toBeGreaterThan(CORTESIA_MINUTOS - 2);
-    expect(minutos).toBeLessThanOrEqual(CORTESIA_MINUTOS);
+    // Tolerancia em SEGUNDOS: com margem de minutos, uma cortesia de 59 min
+    // passaria batido.
+    const segundos = (depois.edicaoAte!.getTime() - Date.now()) / 1_000;
+    expect(segundos).toBeGreaterThan(CORTESIA_MINUTOS * 60 - 10);
+    expect(segundos).toBeLessThanOrEqual(CORTESIA_MINUTOS * 60);
   });
 
   it.skipIf(!enabled)("republicar na janela paga nao mexe no prazo nem no endereco", async () => {
@@ -125,5 +136,60 @@ describe("portas do editor no convite fechado", () => {
     expect(depois.subdomain).toBe(event.subdomain);
     // ...e nao encurta nem estica a janela vigente.
     expect(depois.edicaoAte!.getTime()).toBe(janela.getTime());
+  });
+
+  // A DUPLA que define a linha do produto: o convite fechado congela o SITE e
+  // deixa livre o que e movimento da festa.
+  it.skipIf(!enabled)("o painel antigo nao edita o site fechado, mas a lista de convidados anda", async () => {
+    const db = prisma!;
+    const { event } = await convite(db, {
+      status: "PUBLISHED",
+      publishedAt: new Date("2026-01-01T00:00:00Z"),
+      edicaoAte: new Date(Date.now() - 60_000),
+    });
+
+    // "Gerenciar o site" -> Detalhes: a tela legada grava direto no que o
+    // convidado ve, e ainda reescreve `expiresAt`.
+    const detalhes = new FormData();
+    detalhes.set("eventId", event.id);
+    detalhes.set("title", "Nome trocado por fora");
+    detalhes.set("date", "2031-05-05");
+    await expect(atualizarDetalhes({}, detalhes)).rejects.toThrow(
+      `REDIRECT:/painel/${event.id}/liberar`,
+    );
+
+    const site = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(site.title).toBe(event.title);
+    expect(site.expiresAt.getTime()).toBe(event.expiresAt.getTime());
+
+    // O mesmo convite fechado: convidado entra na lista sem passe nenhum.
+    const convidado = new FormData();
+    convidado.set("eventId", event.id);
+    convidado.set("name", "Tia Nilza");
+    await adicionarConvidado(convidado);
+    expect(await db.guest.count({ where: { eventId: event.id } })).toBe(1);
+  });
+
+  it.skipIf(!enabled)("rascunho com data vencida SALVA, mas nao publica", async () => {
+    const db = prisma!;
+    const { event, document } = await convite(db, {
+      status: "DRAFT",
+      eventDate: new Date("2020-01-01T00:00:00Z"),
+      expiresAt: new Date("2020-02-01T00:00:00Z"),
+    });
+
+    // O rascunho e onde se conserta o ano digitado errado: salvar tem que passar.
+    const salvo = await salvarDocumentoConvite({ id: event.id, expectedVersion: 1, document });
+    expect(salvo.ok).toBe(true);
+
+    // Publicar e outra pergunta: o site nasceria fora do ar.
+    const r = await publicarDocumentoConvite({ id: event.id, expectedDraftVersion: 2 });
+    expect(r).toEqual({
+      ok: false,
+      kind: "validation",
+      error: "Com essa data o convite já estaria encerrado. Escolha uma data futura.",
+    });
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.status).toBe("DRAFT");
   });
 });

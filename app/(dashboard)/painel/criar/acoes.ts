@@ -562,8 +562,11 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
   const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true, status: true, expiresAt: true, edicaoAte: true } });
   if (!owned) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
   // Convite ENCERRADO nao se edita: senao a mesma linha vira a festa do ano que
-  // vem, e nenhuma festa nova gera presente novo.
-  if (conviteEncerrado(owned, new Date())) {
+  // vem, e nenhuma festa nova gera presente novo. O RASCUNHO fica de fora da
+  // pergunta — e a mesma ordem DRAFT-primeiro de `edicaoAberta`: o rascunho e
+  // onde se conserta o ano digitado errado, e mandar jogar fora o trabalho por
+  // causa do erro que a pessoa veio corrigir seria o pior fim possivel.
+  if (owned.status !== "DRAFT" && conviteEncerrado(owned, new Date())) {
     return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
   }
   // A PORTA de SALVAR. O editor fechado nem abre (`criar/page.tsx`), mas a
@@ -609,16 +612,24 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const professionalId = session.user.id;
   const event = await prisma.event.findFirst({
     where: { id, professionalId },
-    select: { id: true, subdomain: true, draftData: true, draftVersion: true, status: true, expiresAt: true, edicaoAte: true, publishedVersion: true },
+    select: { id: true, subdomain: true, draftData: true, draftVersion: true, status: true, expiresAt: true, edicaoAte: true, publishedAt: true },
   });
   if (!event) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
-  if (conviteEncerrado(event, new Date())) {
+  const agora = new Date();
+  // Rascunho de fora da pergunta, como em `salvarDocumentoConvite`.
+  if (event.status !== "DRAFT" && conviteEncerrado(event, agora)) {
     return { ok: false, kind: "not_found", error: "Esta festa já passou. Crie um convite novo para a próxima." };
   }
   // A PORTA de REPUBLICAR. Republicar é o que troca o site que os convidados
   // veem: fora da janela, é exatamente isso que a regra impede.
-  if (!edicaoAberta(event, new Date())) {
+  if (!edicaoAberta(event, agora)) {
     return { ok: false, kind: "fechado", error: "Este convite está publicado. Libere a edição para mexer no site." };
+  }
+  // Salvar o rascunho com a data vencida PODE (é o conserto); publicar, não —
+  // subiria um site que já nasce fora do ar. As duas portas respondem coisas
+  // diferentes de propósito.
+  if (event.expiresAt.getTime() <= agora.getTime()) {
+    return { ok: false, kind: "validation", error: "Com essa data o convite já estaria encerrado. Escolha uma data futura." };
   }
   if (event.draftVersion !== expectedDraftVersion) {
     return { ok: false, kind: "conflict", currentVersion: event.draftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
@@ -629,7 +640,12 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   // O endereço só é calculado na PRIMEIRA publicação. Depois dela o link já foi
   // mandado no WhatsApp: mudar o nome da debutante não pode mudar o subdomínio
   // e derrubar quem guardou o convite.
-  const primeiraPublicacao = event.status !== "PUBLISHED";
+  // Primeira publicacao = nunca esteve no ar. `status` sozinho so e seguro
+  // porque hoje "tirar do ar" mantem PUBLISHED; `publishedAt` continua honesto
+  // se alguem reintroduzir um "despublicar" que volte para DRAFT. Os dois juntos
+  // porque convite legado publicado pelo painel antigo tem `publishedAt` nulo —
+  // sozinho, ele recalcularia o endereco de um convite que ja esta no ar.
+  const primeiraPublicacao = event.status !== "PUBLISHED" && event.publishedAt === null;
   const subdomain = primeiraPublicacao
     ? await gerarSlugUnico(document.data.basic.slug || document.data.basic.name || "convite", async (slug) =>
         slug !== event.subdomain && Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),

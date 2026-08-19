@@ -24,6 +24,7 @@ import { acentoDoTema } from "@/lib/temas";
 import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
 import { TEMPLATES, TEMPLATE_PADRAO } from "@/lib/templates";
 import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
+import { edicaoAberta, type EventoEdicao } from "@/lib/edicao";
 import {
   TEMA_KEYS,
   montarMapsUrls,
@@ -69,6 +70,25 @@ async function eventoDoDono(eventId: unknown) {
   return prisma.event.findFirst({
     where: { id: eventId, professionalId: session.user.id },
   });
+}
+
+/**
+ * Guarda das telas que editam o SITE. Convite publicado so se mexe dentro de uma
+ * janela (cortesia, cota do plano ou passe), e estas acoes gravam DIRETO no que
+ * o convidado esta vendo — nao ha snapshot no meio como no editor novo.
+ * `atualizarDetalhes` e a mais grave: reescreve `expiresAt`, que e uma das
+ * entradas da propria regra.
+ *
+ * De proposito FORA de `eventoDoDono`: aquele funil tambem serve
+ * `excluirEvento` e `adicionarConvidado`, que sao do lado VIVO da festa
+ * (apagar o proprio convite, tocar a lista de convidados) e continuam livres com
+ * o site fechado — e justamente o que esta feature promete manter aberto.
+ *
+ * Estas seis telas morrem na Task 11, quando o editor novo assume tudo; este
+ * helper morre junto com elas.
+ */
+function exigirEdicaoAberta(event: EventoEdicao & { id: string }): void {
+  if (!edicaoAberta(event, new Date())) redirect(`/painel/${event.id}/liberar`);
 }
 
 const mesclar = (atual: unknown, patch: Record<string, unknown>): Prisma.InputJsonValue =>
@@ -256,6 +276,7 @@ export async function atualizarDetalhes(
 ): Promise<AcaoEventoState> {
   const event = await eventoDoDono(formData.get("eventId"));
   if (!event) return { error: "Evento não encontrado." };
+  exigirEdicaoAberta(event);
 
   const parsed = detalhesSchema.safeParse({
     title: formData.get("title"),
@@ -308,6 +329,7 @@ export async function atualizarDetalhes(
 export async function salvarEstilo(formData: FormData): Promise<void> {
   const event = await eventoDoDono(formData.get("eventId"));
   if (!event) redirect("/painel");
+  exigirEdicaoAberta(event);
 
   const tema = formData.get("tema");
   const fontes = formData.get("fontes");
@@ -339,6 +361,7 @@ export async function salvarEstilo(formData: FormData): Promise<void> {
 export async function salvarRecursos(formData: FormData): Promise<void> {
   const event = await eventoDoDono(formData.get("eventId"));
   if (!event) redirect("/painel");
+  exigirEdicaoAberta(event);
   await prisma.event.update({
     where: { id: event.id },
     data: {
@@ -361,6 +384,7 @@ export async function salvarFotos(
 ): Promise<AcaoEventoState> {
   const event = await eventoDoDono(formData.get("eventId"));
   if (!event) return { error: "Evento não encontrado." };
+  exigirEdicaoAberta(event);
 
   const fotoUrl = urlish.safeParse(formData.get("fotoUrl") ?? "");
   const presentesFotoUrl = urlish.safeParse(formData.get("presentesFotoUrl") ?? "");
@@ -405,6 +429,7 @@ export async function salvarPresentes(
 ): Promise<AcaoEventoState> {
   const event = await eventoDoDono(formData.get("eventId"));
   if (!event) return { error: "Evento não encontrado." };
+  exigirEdicaoAberta(event);
 
   const parsed = presentesSchema.safeParse({
     pixNome: str(formData, "pixNome"),
@@ -494,6 +519,7 @@ export async function salvarPresentes(
 export async function salvarProgramacao(formData: FormData): Promise<void> {
   const event = await eventoDoDono(formData.get("eventId"));
   if (!event) redirect("/painel");
+  exigirEdicaoAberta(event);
   const programacao = parseProgramacao(
     formData.getAll("programacao_hora").map(String),
     formData.getAll("programacao_titulo").map(String),
