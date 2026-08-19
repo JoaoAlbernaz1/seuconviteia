@@ -151,18 +151,33 @@ describe("confirmarPasseEdicao", () => {
     expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(fimDoPasse(agora)).toISOString());
   });
 
-  it.skipIf(!enabled)("dois pagamentos CONCORRENTES tambem somam 96h (lost update)", async () => {
+  it.skipIf(!enabled)("dois pagamentos CONCORRENTES somam 96h (corrida FORCADA por lock)", async () => {
     const db = prisma!;
     const event = await conviteFechado(db);
     const um = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-par-a-${Date.now()}` });
     const dois = await cobrancaPendente(db, event.id, { providerId: `${MARCA}-par-b-${Date.now()}` });
     const agora = new Date();
 
-    // O MP entrega as duas notificacoes ao mesmo tempo. Ler `edicaoAte` e
-    // escrever depois faz a segunda sobrescrever a primeira (READ COMMITTED):
-    // duas linhas PAID e 48h entregues — metade do que foi pago, em silencio.
-    await Promise.all([confirmarPasseEdicao(um.id, agora), confirmarPasseEdicao(dois.id, agora)]);
+    // `Promise.all` sozinho NAO reproduz o lost update: as duas confirmacoes
+    // acabam antes de se cruzarem e o teste passa ate com read-then-write. O que
+    // morde e travar a linha do evento numa conexao separada (`FOR UPDATE`): o
+    // `SELECT` do MVCC nao bloqueia, mas o `UPDATE` sim, entao as duas leem a
+    // MESMA base antes de qualquer escrita — o interleaving exato do bug.
+    const bloqueador = new PrismaClient();
+    let confirmacoes: Promise<unknown> | undefined;
+    await bloqueador.$transaction(async (trava) => {
+      await trava.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${event.id} FOR UPDATE`;
+      confirmacoes = Promise.all([
+        confirmarPasseEdicao(um.id, agora),
+        confirmarPasseEdicao(dois.id, agora),
+      ]);
+      // Tempo de as duas chegarem no UPDATE e ficarem penduradas na trava.
+      await new Promise((r) => setTimeout(r, 300));
+    });
+    await confirmacoes;
+    await bloqueador.$disconnect();
 
+    // Duas cobrancas pagas = 96h. 48h aqui seria ficar com R$ 19,90 calado.
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(fimDoPasse(agora)).toISOString());
   });

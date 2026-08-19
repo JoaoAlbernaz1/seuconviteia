@@ -89,12 +89,32 @@ async function aplicarPasse(
     // SQL cru porque o Prisma nao expressa `GREATEST(...) + interval` num update
     // so; o banco e Postgres no local E na producao (cabecalho do schema), e
     // `PASSE_HORAS` continua sendo a fonte do prazo — nao ha 48 escrito aqui.
-    await db.$executeRaw`
+    //
+    // O `AT TIME ZONE 'UTC'` NAO E ENFEITE: `edicaoAte` e `timestamp` (sem
+    // fuso) e o Prisma amarra o `Date` como `timestamptz`, entao `COALESCE`/
+    // `GREATEST` promoveriam a coluna usando o TimeZone da SESSAO. Com a sessao
+    // em America/Sao_Paulo a janela sai 45h em vez de 48h, calada — basta um
+    // `options=-c timezone=...` na URL ou um `ALTER DATABASE ... SET timezone`.
+    // Fixando os dois lados em UTC, a conta e a mesma em qualquer fuso.
+    const linhas = await db.$executeRaw`
       UPDATE "Event"
-         SET "edicaoAte" = GREATEST(COALESCE("edicaoAte", ${agora}), ${agora})
+         SET "edicaoAte" = GREATEST(
+                             COALESCE("edicaoAte", ${agora}::timestamptz AT TIME ZONE 'UTC'),
+                             ${agora}::timestamptz AT TIME ZONE 'UTC'
+                           )
                            + make_interval(hours => ${PASSE_HORAS}::int)
        WHERE "id" = ${tx.eventId}
     `;
+    // `$executeRaw` nao reclama de zero linha — o `event.update` do Prisma
+    // lancava P2025. Sem esta pergunta, o PAID commitaria com a janela intacta:
+    // dinheiro recebido, nada concedido, e a reentrega seguinte sairia pelo
+    // caminho "rotina", calada. Lancar aqui desfaz o PAID e o MP reentrega.
+    if (linhas !== 1) {
+      throw new Error(
+        `[passe-edicao] janela nao abriu: UPDATE afetou ${linhas} linha(s) — ` +
+          `tx=${transactionId} evento=${tx.eventId}`,
+      );
+    }
   });
 }
 
