@@ -35,8 +35,11 @@ export type EventoEdicao = {
  * esquecer vende um passe de R$ 19,90 para um convite morto.
  */
 export function edicaoAberta(ev: EventoEdicao, agora: Date): boolean {
-  if (conviteEncerrado(ev, agora)) return false;
+  // Rascunho edita sempre, e a ORDEM aqui e a regra: `conviteEncerrado` tambem
+  // reprova por data vencida, e o rascunho e justamente onde se conserta a data
+  // errada. Perguntar primeiro trancaria a pessoa para fora do proprio conserto.
   if (ev.status === "DRAFT") return true;
+  if (conviteEncerrado(ev, agora)) return false;
   return ev.edicaoAte !== null && ev.edicaoAte.getTime() > agora.getTime();
 }
 

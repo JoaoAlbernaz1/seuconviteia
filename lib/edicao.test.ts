@@ -20,6 +20,13 @@ describe("edicaoAberta", () => {
     ).toBe(true);
   });
 
+  it("rascunho com data vencida ainda edita (e onde se conserta a data)", () => {
+    const festaOntem = new Date("2026-08-17T12:00:00Z");
+    expect(
+      edicaoAberta({ status: "DRAFT", expiresAt: festaOntem, edicaoAte: null }, agora),
+    ).toBe(true);
+  });
+
   it("publicado sem janela nao edita", () => {
     expect(
       edicaoAberta(
