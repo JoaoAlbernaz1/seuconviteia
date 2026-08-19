@@ -493,6 +493,22 @@ describe("passe de edicao", () => {
     expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
   });
 
+  it.skipIf(!enabled)("plano pago escolhido na landing, sem NUNCA pagar, ouve a frase do PLANO", async () => {
+    const db = prisma!;
+    // Estado real e comum: `cadastrarProfissional` grava o plano escolhido na
+    // landing e so depois manda para o checkout; `iniciarAssinatura` grava
+    // `pending` sem `assinaturaAte`. Quem abandona o cartao fica assim. Dizer
+    // "sua assinatura venceu" aqui e mentira, e ainda vende uma renovacao a quem
+    // nunca pagou nada.
+    const { event } = await conviteFechado(db, "PREMIUM", { ate: null, status: "pending" });
+
+    expect(await usarPasseIncluido(event.id)).toEqual({
+      ok: false,
+      erro: "Seu plano não inclui liberações de edição.",
+    });
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
+  });
+
   it.skipIf(!enabled)("assinatura CANCELADA dentro da carencia ainda libera", async () => {
     const db = prisma!;
     // Cancelar nao corta na hora: o mes corrente ja foi pago (lib/plans.ts).

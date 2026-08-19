@@ -259,10 +259,13 @@ function recusaDaCota(prof: ContaAssinatura, usadas: number, agora: Date): strin
   if (contratado > 0 && usadas >= contratado) {
     return "Você já usou as liberações incluídas neste convite.";
   }
-  // Ainda sobrava cota e mesmo assim o direito sumiu: so o vencimento faz isso
-  // (`planoEfetivo` rebaixa para Basico). E a unica das tres com conserto na mao
-  // do dono.
-  if (contratado > 0) {
+  // Ainda sobrava cota e mesmo assim o direito sumiu. `assinaturaAte` NAO-NULO e
+  // o que separa "venceu" de "nunca pagou": `planoEfetivo` rebaixa para Basico
+  // nos dois casos, e quem escolheu plano pago na landing e abandonou o cartao
+  // fica exatamente assim (plano contratado gravado, vencimento nulo). Sem esta
+  // pergunta ele ouviria "sua assinatura venceu" — mentira, e ainda vendendo uma
+  // renovacao a quem nunca assinou.
+  if (contratado > 0 && prof.assinaturaAte !== null) {
     return "Sua assinatura venceu, então este convite não tem mais liberações incluídas.";
   }
   return "Seu plano não inclui liberações de edição.";
