@@ -15,11 +15,12 @@
 //
 // Estado 100% local — a gravação no banco é a próxima fatia.
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { publicarDocumentoConvite, salvarDocumentoConvite, type SalvarDocumentoResult } from "./acoes";
 import { planoPermite, podeVitrine, rotuloPlano, type Plan } from "@/lib/plans";
-import { PASSE_HORAS, PASSE_PRECO_CENTS } from "@/lib/edicao";
+import { PASSE_HORAS, PASSE_PRECO_CENTS, passesIncluidos } from "@/lib/edicao";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
 import { SeletorFontes } from "../_ui/SeletorFontes";
@@ -600,6 +601,18 @@ export function CriarConvite({
   // `ListaConvites.tsx` e `ExcluirEvento.tsx`.
   const [confirmandoPub, setConfirmandoPub] = useState(false);
   const perguntaPub = useRef<HTMLParagraphElement>(null);
+  // A JANELA VENCEU COM O EDITOR ABERTO. É o pior momento possível: a pessoa
+  // continua digitando achando que salva. O servidor recusa com `fechado`, e a
+  // partir daí o editor PARA de tentar salvar e passa a dizer isso na cara —
+  // em vez de piscar "não foi possível salvar" a cada 800ms, sem saída.
+  // O ref existe porque o debounce precisa da resposta AGORA (antes do próximo
+  // render), senão ele ainda agenda um save e reacende o "Salvando…".
+  const [janelaFechada, setJanelaFechada] = useState(false);
+  const janelaFechadaRef = useRef(false);
+  const fecharJanelaNaTela = useCallback(() => {
+    janelaFechadaRef.current = true;
+    setJanelaFechada(true);
+  }, []);
   // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
   // cliente so via "Nao foi possivel salvar" e nao sabia o que fazer.
   const [salvarErro, setSalvarErro] = useState("");
@@ -1014,8 +1027,9 @@ export function CriarConvite({
         // A janela fechou (venceu enquanto esta aba estava aberta). Isso não é
         // erro de digitação: é uma porta, e a porta tem uma tela. Mandar para
         // ela é a única saída que resolve — a linha vermelha aqui só informaria.
-        if (saved.kind === "fechado" && eventIdRef.current) {
-          router.push(`/painel/${eventIdRef.current}/liberar`);
+        if (saved.kind === "fechado") {
+          fecharJanelaNaTela();
+          if (eventIdRef.current) router.push(`/painel/${eventIdRef.current}/liberar`);
           return;
         }
         setErroPub(saved.error);
@@ -1030,6 +1044,7 @@ export function CriarConvite({
         const published = await publicarDocumentoConvite({ id: saved.id, expectedDraftVersion: saved.version });
         if (!published.ok) {
           if (published.kind === "fechado") {
+            fecharJanelaNaTela();
             router.push(`/painel/${saved.id}/liberar`);
             return;
           }
@@ -1059,6 +1074,9 @@ export function CriarConvite({
     dadosRef.current = dadosStr;
     salvarRef.current = async () => {
       if (savingRef.current) return;
+      // Janela fechada: o servidor vai recusar de novo. Insistir só produziria
+      // uma fila de erros e mascararia a faixa que explica o que fazer.
+      if (janelaFechadaRef.current) return;
       savingRef.current = true;
       const snapshot = dadosStr;
       let salvouOk = false;
@@ -1077,6 +1095,13 @@ export function CriarConvite({
           // Estourou o limite do plano: em vez de uma linha vermelha que a
           // pessoa não entende, o popup explica o que libera (pedido do João).
           if (r.kind === "limit") setLimitePlano(true);
+          // A janela venceu no meio da digitação. NÃO redireciona: sair daqui
+          // agora tiraria a pessoa de cima do que ela está escrevendo. Marca o
+          // estado, para o autosave e deixa a faixa oferecer a saída.
+          if (r.kind === "fechado") {
+            fecharJanelaNaTela();
+            return;
+          }
           setSalvarErro(r.error || "Não consegui salvar agora.");
           setS((s) => ({ ...s, sv: "erro" }));
         }
@@ -1105,6 +1130,7 @@ export function CriarConvite({
       return;
     }
     if (!restauradoRef.current) return; // espera restaurar o rascunho do navegador
+    if (janelaFechadaRef.current) return; // janela vencida: não há para onde salvar
     if (!req(S.nome)) return; // só persiste quando já há nome (garante slug bom)
     if (dadosStr === lastSavedRef.current) return;
     setS((s) => (s.sv === "salvando" ? s : { ...s, sv: "salvando" }));
@@ -1217,13 +1243,23 @@ export function CriarConvite({
     { name: "Recados configurados", ok: S.rec, note: "opcional" },
   ];
 
-  const svText =
-    S.sv === "salvo"
+  // Com a janela vencida o indicador NÃO pode continuar verde: "Alterações
+  // salvas" ao lado de uma faixa que diz o contrário é a tela discutindo
+  // consigo mesma — e é a versão verde que a pessoa acredita.
+  const svText = janelaFechada
+    ? "Não estou salvando"
+    : S.sv === "salvo"
       ? "Alterações salvas"
       : S.sv === "erro"
         ? salvarErro || "Não foi possível salvar"
         : "Salvando…";
-  const svColor = S.sv === "salvo" ? "#34A177" : S.sv === "erro" ? "#E11D48" : V;
+  const svColor = janelaFechada
+    ? "var(--scv-warn-ink)"
+    : S.sv === "salvo"
+      ? "#34A177"
+      : S.sv === "erro"
+        ? "#E11D48"
+        : V;
 
   // Convite NOVO começa pela escolha do modelo — que hoje é um só, e a tela diz
   // isso na cara em vez de fingir uma vitrine (pedido do João, 17/08).
@@ -1257,9 +1293,9 @@ export function CriarConvite({
             })}
           </div>
           <div style={{ color: svColor }} className="flex shrink-0 items-center gap-2 text-[12.5px] font-medium">
-            <span style={{ background: svColor }} className={`size-[7px] rounded-full ${S.sv === "salvando" ? "sc-pulse" : ""}`} />
+            <span style={{ background: svColor }} className={`size-[7px] rounded-full ${S.sv === "salvando" && !janelaFechada ? "sc-pulse" : ""}`} />
             {svText}
-            {S.sv === "erro" && (
+            {S.sv === "erro" && !janelaFechada && (
               <button
                 type="button"
                 onClick={() => void salvarRef.current()}
@@ -1287,7 +1323,37 @@ export function CriarConvite({
                 A segunda frase é a que evita o susto: o que está na tela ainda
                 NÃO é o que os convidados veem. Teal (e não âmbar) porque isto é
                 estado, não consequência: o âmbar da tela é o aviso de publicar. */}
-            {edicaoAte && (
+            {janelaFechada ? (
+              /* A janela venceu COM O EDITOR ABERTO. `role="alert"`: mudou
+                 sozinho, enquanto a pessoa digitava, e é a coisa mais
+                 importante da tela. Âmbar porque é consequência — e ocupa o
+                 mesmo lugar da faixa teal, que a essa altura virou mentira.
+                 A faixa não some e não redireciona: ela fica, com a saída
+                 dentro dela. */
+              <div
+                role="alert"
+                className="rounded-[14px] border border-scv-warn-ink/20 bg-scv-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-scv-warn-ink"
+              >
+                <div className="flex items-start gap-3">
+                  <i className="bi bi-exclamation-triangle mt-0.5 text-[17px]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="font-semibold">A janela de edição terminou.</p>
+                    <p className="mt-0.5">
+                      Suas alterações não estão sendo salvas. O que você escreveu continua guardado
+                      neste navegador e volta quando você liberar a edição.
+                    </p>
+                    {eventId && (
+                      <Link
+                        href={`/painel/${eventId}/liberar`}
+                        className="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-[11px] bg-scv-warn-ink px-5 text-[13.5px] font-semibold !text-white transition-opacity duration-200 hover:opacity-90"
+                      >
+                        Liberar edição
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : edicaoAte ? (
               <div
                 role="note"
                 className="flex items-start gap-3 rounded-[14px] border border-scv-teal/25 bg-scv-teal/10 px-4 py-3.5 text-[13px] leading-relaxed"
@@ -1300,7 +1366,7 @@ export function CriarConvite({
                   <p className="mt-0.5 text-scv-text2">O público ainda vê a versão anterior.</p>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* STEP 1 — Capa (o nome da debutante mora aqui) */}
             {S.step === 1 && (
@@ -2497,8 +2563,10 @@ export function CriarConvite({
                   <div className="min-w-0">
                     <p className="font-semibold">Publicar fecha a edição</p>
                     <p className="mt-0.5">
-                      O site continua no ar com esta versão. Para mexer nele de novo, é preciso uma
-                      liberação incluída no seu plano ou um passe de {PRECO_PASSE} por {PASSE_HORAS} horas.
+                      O site continua no ar com esta versão. Para mexer nele de novo, é preciso{" "}
+                      {passesIncluidos(plano) > 0
+                        ? `uma liberação incluída no seu plano ou um passe de ${PRECO_PASSE} por ${PASSE_HORAS} horas.`
+                        : `um passe de ${PRECO_PASSE} por ${PASSE_HORAS} horas.`}
                     </p>
                     <p className="mt-1.5">
                       Confirmações, recados e presentes recebidos você continua acompanhando normalmente.
