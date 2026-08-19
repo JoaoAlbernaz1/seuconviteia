@@ -155,8 +155,9 @@ model Event {
   /// Ate quando a edicao do SITE esta liberada (cortesia, cota do plano ou
   /// passe pago). Nulo = fechado. E a unica pergunta do sistema: `> agora`?
   edicaoAte      DateTime?
-  /// Quantas liberacoes INCLUIDAS no plano ja foram usadas NESTE convite.
-  passesGratis   Int         @default(0)
+  /// Quantas liberacoes INCLUIDAS no plano ja foram USADAS neste convite (nao e
+  /// saldo: o teto vem do plano, em `passesIncluidos()`).
+  passesGratisUsados Int     @default(0)
   /// Tirado do ar pelo dono. Nao volta para DRAFT — sair do ar nao pode ser um
   /// destravamento gratuito da edicao.
   foraDoAr       Boolean     @default(false)

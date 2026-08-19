@@ -174,7 +174,7 @@ export async function usarPasseIncluido(eventId: string): Promise<UsarPasseInclu
     // Ownership pelo `professionalId` da SESSAO, como na compra.
     prisma.event.findFirst({
       where: { id: id.data, professionalId: session.user.id },
-      select: { id: true, status: true, expiresAt: true, edicaoAte: true, passesGratis: true },
+      select: { id: true, status: true, expiresAt: true, edicaoAte: true, passesGratisUsados: true },
     }),
     // A conta vem com `SELECT_ASSINATURA` porque o direito e o `planoEfetivo`,
     // nunca o `prof.plan`: quem cancelou o Estudio nao fica com as 3 liberacoes.
@@ -198,11 +198,11 @@ export async function usarPasseIncluido(eventId: string): Promise<UsarPasseInclu
   if (conviteEncerrado(event, agora)) {
     return { ok: false, erro: "Esta festa já passou. Crie um convite novo para a próxima." };
   }
-  if (!temPasseIncluido(planoEfetivo(prof, agora), event.passesGratis)) {
+  if (!temPasseIncluido(planoEfetivo(prof, agora), event.passesGratisUsados)) {
     return { ok: false, erro: "Você já usou as liberações incluídas neste convite." };
   }
 
-  // COMPARE-AND-SET: `passesGratis` entra no WHERE com o valor que acabou de ser
+  // COMPARE-AND-SET: `passesGratisUsados` entra no WHERE com o valor que acabou de ser
   // lido. Dois cliques simultaneos leem o mesmo 0, os dois UPDATEs disputam a
   // MESMA linha e o Postgres reavalia o WHERE do segundo depois do commit do
   // primeiro — ele nao acha linha e nao consome a segunda cota. Sem isto os dois
@@ -212,8 +212,8 @@ export async function usarPasseIncluido(eventId: string): Promise<UsarPasseInclu
   // `fimDoPasse(agora)` SOBRESCREVE em vez de empilhar de proposito: so se chega
   // ate aqui com a janela fechada, entao nao ha tempo vivo para encurtar.
   const aplicado = await prisma.event.updateMany({
-    where: { id: event.id, passesGratis: event.passesGratis },
-    data: { passesGratis: event.passesGratis + 1, edicaoAte: fimDoPasse(agora) },
+    where: { id: event.id, passesGratisUsados: event.passesGratisUsados },
+    data: { passesGratisUsados: event.passesGratisUsados + 1, edicaoAte: fimDoPasse(agora) },
   });
   // Perdeu a corrida (ou a linha sumiu). "Tente de novo" e a verdade util: no
   // recarregar, a tela ja mostra a edicao liberada pelo clique que venceu.

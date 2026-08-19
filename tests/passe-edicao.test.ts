@@ -403,7 +403,7 @@ describe("passe de edicao", () => {
 
     expect(await usarPasseIncluido(event.id)).toEqual({ ok: true });
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
-    expect(depois.passesGratis).toBe(1);
+    expect(depois.passesGratisUsados).toBe(1);
     expect(depois.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
 
     // Fecha a janela na mao para pedir a SEGUNDA liberacao do mesmo convite.
@@ -412,7 +412,7 @@ describe("passe de edicao", () => {
       ok: false,
       erro: "Você já usou as liberações incluídas neste convite.",
     });
-    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(1);
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(1);
   });
 
   it.skipIf(!enabled)("Basico nao tem liberacao incluida", async () => {
@@ -422,7 +422,7 @@ describe("passe de edicao", () => {
       ok: false,
       erro: "Você já usou as liberações incluídas neste convite.",
     });
-    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(0);
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
   });
 
   it.skipIf(!enabled)("Estudio usa 3 no mesmo convite — a quarta e recusada", async () => {
@@ -431,7 +431,7 @@ describe("passe de edicao", () => {
 
     for (let i = 1; i <= 3; i++) {
       expect(await usarPasseIncluido(event.id)).toEqual({ ok: true });
-      expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(i);
+      expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(i);
       // Cada uso so acontece com a janela fechada — e assim que a tela chega aqui.
       await db.event.update({ where: { id: event.id }, data: { edicaoAte: new Date(Date.now() - 1000) } });
     }
@@ -440,7 +440,7 @@ describe("passe de edicao", () => {
       ok: false,
       erro: "Você já usou as liberações incluídas neste convite.",
     });
-    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(3);
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(3);
   });
 
   it.skipIf(!enabled)("Estudio com assinatura VENCIDA nao tem liberacao incluida", async () => {
@@ -453,7 +453,7 @@ describe("passe de edicao", () => {
       ok: false,
       erro: "Você já usou as liberações incluídas neste convite.",
     });
-    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(0);
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
   });
 
   it.skipIf(!enabled)("com a janela ja aberta, nao gasta cota", async () => {
@@ -465,7 +465,7 @@ describe("passe de edicao", () => {
       ok: false,
       erro: "A edição deste convite já está liberada.",
     });
-    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratis).toBe(0);
+    expect((await db.event.findUniqueOrThrow({ where: { id: event.id } })).passesGratisUsados).toBe(0);
   });
 
   it.skipIf(!enabled)("festa que ja passou nao libera edicao (nem queima cota)", async () => {
@@ -481,7 +481,7 @@ describe("passe de edicao", () => {
       erro: "Esta festa já passou. Crie um convite novo para a próxima.",
     });
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
-    expect(depois.passesGratis).toBe(0);
+    expect(depois.passesGratisUsados).toBe(0);
     expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
   });
 
@@ -508,7 +508,7 @@ describe("passe de edicao", () => {
     });
 
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
-    expect(depois.passesGratis).toBe(0);
+    expect(depois.passesGratisUsados).toBe(0);
     expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
   });
 
@@ -519,8 +519,8 @@ describe("passe de edicao", () => {
     // `Promise.all` sozinho NAO reproduz a corrida: as duas chamadas terminam
     // antes de se cruzarem. O que morde e travar a linha do evento numa conexao
     // separada (`FOR UPDATE`): o `SELECT` do MVCC passa, entao as duas leem
-    // `passesGratis = 0`, e os dois UPDATEs ficam pendurados na trava — o
-    // interleaving exato do bug. Sem `passesGratis` no WHERE as DUAS voltariam
+    // `passesGratisUsados = 0`, e os dois UPDATEs ficam pendurados na trava — o
+    // interleaving exato do bug. Sem `passesGratisUsados` no WHERE as DUAS voltariam
     // `ok: true` (a linha ainda marcaria 1, e a cota unica teria virado duas).
     const bloqueador = new PrismaClient();
     let cliques: Promise<UsarPasseIncluidoResult[]> | undefined;
@@ -538,7 +538,7 @@ describe("passe de edicao", () => {
       expect(resultados.filter((r) => r.ok)).toHaveLength(1);
       expect(resultados.filter((r) => !r.ok)).toEqual([{ ok: false, erro: "Tente de novo." }]);
       const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
-      expect(depois.passesGratis).toBe(1);
+      expect(depois.passesGratisUsados).toBe(1);
       expect(depois.edicaoAte!.getTime()).toBeGreaterThan(Date.now() + 47 * 60 * 60 * 1000);
     } finally {
       await bloqueador.$disconnect();
