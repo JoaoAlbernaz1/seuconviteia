@@ -13,6 +13,7 @@ import type { RascunhoPreview } from "@/lib/previewEvento";
 import { programacaoSugerida } from "@/lib/sugestoes";
 import { PreviewSite } from "../../_ui/PreviewSite";
 import { BTN_PRIMARIO, BTN_VOLTAR, CARD, SUB, TITULO } from "../../_ui/estilos";
+import { TopoCartao } from "../../_ui/TopoCartao";
 
 type Linha = { id: number; hora: string; titulo: string };
 
@@ -85,30 +86,20 @@ export function ProgramacaoCliente({
 
         {/* ESQUERDA — cartão com capa + timeline */}
         <div className={`${CARD} overflow-hidden`}>
-          <div className="relative p-5">
-            <div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
-            />
-            <i className="bi bi-clock-history absolute right-4 top-3.5 text-[22px] text-white/35" aria-hidden />
-            <div className="relative flex items-end justify-between gap-3">
-              <div>
-                <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
-                  Cronograma da festa
-                </div>
-                <div className="mt-1.5 font-display text-[24px] font-semibold leading-tight text-white">
-                  {nItens > 0 ? `${nItens} momento${nItens === 1 ? "" : "s"}` : "Monte a linha do tempo"}
-                </div>
-              </div>
+          <TopoCartao
+            icone="bi-clock-history"
+            chapeu="Cronograma da festa"
+            titulo={nItens > 0 ? `${nItens} momento${nItens === 1 ? "" : "s"}` : "Monte a linha do tempo"}
+            acao={
               <button
                 type="button"
                 onClick={sugerir}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-sm transition hover:bg-white/30"
+                className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-scv-line bg-scv-card px-3 py-1.5 text-[12px] font-semibold text-scv-violet transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field"
               >
                 <i className="bi bi-stars" aria-hidden /> Sugerir
               </button>
-            </div>
-          </div>
+            }
+          />
 
           <div className="p-4">
             {/* timeline */}

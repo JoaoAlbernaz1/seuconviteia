@@ -18,6 +18,7 @@ import { SeletorFontes } from "../../_ui/SeletorFontes";
 import { PreviewSite } from "../../_ui/PreviewSite";
 import { salvarEstilo } from "../../acoes";
 import { BTN_PRIMARIO, CARD } from "../../_ui/estilos";
+import { TopoCartao } from "../../_ui/TopoCartao";
 
 /** Multiplicador do tamanho do lockup da capa (mesmos passos do wizard). */
 const ESCALAS_CAPA = [0.9, 1, 1.15] as const;
@@ -59,21 +60,7 @@ export function EscolherEstilo({
   return (
     <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
       <form action={salvarEstilo} className={`${CARD} flex flex-col overflow-hidden`}>
-        <div className="relative p-4">
-          <div
-            className="absolute inset-0"
-            style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
-          />
-          <i className="bi bi-palette absolute right-4 top-3.5 text-[20px] text-white/35" aria-hidden />
-          <div className="relative">
-            <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
-              O visual do site
-            </div>
-            <div className="mt-1 font-display text-[19px] font-semibold leading-tight text-white">
-              Estilo do convite
-            </div>
-          </div>
-        </div>
+        <TopoCartao icone="bi-palette" chapeu="O visual do site" titulo="Estilo do convite" />
 
         <div className="flex flex-col gap-5 p-5 sm:p-6">
         <input type="hidden" name="eventId" value={eventId} />

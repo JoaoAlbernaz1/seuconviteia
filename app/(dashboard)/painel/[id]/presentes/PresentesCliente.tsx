@@ -20,6 +20,7 @@ import { textosDoNicho } from "@/lib/textos";
 import { presentesSugeridos } from "@/lib/sugestoes";
 import { EscolherFoto, enviarUpload, useEnvio } from "../../_ui/Uploads";
 import { BTN_PRIMARIO, BTN_VOLTAR, CARD, INPUT, SUB, TITULO } from "../../_ui/estilos";
+import { TopoCartao } from "../../_ui/TopoCartao";
 
 type GiftModo = "FIXO" | "COTAS";
 type Linha = {
@@ -240,36 +241,29 @@ export function PresentesCliente({
         {/* ================= COLUNA ESQUERDA — painel de controle ================= */}
         <aside className="flex flex-col gap-4 lg:sticky lg:top-[84px]">
           <div className={`${CARD} overflow-hidden`}>
-            {/* CAPA + boas-vindas */}
-            <div className="relative h-[152px] w-full">
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)",
-                }}
-              />
-              <i
-                className="bi bi-gift absolute right-4 top-3.5 text-[22px] text-white/35"
-                aria-hidden
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/25 to-transparent p-4 pt-10">
-                <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
-                  Sua lista de presentes
-                </div>
-                <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-white/95">
-                  {presentesTexto?.trim() || "Escreva um recadinho para quem quiser presentear."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditandoBoas((v) => !v)}
-                aria-label="Editar mensagem"
-                className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-white/20 text-white backdrop-blur-sm transition hover:bg-white/30"
-              >
-                <i className={`bi ${editandoBoas ? "bi-check-lg" : "bi-pencil"} text-[13px]`} aria-hidden />
-              </button>
-            </div>
+            <TopoCartao
+              icone="bi-gift"
+              chapeu="Sua lista de presentes"
+              titulo="Presentes"
+              acao={
+                <button
+                  type="button"
+                  onClick={() => setEditandoBoas((v) => !v)}
+                  aria-label={editandoBoas ? "Pronto" : "Editar mensagem"}
+                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border border-scv-line bg-scv-card text-scv-violet transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field"
+                >
+                  <i className={`bi ${editandoBoas ? "bi-check-lg" : "bi-pencil"} text-[13px]`} aria-hidden />
+                </button>
+              }
+            />
+            {/* A mensagem que o convidado lê, em texto de verdade. Antes ela
+                vivia dentro da capa em degradê, branca sobre roxo e cortada em
+                duas linhas — bonita de longe, ilegível de perto. */}
+            {!editandoBoas && (
+              <p className="border-b border-scv-line px-4 py-3 text-[13px] leading-relaxed text-scv-muted sm:px-5">
+                {presentesTexto?.trim() || "Escreva um recadinho para quem quiser presentear."}
+              </p>
+            )}
 
             <div className="flex flex-col gap-4 p-4">
               {editandoBoas && (

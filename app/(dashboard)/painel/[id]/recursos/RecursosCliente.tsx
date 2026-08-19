@@ -12,6 +12,7 @@ import type { RascunhoPreview } from "@/lib/previewEvento";
 import { salvarRecursos } from "../../acoes";
 import { PreviewSite } from "../../_ui/PreviewSite";
 import { BTN_PRIMARIO, CARD } from "../../_ui/estilos";
+import { TopoCartao } from "../../_ui/TopoCartao";
 
 export function RecursosCliente({
   eventId,
@@ -59,21 +60,7 @@ export function RecursosCliente({
   return (
     <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_0.82fr] lg:gap-7">
       <form action={salvarRecursos} className={`${CARD} flex flex-col overflow-hidden`}>
-        <div className="relative p-4">
-          <div
-            className="absolute inset-0"
-            style={{ background: "linear-gradient(135deg,#6D28D9 0%,#9B4DCA 46%,#E27D96 100%)" }}
-          />
-          <i className="bi bi-toggles absolute right-4 top-3.5 text-[20px] text-white/35" aria-hidden />
-          <div className="relative">
-            <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/70">
-              Recursos do site
-            </div>
-            <div className="mt-1 font-display text-[19px] font-semibold leading-tight text-white">
-              O que o site vai ter
-            </div>
-          </div>
-        </div>
+        <TopoCartao icone="bi-toggles" chapeu="Recursos do site" titulo="O que o site vai ter" />
 
         <div className="flex flex-col gap-2.5 p-4 sm:p-5">
         <input type="hidden" name="eventId" value={eventId} />
