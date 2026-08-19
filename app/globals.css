@@ -1176,11 +1176,17 @@ html.rv-on .mkt [data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0) sc
    @layer e as utilities do Tailwind v4 estao dentro, elas venciam ate o
    `text-white` do template e pintavam a barra do convite de violeta.
    O `:not(:is(.evt a))` devolve os links do convite para o proprio template. */
-/* `:where()` NÃO soma especificidade — de propósito. Sem ele esta regra vencia
-   qualquer `text-white`/`text-scv-ink` do Tailwind, e todo link estilizado como
-   botão colorido saía violeta: era o caso do atalho "Adicionar convidado", roxo
-   sobre roxo, ilegível. Espalharam-se `!text-white` pelo painel para contornar,
-   um a um. Com `:where()` a cor vira apenas o PADRÃO: quem declara cor, ganha. */
+/* `:where()` zera a especificidade desta regra — mas ATENÇÃO: isso NÃO basta
+   para uma utility do Tailwind ganhar dela. Esta regra está FORA de `@layer` e
+   as utilities estão DENTRO, e no cascade o estilo sem camada vence o estilo em
+   camada antes de a especificidade ser consultada. Ou seja: `text-white` num
+   `<a>` do painel continua perdendo, e o link sai violeta — foi assim que o
+   atalho "Adicionar convidado" ficou roxo sobre roxo e que o "Ver meu convite"
+   do editor virou um botão primário sem texto.
+   Por isso os `!text-white` espalhados pelo painel NÃO são dívida a limpar: o
+   `!important` é hoje a única forma de um link do painel escolher a própria cor.
+   O que o `:where()` resolve é a soma de especificidade entre seletores CSS
+   (regras irmãs), não a disputa com as utilities. */
 .dash :where(a:not(:is(.evt a))) { color: var(--dv); text-decoration: none; }
 .dash :where(a:not(:is(.evt a)):hover) { color: var(--dv-deep); }
 .dash input::placeholder, .dash textarea::placeholder { color: #a6a6ae; }

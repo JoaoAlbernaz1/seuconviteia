@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
 import { publicarDocumentoConvite, salvarDocumentoConvite, type SalvarDocumentoResult } from "./acoes";
 import { planoPermite, podeVitrine, rotuloPlano, type Plan } from "@/lib/plans";
-import { CORTESIA_MINUTOS, PASSE_HORAS, PASSE_PRECO_CENTS, passesIncluidos } from "@/lib/edicao";
+import { CORTESIA_MINUTOS, PASSE_HORAS, PASSE_PRECO_CENTS, fimDaCortesia, passesIncluidos } from "@/lib/edicao";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import type { EditorPreviewPage } from "@/lib/event-editor/preview-bridge";
 import { SeletorFontes } from "../_ui/SeletorFontes";
@@ -74,6 +74,21 @@ function horaDoDia(iso: string): string {
   const partes = HORA_JANELA.formatToParts(new Date(iso));
   const parte = (t: Intl.DateTimeFormatPartTypes) => partes.find((p) => p.type === t)?.value ?? "";
   return `${parte("hour")}h${parte("minute")}`;
+}
+
+/**
+ * "18h40" quando acaba no mesmo dia; "21/08 às 00h10" quando vira a data.
+ *
+ * A cortesia dura uma hora — publicar 23h40 joga o fim para o dia seguinte, e
+ * aí a hora sozinha marca encontro no dia errado.
+ */
+function horaComDiaSePreciso(iso: string, referencia: string): string {
+  const dia = (v: string) => {
+    const partes = HORA_JANELA.formatToParts(new Date(v));
+    const parte = (t: Intl.DateTimeFormatPartTypes) => partes.find((x) => x.type === t)?.value ?? "";
+    return `${parte("day")}/${parte("month")}`;
+  };
+  return dia(iso) === dia(referencia) ? horaDoDia(iso) : horaDaJanela(iso);
 }
 
 /** A cortesia por extenso, derivada do minuto que vale no servidor. */
@@ -617,7 +632,7 @@ export function CriarConvite({
   // Fila de um só: o save em curso, para o próximo esperar em vez de correr junto.
   const filaGravacao = useRef<Promise<SalvarDocumentoResult> | null>(null);
   const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
-  const [pubInfo, setPubInfo] = useState<{ host: string; url: string; cortesiaAte: string | null } | null>(null);
+  const [pubInfo, setPubInfo] = useState<{ host: string; url: string; publicadoEm: string; cortesiaAte: string | null } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
   // Publicar em DOIS toques: o primeiro so revela a confirmacao. Publicar fecha
   // o site, e fechar por engano custa dinheiro — mas `window.confirm` e um
@@ -1101,12 +1116,14 @@ export function CriarConvite({
         // endereço ainda não estava travado, esta publicação foi a primeira —
         // logo, a hora livre existe e a pessoa precisa saber dela AGORA, que é
         // quando ela é acionável.
+        const publicadoEm = new Date(published.publishedAt);
         setPubInfo({
           host: published.host,
           url: published.url,
-          cortesiaAte: slugTravado
-            ? null
-            : new Date(new Date(published.publishedAt).getTime() + CORTESIA_MINUTOS * 60_000).toISOString(),
+          publicadoEm: published.publishedAt,
+          // `fimDaCortesia` e não a conta na mão: quem define o prazo é
+          // `lib/edicao`, a mesma função que o servidor grava no banco.
+          cortesiaAte: slugTravado ? null : fimDaCortesia(publicadoEm).toISOString(),
         });
         setS((s) => ({ ...s, published: true }));
         try {
@@ -1391,7 +1408,14 @@ export function CriarConvite({
                 A segunda frase é a que evita o susto: o que está na tela ainda
                 NÃO é o que os convidados veem. Teal (e não âmbar) porque isto é
                 estado, não consequência: o âmbar da tela é o aviso de publicar. */}
-            {/* A FAIXA DA JANELA — `sticky`, e não um cartão qualquer. Quem
+            {/* `z-10` e não `z-20`: os dropdowns do DashShell (seletor de convite,
+                menu da conta) são `z-20` no MESMO contexto de empilhamento, e a
+                faixa vem depois na árvore — empatando em z, ela ganhava por
+                ordem de DOM e cobria a lista de convites (250×74px medidos a
+                1440×900). `z-10` continua acima dos cartões, que nem posicionados
+                são. A escada de z do shell não se mexe: ela é compartilhada.
+
+                A FAIXA DA JANELA — `sticky`, e não um cartão qualquer. Quem
                 está digitando nos textos da capa já rolou o topo para fora da
                 tela: sem grudar, a pessoa que MAIS precisa do aviso (a que
                 estava escrevendo quando a janela venceu) é justamente a que não
@@ -1408,14 +1432,14 @@ export function CriarConvite({
                  funcionando e dizer que não estão seria inventar. */
               <div
                 role="alert"
-                className="sticky top-0 z-20 rounded-[14px] border border-scv-warn-ink/25 bg-scv-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-scv-warn-ink shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
+                className="sticky top-0 z-10 rounded-[14px] border border-scv-warn-ink/25 bg-scv-warn-bg px-4 py-3.5 text-[13px] leading-relaxed text-scv-warn-ink shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
               >
                 <div className="flex items-start gap-3">
                   <i className="bi bi-exclamation-triangle mt-0.5 text-[17px]" aria-hidden />
                   <div className="min-w-0">
                     <p className="font-semibold">
                       A janela de edição terminou
-                      {edicaoAte ? <> às <span className="whitespace-nowrap">{horaDoDia(edicaoAte)}</span></> : null}.
+                      {edicaoAte ? <> em <span className="whitespace-nowrap">{horaDaJanela(edicaoAte)}</span></> : null}.
                     </p>
                     <p className="mt-0.5">
                       {janelaFechada
@@ -1436,7 +1460,7 @@ export function CriarConvite({
             ) : edicaoAte ? (
               <div
                 role="note"
-                className="sticky top-0 z-20 flex items-start gap-3 rounded-[14px] border border-scv-teal/30 bg-scv-card px-4 py-3.5 text-[13px] leading-relaxed shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
+                className="sticky top-0 z-10 flex items-start gap-3 rounded-[14px] border border-scv-teal/30 bg-scv-card px-4 py-3.5 text-[13px] leading-relaxed shadow-[0_10px_24px_-20px_rgba(15,23,42,0.5)]"
               >
                 <i className="bi bi-unlock mt-0.5 text-[17px] text-scv-teal" aria-hidden />
                 <div className="min-w-0">
@@ -2739,11 +2763,17 @@ export function CriarConvite({
               Continuar revisando
             </button>
             <button
-              onClick={() => {
+              onClick={(e) => {
                 // A janela morta do duplo-clique: este botão nasce em cima do
                 // gatilho, então o 2º clique de um duplo-clique cairia aqui e
                 // publicaria sem ninguém ler a pergunta.
-                if (Date.now() - armadoEm.current < ESPERA_CONFIRMA_MS) return;
+                //
+                // `e.detail` é a contagem de cliques do mouse: 0 quando o
+                // "clique" veio do TECLADO (Enter/Espaço). Sem essa parte,
+                // `Tab Tab Enter` — que chega em ~11ms — era engolido em
+                // silêncio, e quem navega por teclado não tinha como saber por
+                // quê. O gesto de mouse continua guardado por inteiro.
+                if (e.detail > 0 && Date.now() - armadoEm.current < ESPERA_CONFIRMA_MS) return;
                 enviar(true);
               }}
               disabled={gravando}
@@ -2813,7 +2843,10 @@ export function CriarConvite({
               <div className="mb-4 rounded-[12px] bg-scv-warn-bg px-3.5 py-3 text-left text-[12.5px] leading-relaxed text-scv-warn-ink">
                 <i className="bi bi-clock-history mr-1.5" aria-hidden />
                 Achou algo para ajustar? Você ainda pode editar sem custo até{" "}
-                <strong className="font-semibold">{horaDoDia(pubInfo.cortesiaAte)}</strong>.
+                <strong className="font-semibold">
+                  {horaComDiaSePreciso(pubInfo.cortesiaAte, pubInfo.publicadoEm)}
+                </strong>
+                .
               </div>
             )}
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#ECECF0] bg-[#F4F4F6] px-3 py-2.5">
