@@ -25,7 +25,7 @@ export type ItemConvite = {
   dataLabel: string;
 };
 
-export function ListaConvites({ items }: { items: ItemConvite[] }) {
+export function ListaConvites({ items, podeCriar = true }: { items: ItemConvite[]; podeCriar?: boolean }) {
   const router = useRouter();
   const [modo, setModo] = useState(false); // modo seleção ligado?
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -108,12 +108,14 @@ export function ListaConvites({ items }: { items: ItemConvite[] }) {
                   <Ic d={IC.check} size={15} stroke="#17171b" width={2.2} />
                   Selecionar
                 </button>
+                {/* Sem vaga no plano o botao nao some — ele DIZ o que falta.
+                    Sumir deixaria a pessoa procurando onde clicar. */}
                 <Link
-                  href="/painel/criar"
+                  href={podeCriar ? "/painel/criar" : "/painel/plano"}
                   className="flex items-center gap-2.5 rounded-[13px] bg-[#7C3AED] px-[22px] py-3 text-[14.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
                 >
-                  <Ic d={IC.plus} size={15} stroke="#fff" width={2} />
-                  Novo convite
+                  <Ic d={podeCriar ? IC.plus : IC.lock} size={15} stroke="#fff" width={2} />
+                  {podeCriar ? "Novo convite" : "Mais convites"}
                 </Link>
               </>
             )}

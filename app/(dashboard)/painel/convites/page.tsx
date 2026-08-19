@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
 import { TIPO_LABEL } from "@/lib/painelUi";
+import { planoEfetivo, podeCriarEvento, SELECT_ASSINATURA } from "@/lib/plans";
 import { Ic, IC } from "../_shell/Ic";
 import { ListaConvites, type ItemConvite } from "./ListaConvites";
 
@@ -35,10 +36,22 @@ export default async function MeusConvitesPage() {
   const session = await auth();
   if (!session?.user) redirect("/entrar");
 
-  const eventos = await prisma.event.findMany({
-    where: { professionalId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  const agora = new Date();
+  const [eventos, prof] = await Promise.all([
+    prisma.event.findMany({
+      where: { professionalId: session.user.id },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.professional.findUnique({
+      where: { id: session.user.id },
+      select: SELECT_ASSINATURA,
+    }),
+  ]);
+  // Vaga no plano: convite vencido nao ocupa lugar (festa que ja passou).
+  const podeCriar = podeCriarEvento(
+    prof ? planoEfetivo(prof, agora) : "BASICO",
+    eventos.filter((e) => e.expiresAt > agora).length,
+  );
 
   if (eventos.length === 0) {
     return (
@@ -81,5 +94,5 @@ export default async function MeusConvitesPage() {
     dataLabel: DATA_LONGA.format(ev.eventDate),
   }));
 
-  return <ListaConvites items={items} />;
+  return <ListaConvites items={items} podeCriar={podeCriar} />;
 }

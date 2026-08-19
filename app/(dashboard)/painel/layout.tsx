@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { DashShell } from "./_shell/DashShell";
 import { recursosDoSite } from "@/lib/recursos";
-import { planoEfetivo, SELECT_ASSINATURA } from "@/lib/plans";
+import { planoEfetivo, podeCriarEvento, SELECT_ASSINATURA } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +30,18 @@ export default async function PainelLayout({
     prisma.event.findMany({
       where: { professionalId: session.user.id },
       orderBy: { createdAt: "desc" },
-      select: { id: true, title: true, status: true, customization: true },
+      select: { id: true, title: true, status: true, customization: true, expiresAt: true },
     }),
   ]);
 
-  const plano = prof ? planoEfetivo(prof, new Date()) : "BASICO";
+  const agora = new Date();
+  const plano = prof ? planoEfetivo(prof, agora) : "BASICO";
+  // O "+ Novo convite" do seletor precisa saber se a conta ainda tem vaga —
+  // oferecer o que o plano nao permite e convidar para a frustacao.
+  const podeCriar = podeCriarEvento(
+    plano,
+    convites.filter((c) => c.expiresAt > agora).length,
+  );
   const nome = prof?.name ?? session.user.name ?? "";
   const email = prof?.email ?? session.user.email ?? "";
 
@@ -42,6 +49,7 @@ export default async function PainelLayout({
     <DashShell
       nome={nome}
       email={email}
+      podeCriar={podeCriar}
       convites={convites.map((c) => {
         // Recursos ATIVOS do convite = plano permite ∩ liga/desliga do evento.
         const r = recursosDoSite(plano, c.customization);

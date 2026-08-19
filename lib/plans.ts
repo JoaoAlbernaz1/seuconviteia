@@ -104,6 +104,22 @@ export function podeVitrine(_plan: Plan): boolean {
   return true;
 }
 
+/**
+ * A conta ainda pode criar convite?
+ *
+ * Existia so a checagem na HORA DE SALVAR: a pessoa do Basico clicava em "Novo
+ * convite", montava o convite inteiro e so no fim levava um "seu plano inclui
+ * ate 1 convite". Trabalho perdido e frustacao — a porta tem de estar fechada,
+ * nao a saida.
+ *
+ * Conta so os convites VALIDOS (nao vencidos): festa que ja passou nao ocupa
+ * vaga, senao o Basico virava uso unico para sempre.
+ */
+export function podeCriarEvento(plan: Plan, eventosAtivos: number): boolean {
+  const limite = limiteEventos(plan);
+  return limite === null || eventosAtivos < limite;
+}
+
 export function limiteEventos(plan: Plan): number | null {
   // Basico = 1 convite (decisao do Joao, 12/08/2026): quem faz festa o ano
   // inteiro precisa do Classico, que e onde a escada quer que a pessoa fique.

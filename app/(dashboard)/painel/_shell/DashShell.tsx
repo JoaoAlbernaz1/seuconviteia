@@ -42,11 +42,14 @@ export function DashShell({
   nome,
   email,
   convites,
+  podeCriar = true,
   children,
 }: {
   nome: string;
   email: string;
   convites: ConviteResumo[];
+  /** A conta ainda tem vaga no plano? Falso = o atalho vira convite a mudar de plano. */
+  podeCriar?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -297,13 +300,15 @@ export function DashShell({
                         </button>
                       );
                     })}
+                    {/* Sem vaga no plano, o atalho NAO oferece o que nao pode
+                        entregar: ele diz o porque e leva aos planos. */}
                     <Link
-                      href="/painel/criar"
+                      href={podeCriar ? "/painel/criar" : "/painel/plano"}
                       onClick={() => setSelAberto(false)}
                       className="mt-0.5 flex items-center gap-2.5 rounded-lg border-t border-[#ececf0] px-3 py-2.5 text-[13px] font-medium !text-[#6e6e76] transition-colors hover:bg-[#f4f4f6]"
                     >
-                      <Ic d={IC.plus} size={13} stroke="#6E6E76" width={2} />
-                      Novo convite
+                      <Ic d={podeCriar ? IC.plus : IC.lock} size={13} stroke="#6E6E76" width={2} />
+                      {podeCriar ? "Novo convite" : "Mais convites — ver planos"}
                     </Link>
                   </div>
                 </>

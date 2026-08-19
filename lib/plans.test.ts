@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PLANOS_INFO, ehDowngrade, limiteEventos, planoDoSite, planoEfetivo, planoPermite, recursosDoPlano, rotuloPlano, type Plan } from "./plans";
+import { PLANOS_INFO, ehDowngrade, limiteEventos, podeCriarEvento, planoDoSite, planoEfetivo, planoPermite, recursosDoPlano, rotuloPlano, type Plan } from "./plans";
 
 describe("recursosDoPlano — gating por plano (assinatura)", () => {
   it("BASICO (gratuito) -> convite COMPLETO; so marca e dominio ficam de fora", () => {
@@ -179,5 +179,17 @@ describe("planoDoSite — o convite fica no ar; o que muda é o que ele tem", ()
 
   it("sem a conta carregada, respeita o que está gravado no convite", () => {
     expect(planoDoSite({ plan: "PREMIUM" }, AGORA)).toBe("PREMIUM");
+  });
+});
+
+describe("podeCriarEvento", () => {
+  it("Basico: um convite e so", () => {
+    expect(podeCriarEvento("BASICO", 0)).toBe(true);
+    expect(podeCriarEvento("BASICO", 1)).toBe(false);
+    expect(podeCriarEvento("BASICO", 5)).toBe(false);
+  });
+  it("planos pagos nao tem teto", () => {
+    expect(podeCriarEvento("CLASSICO", 99)).toBe(true);
+    expect(podeCriarEvento("PREMIUM", 99)).toBe(true);
   });
 });
