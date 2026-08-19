@@ -41,10 +41,12 @@ export type ConviteResumo = {
 const PONTO_ESTADO: Record<EstadoConvite, string> = {
   "no-ar": "bg-[#0EA5A6]",
   rascunho: "bg-[#F59E0B]",
-  // #64748b = o mesmo cinza do selo apagado (`PILL_FORA`, `bg-scv-muted`). Com
-  // #a6a6ae o MESMO convite aparecia em dois cinzas diferentes na mesma tela.
-  "fora-do-ar": "bg-[#64748b]",
-  encerrada: "bg-[#64748b]",
+  // O MESMO cinza do selo apagado (`PILL_FORA`) — pelo token, não por hex
+  // copiado: `--scv-muted` mudou uma vez e o pontinho ficaria para trás. O
+  // shell mora dentro do `.scv` (layout do grupo `(dashboard)`), então a
+  // variável chega aqui por herança mesmo com o `.dash` no meio.
+  "fora-do-ar": "bg-scv-muted",
+  encerrada: "bg-scv-muted",
 };
 
 function iniciais(nome: string): string {
