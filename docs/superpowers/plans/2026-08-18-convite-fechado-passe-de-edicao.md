@@ -201,7 +201,7 @@ git commit -m "feat(edicao): a regra de quando o convite publicado pode ser mexi
 - Modify: `lib/event.ts:20-60` (`EventoVisivel`, `MotivoIndisponivel`, `eventoPublico`)
 - Modify: `lib/event.test.ts`
 - Modify: `components/SiteIndisponivel.tsx:6-22` (novo motivo)
-- Modify: `app/(dashboard)/actions.ts:207-213` (`despublicarEvento`) e criar `voltarAoAr`
+- Modify: `app/(dashboard)/actions.ts:207-213` (`tirarDoAr`) e criar `voltarAoAr`
 
 **Interfaces:**
 - Consumes: nada da Task 1.
@@ -275,11 +275,11 @@ Expected: PASS.
 
 - [ ] **Step 6: Trocar o "tirar do ar" e criar o "voltar ao ar"**
 
-Em `app/(dashboard)/actions.ts`, substituir o corpo de `despublicarEvento` e acrescentar a ação irmã:
+Em `app/(dashboard)/actions.ts`, substituir o corpo de `tirarDoAr` e acrescentar a ação irmã:
 
 ```ts
 /** Tira o site do ar SEM destravar a edicao (status continua PUBLISHED). */
-export async function despublicarEvento(formData: FormData) {
+export async function tirarDoAr(formData: FormData) {
   const id = await eventoDoDono(formData.get("eventId"));
   if (!id) redirect("/entrar");
   await prisma.event.update({ where: { id }, data: { foraDoAr: true } });

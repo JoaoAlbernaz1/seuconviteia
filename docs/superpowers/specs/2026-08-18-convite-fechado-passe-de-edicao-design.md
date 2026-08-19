@@ -148,7 +148,7 @@ Esconder botão não é bloqueio. Precisa recusar no servidor:
   redireciona para `/painel/[id]/liberar`.
 - `salvarDocumentoConvite` e `publicarDocumentoConvite`: exigem `DRAFT` **ou**
   janela aberta; republicar ignora mudança de slug.
-- `despublicarEvento`: passa a gravar `foraDoAr = true`, não `status = "DRAFT"`.
+- `tirarDoAr`: passa a gravar `foraDoAr = true`, não `status = "DRAFT"`.
 - `eventoPublico` (`lib/event.ts`) passa a esconder `foraDoAr`.
 
 ## Riscos assumidos
