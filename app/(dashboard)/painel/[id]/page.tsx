@@ -488,9 +488,12 @@ export default async function AcompanharEventoPage({
           <div className="text-[13px] font-semibold text-scv-ink">Ajustes do site</div>
           <div className="text-[12px] text-scv-muted">
             {/* A consequencia ANTES do clique: "Tirar do ar" e um toque so, e
-                antes disso a pessoa so descobria o que tinha feito depois. */}
+                antes disso a pessoa so descobria o que tinha feito depois.
+                Comecando pelo nome do estado ("Fora do ar, quem abrir..."), a
+                frase lia como ROTULO do estado atual; "Se voce tirar do ar" diz
+                que e uma condicao, e nao o que esta acontecendo agora. */}
             {noAr
-              ? "Fora do ar, quem abrir o link vê um aviso de convite indisponível — e você traz de volta quando quiser."
+              ? "Se você tirar do ar, quem abrir o link vê um aviso de convite indisponível — e dá para trazer de volta quando quiser."
               : "Apague este convite de vez. Não tem volta."}
           </div>
         </div>

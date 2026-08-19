@@ -1,11 +1,12 @@
 "use client";
 
 // Ações interativas do card "Seu convite": botão de copiar o link (com feedback
-// "Copiado!") e o menu "⋯" (visualizar, copiar, compartilhar, pausar, excluir).
+// "Copiado!") e o menu "⋯" (visualizar, copiar, compartilhar, tirar do ar,
+// excluir).
 // Ações destrutivas levam à página de gestão do convite — nada é apagado inline.
 //
-// O menu segue o ESTADO do convite, não o status do banco: ele oferecia "Pausar
-// convite" a quem já estava pausado, e "copiar/compartilhar" o link de uma festa
+// O menu segue o ESTADO do convite, não o status do banco: ele oferecia "Tirar
+// do ar" a quem já estava fora do ar, e "copiar/compartilhar" o link de uma festa
 // que já aconteceu — cujo site responde com o aviso de convite encerrado.
 import { useState } from "react";
 import Link from "next/link";
@@ -54,10 +55,15 @@ export function ConviteMenu({
   // A quarta linha do menu é a que MUDA o estado do convite — e por isso ela só
   // existe quando há mudança possível. Depois da festa não há: o servidor não
   // reabre nem republica, e um item que só leva a uma negativa é ruído.
+  //
+  // O RÓTULO é o nome do botão que espera no destino: "Pausar convite" levava a
+  // uma tela cujo botão se chama "Tirar do ar" — a mesma porta com dois nomes,
+  // que é o que faz a pessoa achar que são duas coisas diferentes. "Voltar ao
+  // ar" já batia; agora os dois batem.
   const virar = rascunho
     ? { label: "Publicar", href: `/painel/criar?id=${fid}` }
     : estado === "no-ar"
-      ? { label: "Pausar convite", href: `/painel/${fid}` }
+      ? { label: "Tirar do ar", href: `/painel/${fid}` }
       : estado === "fora-do-ar"
         ? { label: "Voltar ao ar", href: `/painel/${fid}` }
         : null;
