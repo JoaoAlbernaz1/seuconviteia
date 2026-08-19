@@ -1,31 +1,46 @@
 "use client";
 
-// O miolo da tela de liberar: as quatro frases + UMA acao, e o Pix quando ela
-// for a acao escolhida.
+// O miolo da tela de liberar: o que a liberacao abre, quanto custa e UMA acao —
+// e o Pix quando ela for a acao escolhida.
 //
 // Duas portas, nunca as duas ao mesmo tempo: quem tem liberacao incluida no
 // plano ve so a gratuita (mostrar o Pix ao lado seria vender o que ela ja
-// pagou); quem nao tem ve so o Pix. Ao voltar `{ ok: true }` de qualquer uma
-// das duas, a pessoa vai direto para o editor.
+// pagou); quem nao tem ve so o Pix. Ao voltar `{ ok: true }` de qualquer uma das
+// duas, a pessoa vai direto para o editor.
 //
-// A mecanica do Pix (QR + copia-e-cola + "Copiado!") e a mesma do modal de
-// presentear do site — aqui vestida com os tokens do painel.
-import { useEffect, useState, useTransition } from "react";
+// O PRECO vive fora do botao, na area de decisao: escondido no rotulo, o valor
+// so era descoberto na hora do clique. A mecanica do Pix (QR + copia-e-cola +
+// "Copiado!") e a mesma do modal de presentear do site — aqui vestida com os
+// tokens do painel.
+import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { RECUSA_FESTA_PASSOU } from "@/lib/edicao";
 import { comprarPasseEdicao, usarPasseIncluido } from "./acoes";
 import { edicaoJaLiberada } from "./status";
-import { BTN_GHOST, BTN_PRIMARIO } from "../../_ui/estilos";
+import { BTN_GHOST, BTN_PRIMARIO, PILL_NO_AR } from "../../_ui/estilos";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const fmt = (cents: number) => brl.format(cents / 100);
 
-/** De quanto em quanto tempo a tela do Pix pergunta se a janela ja abriu. */
-const CHECAR_MS = 5000;
+/**
+ * O ritmo do "ja caiu?" enquanto o QR esta na tela.
+ *
+ * Rapido nos primeiros minutos (e quando a pessoa esta com o app do banco
+ * aberto), calmo depois, e com TETO: a 12 consultas por minuto, uma aba visivel
+ * esquecida das 18h as 8h passava de 10 mil consultas por uma compra de R$
+ * 19,90. Passado o teto a tela para de perguntar sozinha e passa a bola para o
+ * botao "Ja paguei".
+ */
+const CHECAR_RAPIDO_MS = 5_000;
+const CHECAR_LENTO_MS = 15_000;
+const RAPIDO_ATE_MS = 2 * 60_000;
+const PARAR_APOS_MS = 20 * 60_000;
 
 export function LiberarCliente({
   eventId,
+  titulo,
   precoCents,
   horas,
   temIncluido,
@@ -34,6 +49,8 @@ export function LiberarCliente({
   foraDoAr,
 }: {
   eventId: string;
+  /** Nome do convite: no Pix a capa pode ter saido da tela (celular). */
+  titulo: string;
   precoCents: number;
   horas: number;
   /** Sobra liberacao incluida no plano para ESTE convite. */
@@ -48,26 +65,85 @@ export function LiberarCliente({
   const [pix, setPix] = useState<{ code: string; qr: string } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [pollParado, setPollParado] = useState(false);
   const [pendente, start] = useTransition();
+  const cabecalhoPix = useRef<HTMLHeadingElement>(null);
 
   const preco = fmt(precoCents);
   const editor = `/painel/criar?id=${eventId}`;
 
+  // O botao que estava em foco some quando o QR entra: sem isto o foco cai no
+  // <body> e quem navega por teclado ou leitor de tela nao fica sabendo que a
+  // tela inteira mudou de assunto.
+  useEffect(() => {
+    if (pix) cabecalhoPix.current?.focus();
+  }, [pix]);
+
   // Enquanto o QR esta na tela, pergunta de tempos em tempos se a janela abriu
   // — quem abre e o webhook, depois de reconsultar o pagamento. Sem isto, a
-  // linha "a edicao abre sozinha" seria mentira. Nao pergunta com a aba
-  // escondida: tela esquecida aberta nao precisa custar consulta.
+  // linha "a edicao abre sozinha" seria mentira.
   useEffect(() => {
     if (!pix) return;
     let vivo = true;
-    const t = setInterval(async () => {
-      if (document.hidden) return;
-      const aberta = await edicaoJaLiberada(eventId);
-      if (vivo && aberta) router.push(editor);
-    }, CHECAR_MS);
+    let conferindo = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const inicio = Date.now();
+
+    function agendar() {
+      if (!vivo) return;
+      const decorrido = Date.now() - inicio;
+      if (decorrido >= PARAR_APOS_MS) {
+        setPollParado(true);
+        return;
+      }
+      timer = setTimeout(tick, decorrido < RAPIDO_ATE_MS ? CHECAR_RAPIDO_MS : CHECAR_LENTO_MS);
+    }
+
+    async function conferir() {
+      if (!vivo || conferindo) return;
+      conferindo = true;
+      let aberta = false;
+      try {
+        aberta = await edicaoJaLiberada(eventId);
+      } catch {
+        // Rede caiu: nao e resposta "nao liberou", e sim "nao sei". O proximo
+        // agendamento pergunta de novo, e o botao "Ja paguei" continua de pe.
+      }
+      conferindo = false;
+      if (!vivo) return;
+      // Liberou: a tela vai embora, entao nao reagenda nada.
+      if (aberta) {
+        router.push(editor);
+        return;
+      }
+      agendar();
+    }
+
+    // Reagendar no fim de CADA consulta (em vez de `setInterval`) e o que impede
+    // as chamadas de empilharem quando uma resposta demora mais que o intervalo.
+    function tick() {
+      // Aba escondida nao consulta — mas o ciclo continua vivo.
+      if (document.hidden) {
+        agendar();
+        return;
+      }
+      void conferir();
+    }
+
+    // Voltar para a aba e o momento EXATO em que a pessoa pagou no celular:
+    // conferir na hora evita os segundos de "sera que deu certo?".
+    function aoVoltar() {
+      if (!vivo || document.hidden) return;
+      if (timer) clearTimeout(timer);
+      void conferir();
+    }
+
+    document.addEventListener("visibilitychange", aoVoltar);
+    agendar();
     return () => {
       vivo = false;
-      clearInterval(t);
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", aoVoltar);
     };
   }, [pix, eventId, editor, router]);
 
@@ -75,8 +151,16 @@ export function LiberarCliente({
     setErro(null);
     start(async () => {
       const r = await usarPasseIncluido(eventId);
-      if (r.ok) router.push(editor);
-      else setErro(r.erro);
+      if (r.ok) {
+        router.push(editor);
+        return;
+      }
+      setErro(r.erro);
+      // A recusa aqui MATA este caminho (cota estourada, assinatura vencida).
+      // Sem recarregar, o botao que acabou de falhar continuaria de pe e o
+      // caminho que funciona — o Pix — ficaria escondido. O servidor volta com
+      // ele; se a janela ja tiver aberto, a propria pagina manda para o editor.
+      router.refresh();
     });
   }
 
@@ -84,15 +168,24 @@ export function LiberarCliente({
     setErro(null);
     start(async () => {
       const r = await comprarPasseEdicao(eventId);
-      if (r.ok) setPix({ code: r.pixCode, qr: r.pixQrUrl });
-      else setErro(r.erro);
+      if (r.ok) {
+        setPix({ code: r.pixCode, qr: r.pixQrUrl });
+        return;
+      }
+      setErro(r.erro);
+      // Recusa aqui costuma ser tela velha (a janela abriu em outra aba, a festa
+      // encerrou): recarregar troca a tela pelo que e verdade agora.
+      router.refresh();
     });
   }
 
   /**
-   * Depois de uma recusa: pergunta ao servidor como as coisas estao AGORA. Se a
-   * janela ja abriu (a outra aba, o clique duplo), vai para o editor; se nao,
-   * recarrega a tela, que pode ter mudado de assunto.
+   * "Ja paguei — conferir agora": pergunta ao servidor como as coisas estao
+   * AGORA. Se a janela abriu, vai para o editor; se nao, recarrega a tela.
+   *
+   * E a saida de emergencia do estado do Pix: sem ela, quem PAGOU e caiu num
+   * poll morto (sessao vencida, rede que voltou depois do teto) ficaria olhando
+   * um QR para sempre.
    */
   function reconferir() {
     setErro(null);
@@ -109,7 +202,7 @@ export function LiberarCliente({
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2200);
     } catch {
-      /* clipboard indisponivel: o codigo continua na tela para copiar na mao */
+      /* clipboard indisponivel: o codigo continua na tela, selecionavel */
     }
   }
 
@@ -118,9 +211,7 @@ export function LiberarCliente({
   if (encerrado) {
     return (
       <div className="border-t border-scv-line px-4 py-5 sm:px-5">
-        <p className="text-[14px] leading-relaxed text-scv-text2">
-          Esta festa já passou. Crie um convite novo para a próxima.
-        </p>
+        <p className="text-[14px] leading-relaxed text-scv-text2">{RECUSA_FESTA_PASSOU}</p>
         <Link href="/painel/criar" className={`${BTN_GHOST} mt-4 inline-block`}>
           Criar um convite novo
         </Link>
@@ -130,170 +221,233 @@ export function LiberarCliente({
 
   return (
     <div className="border-t border-scv-line px-4 py-5 sm:px-5">
-      {pix ? (
-        <div>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-scv-muted">
-            Pague {preco} no Pix
-          </p>
-
-          <div className="mt-3.5 flex flex-col items-center gap-3.5 rounded-[16px] border border-scv-line bg-scv-field p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
-            <div className="relative size-[200px] shrink-0 overflow-hidden rounded-[12px] bg-white ring-1 ring-black/5 sm:size-[168px]">
-              <Image
-                src={pix.qr}
-                alt="QR Code do Pix para liberar a edição"
-                fill
-                sizes="200px"
-                className="object-contain p-1.5"
-                unoptimized
-              />
-            </div>
-
-            <div className="w-full min-w-0">
-              <p className="text-[13px] font-semibold text-scv-ink">
-                Aponte a câmera do seu banco — ou copie o código.
-              </p>
-              <p
-                className="mt-2 max-w-full truncate rounded-[10px] border border-scv-line bg-scv-card px-3 py-2.5 font-mono text-[12px] text-scv-muted"
-                title={pix.code}
-              >
-                {pix.code}
-              </p>
-              <button
-                type="button"
-                onClick={copiar}
-                className={`${BTN_GHOST} mt-2.5 inline-flex min-h-[44px] w-full items-center justify-center gap-2 sm:w-auto`}
-              >
-                <i className={`bi ${copiado ? "bi-check2" : "bi-clipboard"}`} aria-hidden />
-                {copiado ? "Copiado!" : "Copiar código Pix"}
-              </button>
-              <span aria-live="polite" className="sr-only">
-                {copiado ? "Código Pix copiado" : ""}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-start gap-2.5">
-            <span className="relative mt-[5px] flex size-2 shrink-0">
-              <span className="absolute inline-flex size-full rounded-full bg-scv-teal/60 motion-safe:animate-ping" />
-              <span className="relative inline-flex size-2 rounded-full bg-scv-teal" />
-            </span>
-            <p className="text-[13.5px] leading-relaxed text-scv-text2">
-              Assim que o Pix cair, a edição abre sozinha — pode deixar esta tela aberta.
+      {/* A `key` faz a troca opcoes -> Pix reaparecer com o fade do painel, em
+          vez de o cartao inteiro pular de conteudo. `scv-fade` e opacidade e
+          respeita `prefers-reduced-motion` (globals.css). */}
+      <div key={pix ? "pix" : "opcoes"} className="scv-fade">
+        {pix ? (
+          <div>
+            <h2
+              ref={cabecalhoPix}
+              tabIndex={-1}
+              className="font-display text-[19px] font-semibold leading-tight text-scv-ink outline-none"
+            >
+              Pague {preco} no Pix
+            </h2>
+            {/* A ancora do que esta sendo pago: no celular a capa ja saiu da
+                tela quando o QR aparece. */}
+            <p className="mt-1 text-[12.5px] text-scv-muted">
+              Liberando: <strong className="font-semibold text-scv-ink">{titulo}</strong>
             </p>
+
+            <div className="mt-4 flex flex-col items-center gap-4 rounded-[16px] border border-scv-line bg-scv-field p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
+              {/* O `pixQrUrl` pode voltar vazio do provedor (`qr_code_base64` e
+                  `ticket_url` ausentes) — e `<Image src="">` quebra a tela
+                  justo onde a cobranca JA existe. Sem QR, o copia-e-cola sozinho
+                  e caminho completo. */}
+              {pix.qr ? (
+                <div className="relative size-[200px] shrink-0 overflow-hidden rounded-[12px] bg-white ring-1 ring-black/5">
+                  <Image
+                    src={pix.qr}
+                    alt="QR Code do Pix para liberar a edição"
+                    fill
+                    sizes="200px"
+                    className="object-contain p-1.5"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+
+              <div className="w-full min-w-0">
+                <p className="text-[13.5px] font-semibold text-scv-ink">
+                  {pix.qr
+                    ? "Aponte a câmera do seu banco — ou copie o código."
+                    : "Copie o código e cole no app do seu banco."}
+                </p>
+                {/* Campo (e nao paragrafo cortado): o codigo Pix inteiro precisa
+                    dar para selecionar e copiar na mao quando o clipboard do
+                    navegador nao deixa. Um toque seleciona tudo. */}
+                <label htmlFor="pix-codigo" className="sr-only">
+                  Código Pix copia e cola
+                </label>
+                <input
+                  id="pix-codigo"
+                  readOnly
+                  value={pix.code}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onClick={(e) => e.currentTarget.select()}
+                  className="mt-2 min-h-[44px] w-full rounded-[10px] border border-scv-line bg-scv-card px-3 font-mono text-[12px] text-scv-muted outline-none focus:border-violeta focus:ring-2 focus:ring-violeta/15"
+                />
+                <button
+                  type="button"
+                  onClick={copiar}
+                  className={`${BTN_GHOST} mt-2.5 inline-flex min-h-[44px] w-full items-center justify-center gap-2 sm:w-auto`}
+                >
+                  <i className={`bi ${copiado ? "bi-check2" : "bi-clipboard"}`} aria-hidden />
+                  {copiado ? "Copiado!" : "Copiar código Pix"}
+                </button>
+                <span aria-live="polite" className="sr-only">
+                  {copiado ? "Código Pix copiado" : ""}
+                </span>
+              </div>
+            </div>
+
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-4 rounded-xl bg-scv-teal/10 px-3.5 py-3 text-[13.5px] text-scv-teal"
+            >
+              <div className="flex items-center gap-2.5 font-semibold">
+                <span className="size-2 shrink-0 rounded-full bg-scv-teal" />
+                {pollParado ? "Já pagou? Toque para conferir" : "Aguardando pagamento"}
+              </div>
+              <p className="mt-1 text-scv-text2">
+                {pollParado
+                  ? "Esta tela está aberta há um tempo, então parei de conferir sozinho."
+                  : "Assim que o Pix cair, a edição abre sozinha."}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={reconferir}
+              disabled={pendente}
+              className={`${BTN_GHOST} mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto`}
+            >
+              {pendente ? "Conferindo…" : "Já paguei — conferir agora"}
+            </button>
+
+            <Garantias horas={horas} foraDoAr={foraDoAr} className="mt-5" />
+
+            {erro ? <Erro texto={erro} /> : null}
           </div>
+        ) : (
+          <div>
+            <Garantias horas={horas} foraDoAr={foraDoAr} comOQueAbre />
 
-          <p className="mt-3 text-[12.5px] leading-relaxed text-scv-muted">
-            {foraDoAr
-              ? "Seu site está fora do ar agora — liberar a edição não o coloca de volta."
-              : "O site atual continua no ar até você publicar as alterações."}{" "}
-            A liberação vale {horas} horas a partir do pagamento.
-          </p>
+            {/* A recusa vem ANTES da decisao porque e ela que explica por que a
+                decisao mudou de cara ("a cota acabou" -> agora e o Pix). Depois
+                dela a tela ja se recarregou, entao o que esta logo abaixo e o
+                caminho que funciona, e nao o botao que acabou de falhar. */}
+            {erro ? <Erro texto={erro} /> : null}
 
-          {erro ? <Erro texto={erro} /> : null}
-        </div>
-      ) : (
-        <div>
-          <ul className="flex flex-col gap-3">
-            <Linha icone="bi-pencil">
-              <b className="font-semibold text-scv-ink">O que abre:</b> textos, data, local, capa,
-              template, cores e as seções do site.
-            </Linha>
-            <Linha icone="bi-shield-check">
-              {foraDoAr ? (
-                <>
-                  <b className="font-semibold text-scv-ink">Seu site está fora do ar agora</b> —
-                  liberar a edição não o coloca de volta.
-                </>
-              ) : (
-                <>
-                  <b className="font-semibold text-scv-ink">O site atual continua no ar</b> até você
-                  publicar as alterações.
-                </>
-              )}
-            </Linha>
-            <Linha icone="bi-clock">
-              <b className="font-semibold text-scv-ink">Vale {horas} horas</b>
-              {temIncluido ? ", a partir de agora." : ", a partir do pagamento."}
-            </Linha>
-            <Linha icone="bi-tag">
+            {/* A decisao: quanto custa (ou que ja esta pago) ao lado do botao.
+                Separada da lista por uma linha, porque ler e decidir sao dois
+                momentos. */}
+            <div className="mt-6 flex flex-col gap-3 border-t border-scv-line pt-5 sm:flex-row sm:items-end sm:justify-between">
               {temIncluido ? (
                 <>
-                  <b className="font-semibold text-scv-ink">Já está no seu plano</b>, sem cobrança
-                  nenhuma.
+                  {/* Some quando ha recusa: "ainda restam 2" logo acima de "voce
+                      ja usou as liberacoes" e a tela discutindo consigo mesma. */}
+                  <div hidden={!!erro}>
+                    <span className={`${PILL_NO_AR} inline-block`}>Incluído no seu plano</span>
+                    <p className="mt-2 text-[12.5px] text-scv-muted">
+                      {incluidosRestantes <= 1
+                        ? "Esta é a última liberação incluída neste convite."
+                        : `Depois desta, ainda ${
+                            incluidosRestantes - 1 === 1
+                              ? "resta 1 liberação"
+                              : `restam ${incluidosRestantes - 1} liberações`
+                          } neste convite.`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={usarDoPlano}
+                    disabled={pendente}
+                    className={`${BTN_PRIMARIO} w-full sm:w-auto sm:whitespace-nowrap`}
+                  >
+                    {pendente ? "Liberando…" : "Usar minha liberação incluída"}
+                  </button>
                 </>
               ) : (
                 <>
-                  <b className="font-semibold text-scv-ink">Compra única</b>, sem assinatura e sem
-                  renovação.
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-scv-muted">
+                      Passe de edição
+                    </p>
+                    <div className="mt-1 flex items-baseline gap-2">
+                      <strong className="font-display text-[28px] font-semibold leading-none text-scv-ink">
+                        {preco}
+                      </strong>
+                      <span className="text-[12.5px] text-scv-muted">
+                        · {horas} horas · Pix
+                      </span>
+                    </div>
+                  </div>
+                  {/* "Gerar Pix de R$ 19,90" e nao "Liberar por R$ 19,90": o
+                      rotulo antigo prometia que a edicao abria no clique, e ela
+                      so abre quando o Pix cai. */}
+                  <button
+                    type="button"
+                    onClick={gerarPix}
+                    disabled={pendente}
+                    className={`${BTN_PRIMARIO} w-full sm:w-auto`}
+                  >
+                    {pendente ? "Gerando Pix…" : `Gerar Pix de ${preco}`}
+                  </button>
                 </>
               )}
-            </Linha>
-          </ul>
-
-          {/* A letra miuda some quando ha recusa: dizer "ainda restam 2" logo
-              acima de "voce ja usou as liberacoes" e a tela discutindo consigo
-              mesma. Quem resolve o descompasso e o "Atualizar esta tela". */}
-          <div className="mt-5">
-            {temIncluido ? (
-              <>
-                <button
-                  type="button"
-                  onClick={usarDoPlano}
-                  disabled={pendente}
-                  className={`${BTN_PRIMARIO} w-full sm:w-auto`}
-                >
-                  {pendente ? "Liberando…" : "Usar a liberação do meu plano"}
-                </button>
-                <p hidden={!!erro} className="mt-2.5 text-[12.5px] text-scv-muted">
-                  {incluidosRestantes <= 1
-                    ? "É a última liberação incluída neste convite."
-                    : `Depois desta, ainda ${
-                        incluidosRestantes - 1 === 1
-                          ? "resta 1 liberação incluída"
-                          : `restam ${incluidosRestantes - 1} liberações incluídas`
-                      } neste convite.`}
-                </p>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={gerarPix}
-                  disabled={pendente}
-                  className={`${BTN_PRIMARIO} w-full sm:w-auto`}
-                >
-                  {pendente ? "Gerando Pix…" : `Liberar por ${preco} no Pix`}
-                </button>
-                <p hidden={!!erro} className="mt-2.5 text-[12.5px] text-scv-muted">
-                  Pagamento por Pix. O código aparece aqui mesmo.
-                </p>
-              </>
-            )}
+            </div>
           </div>
-
-          {erro ? (
-            <>
-              <Erro texto={erro} />
-              {/* A recusa pode ter nascido de uma tela velha (a janela abriu em
-                  outra aba, a cota acabou de ser usada). Recarregar do servidor
-                  responde tudo isso — e leva ao editor se ja estiver liberada. */}
-              <button
-                type="button"
-                onClick={reconferir}
-                disabled={pendente}
-                className={`${BTN_GHOST} mt-2.5`}
-              >
-                Atualizar esta tela
-              </button>
-            </>
-          ) : null}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-/** Uma das quatro frases: icone discreto + texto que pode ser lido de relance. */
+/**
+ * O que a liberacao entrega, em frases curtas de UMA linha.
+ *
+ * Duas colunas no desktop e uma no celular: em coluna unica larga, quatro frases
+ * viravam um paredao de texto — e nada aqui e letra miuda, e o corpo da tela.
+ * No estado do Pix a primeira frase sai (o que abre ja foi lido antes do clique)
+ * e as tres que restam continuam no MESMO peso: quem esta pagando e justamente
+ * quem precisa das garantias legiveis.
+ */
+function Garantias({
+  horas,
+  foraDoAr,
+  comOQueAbre = false,
+  className = "",
+}: {
+  horas: number;
+  foraDoAr: boolean;
+  comOQueAbre?: boolean;
+  className?: string;
+}) {
+  return (
+    <ul className={`grid gap-x-6 gap-y-3 sm:grid-cols-2 ${className}`}>
+      {comOQueAbre ? (
+        <Linha icone="bi-pencil">
+          <b className="font-semibold text-scv-ink">Edição completa:</b> textos, data, local, capa,
+          template, cores e seções.
+        </Linha>
+      ) : null}
+      <Linha icone="bi-shield-check">
+        {foraDoAr ? (
+          <>
+            <b className="font-semibold text-scv-ink">Seu site está fora do ar agora</b> — liberar a
+            edição não o coloca de volta.
+          </>
+        ) : (
+          <>
+            <b className="font-semibold text-scv-ink">O site atual continua no ar</b> até você
+            publicar.
+          </>
+        )}
+      </Linha>
+      <Linha icone="bi-clock">
+        <b className="font-semibold text-scv-ink">Acesso por {horas} horas.</b>
+      </Linha>
+      <Linha icone="bi-tag">
+        <b className="font-semibold text-scv-ink">Compra única</b>, sem assinatura e sem renovação.
+      </Linha>
+    </ul>
+  );
+}
+
+/** Uma das frases: icone discreto + texto que pode ser lido de relance. */
 function Linha({ icone, children }: { icone: string; children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5">

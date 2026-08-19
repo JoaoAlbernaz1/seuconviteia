@@ -15,6 +15,7 @@ export function TopoCartao({
   chapeu,
   titulo,
   acao,
+  as: Titulo = "div",
 }: {
   /** Classe do Bootstrap Icons, ex.: "bi-camera". */
   icone: string;
@@ -23,6 +24,13 @@ export function TopoCartao({
   titulo: string;
   /** Botão ou link opcional, alinhado à direita. */
   acao?: ReactNode;
+  /**
+   * Tag do título. `div` por padrão (o topo costuma ser um cartão DENTRO de uma
+   * página que já tem `<h1>`); `h1`/`h2` quando o título do cartão É o título da
+   * página — sem isso, a tela precisaria copiar as classes daqui à mão e as duas
+   * cópias começariam a divergir no primeiro ajuste.
+   */
+  as?: "div" | "h1" | "h2";
 }) {
   return (
     <div className="flex items-center gap-3.5 border-b border-scv-line px-4 py-3.5 sm:px-5">
@@ -30,12 +38,15 @@ export function TopoCartao({
         <i className={`bi ${icone} text-[18px]`} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-scv-faint">
+        {/* `scv-muted` (4,6:1) e não `scv-faint` (≈2,6:1 sobre branco): o chapéu
+            é informação de verdade — diz em que estado o convite está —, então
+            precisa passar no AA como o resto do texto. */}
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-scv-muted">
           {chapeu}
         </div>
-        <div className="mt-0.5 font-display text-[19px] font-semibold leading-tight text-scv-ink">
+        <Titulo className="mt-0.5 font-display text-[19px] font-semibold leading-tight text-scv-ink">
           {titulo}
-        </div>
+        </Titulo>
       </div>
       {acao}
     </div>

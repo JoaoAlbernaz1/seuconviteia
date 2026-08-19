@@ -20,6 +20,15 @@ export const PASSE_HORAS = 48;
 /** Cortesia logo depois da PRIMEIRA publicacao — a rede do erro de digitacao. */
 export const CORTESIA_MINUTOS = 60;
 
+/**
+ * A resposta para quem tenta liberar a edicao de uma festa que ja aconteceu.
+ *
+ * Mora aqui porque e a MESMA frase em tres lugares (as duas actions do passe e a
+ * tela, que a diz antes do clique para nao oferecer um botao que so da erro).
+ * Tres copias a mao viravam tres frases diferentes no primeiro ajuste de texto.
+ */
+export const RECUSA_FESTA_PASSOU = "Esta festa já passou. Crie um convite novo para a próxima.";
+
 /** Subconjunto do Event necessario para decidir a edicao. */
 export type EventoEdicao = {
   status: StatusEvento;

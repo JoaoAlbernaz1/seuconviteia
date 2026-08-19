@@ -44,6 +44,8 @@ vi.mock("@/lib/pagamentos", async (original) => {
 const { comprarPasseEdicao, usarPasseIncluido } = await import(
   "@/app/(dashboard)/painel/[id]/liberar/acoes"
 );
+// A leitura que a tela do Pix repete enquanto o QR esta na tela.
+const { edicaoJaLiberada } = await import("@/app/(dashboard)/painel/[id]/liberar/status");
 
 /** Conta + convite PUBLICADO com a janela ja vencida (o caso real da tela). */
 async function conviteFechado(
@@ -578,6 +580,31 @@ describe("passe de edicao", () => {
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.passesGratisUsados).toBe(0);
     expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
+  });
+
+  // A tela do Pix pergunta "ja abriu?" de 5 em 5 segundos com o id do convite na
+  // mao. Se essa leitura respondesse por convite alheio, um id vazado viraria um
+  // olho no estado da edicao de outra conta — e, pior, mandaria a pessoa para o
+  // editor de um convite que nao e dela.
+  it.skipIf(!enabled)("`edicaoJaLiberada` responde `false` para convite de OUTRA conta", async () => {
+    const db = prisma!;
+    const { event } = await conviteFechado(db);
+    // Janela ABERTA de verdade: a resposta so pode ser `false` por causa do dono.
+    await db.event.update({
+      where: { id: event.id },
+      data: { edicaoAte: new Date(Date.now() + 3_600_000) },
+    });
+    expect(await edicaoJaLiberada(event.id)).toBe(true);
+
+    const { prof: outro } = await conviteFechado(db);
+    sessionMock.mockResolvedValue({ user: { id: outro.id, email: outro.email } });
+    expect(await edicaoJaLiberada(event.id)).toBe(false);
+
+    // Sem sessao — e com sessao legada SEM `id`, que o Prisma ignoraria no where.
+    sessionMock.mockResolvedValue(null);
+    expect(await edicaoJaLiberada(event.id)).toBe(false);
+    sessionMock.mockResolvedValue({ user: { email: outro.email } });
+    expect(await edicaoJaLiberada(event.id)).toBe(false);
   });
 
   it.skipIf(!enabled)("dois cliques SIMULTANEOS gastam UMA cota (corrida FORCADA por lock)", async () => {

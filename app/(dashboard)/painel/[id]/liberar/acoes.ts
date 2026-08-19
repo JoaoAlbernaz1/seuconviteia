@@ -18,6 +18,7 @@ import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
 import {
   PASSE_PRECO_CENTS,
+  RECUSA_FESTA_PASSOU,
   edicaoAberta,
   fimDoPasse,
   passesIncluidos,
@@ -76,7 +77,7 @@ export async function comprarPasseEdicao(eventId: string): Promise<ComprarPasseR
   // `edicaoAberta` sozinha ja teria deixado cobrar R$ 19,90 por um convite morto
   // — o passe abriria 48h de edicao num site que nao volta ao ar.
   if (conviteEncerrado(event, agora)) {
-    return { ok: false, erro: "Esta festa já passou. Crie um convite novo para a próxima." };
+    return { ok: false, erro: RECUSA_FESTA_PASSOU };
   }
 
   // Cobranca recente ainda em aberto deste convite: e ela que sera repedida ao
@@ -203,7 +204,7 @@ export async function usarPasseIncluido(eventId: string): Promise<UsarPasseInclu
   // Convite encerrado cai fora da janela como qualquer outro: sem esta pergunta
   // a pessoa queimaria uma cota do plano para editar um site que nao volta ao ar.
   if (conviteEncerrado(event, agora)) {
-    return { ok: false, erro: "Esta festa já passou. Crie um convite novo para a próxima." };
+    return { ok: false, erro: RECUSA_FESTA_PASSOU };
   }
   const recusa = recusaDaCota(prof, event.passesGratisUsados, agora);
   if (recusa) return { ok: false, erro: recusa };

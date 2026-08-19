@@ -21,7 +21,12 @@ export function CapaEvento({
   /** Linha pequena acima do nome (ex.: "Meus 15 anos"). */
   kicker?: string;
   fotoUrl?: string | null;
-  altura?: number;
+  /**
+   * Altura fixa em px. `null` = a altura vem do CSS (caixa com `aspect-*` +
+   * `className="h-full"`, por exemplo): altura inline SEMPRE ganha de classe, e
+   * uma miniatura que precisa ser responsiva não tem como ganhar essa briga.
+   */
+  altura?: number | null;
   className?: string;
   children?: React.ReactNode;
 }) {
@@ -45,7 +50,7 @@ export function CapaEvento({
   return (
     <div
       className={`relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden px-3 text-center ${className}`}
-      style={{ height: altura, ...fundo }}
+      style={{ ...(altura === null ? null : { height: altura }), ...fundo }}
     >
       {kicker ? (
         <span className="relative text-[8.5px] font-semibold uppercase tracking-[0.22em] text-white/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]">
@@ -56,7 +61,9 @@ export function CapaEvento({
         className="relative leading-[1.1] text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.5)]"
         style={{
           fontFamily: dupla.vars["--ev-font-script"],
-          fontSize: Math.round((altura >= 160 ? 34 : 28) * dupla.scriptScale + 6),
+          // Sem altura fixa (`null`), a miniatura é pequena por definição — o
+          // corpo do nome sai no mesmo tamanho das outras miniaturas do painel.
+          fontSize: Math.round(((altura ?? 0) >= 160 ? 34 : 28) * dupla.scriptScale + 6),
           ...(dupla.caps
             ? { textTransform: "uppercase" as const, letterSpacing: "0.12em" }
             : null),
