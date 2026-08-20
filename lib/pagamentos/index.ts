@@ -74,7 +74,41 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 }
 
+/**
+ * Produção sem credencial: recusa ALTA, em vez de Pix de mentira.
+ *
+ * O simulado não é neutro em produção — ele ABRE uma porta: no modo "fake" quem
+ * confirma o presente é um botão na tela do convidado (`confirmarPresente`,
+ * liberado justamente quando o provedor é "fake"), então um convite publicado de
+ * verdade aceitaria "presente confirmado" com zero real. E o passe de R$ 19,90
+ * geraria um QR que nunca confirma, porque quem abre a janela de edição é o
+ * webhook — e o webhook exige provedor real.
+ *
+ * Os dois chamadores de `criarCobrancaPix` (`lib/presentear.ts` e a action do
+ * passe) já tratam o throw: marcam a linha FAILED e devolvem "Não foi possível
+ * gerar o Pix agora". Ninguém vê stack trace, e ninguém ganha presente de graça.
+ */
+export class IndisponivelPaymentProvider implements PaymentProvider {
+  readonly nome = "indisponivel";
+  async criarCobrancaPix(): Promise<CobrancaPix> {
+    throw new Error(
+      "pagamento indisponível: MERCADO_PAGO_ACCESS_TOKEN ausente na produção " +
+        "(sem token o Pix seria simulado, e o simulado confirma presente sem dinheiro)",
+    );
+  }
+  async consultarCobranca(): Promise<EstadoCobranca> {
+    return { status: "PENDING", referencia: null };
+  }
+  async transferir(): Promise<Transferencia> {
+    throw new Error("payout indisponível: MERCADO_PAGO_ACCESS_TOKEN ausente na produção");
+  }
+}
+
 export function getPaymentProvider(): PaymentProvider {
   if (process.env.MERCADO_PAGO_ACCESS_TOKEN) return new MercadoPagoPaymentProvider();
+  // `VERCEL_ENV` (e não `NODE_ENV`) porque a régua é "onde há dinheiro de
+  // verdade", não "é build de produção": `pnpm build && pnpm start` local e o
+  // e2e rodam em NODE_ENV=production e PRECISAM do simulado.
+  if (process.env.VERCEL_ENV === "production") return new IndisponivelPaymentProvider();
   return new FakePaymentProvider();
 }
