@@ -83,7 +83,7 @@ export function ListaRecados({
     // estado: mandar "compartilhe o link" a quem esta fora do ar seria mandar a
     // pessoa divulgar uma pagina que nao abre.
     return (
-      <div className="border-t border-scv-line p-4 sm:p-5">
+      <div className="p-4 sm:p-5">
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-scv-dash/70 bg-scv-field py-10 text-center">
           <span className="grid size-11 place-items-center rounded-full bg-scv-lilac text-scv-violet">
             <i className="bi bi-chat-heart text-lg" aria-hidden />

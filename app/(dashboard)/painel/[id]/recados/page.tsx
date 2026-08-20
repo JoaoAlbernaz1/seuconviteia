@@ -98,9 +98,14 @@ export default async function RecadosPainelPage({
           }
         />
 
-        <p className="px-4 py-3.5 text-[12.5px] leading-relaxed text-scv-muted sm:px-5">
-          {APOIO[estado]}
-        </p>
+        {/* Sem recado nenhum, "esconder tira do site na hora" nao explica nada —
+            nao ha o que esconder. A tela vazia ja diz a unica coisa util
+            (de onde vem recado), entao a linha some em vez de virar enfeite. */}
+        {recados.length > 0 ? (
+          <p className="px-4 py-3.5 text-[12.5px] leading-relaxed text-scv-muted sm:px-5">
+            {APOIO[estado]}
+          </p>
+        ) : null}
 
         <ListaRecados eventId={event.id} recados={recados} noAr={noAr} estado={estado} />
       </div>
