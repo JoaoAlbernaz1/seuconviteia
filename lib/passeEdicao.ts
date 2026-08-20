@@ -8,6 +8,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { PASSE_HORAS } from "@/lib/edicao";
+import { conviteEncerrado } from "@/lib/event";
 
 /** Violacao de indice unico do Prisma (`providerId` @unique). */
 function ehDuplicata(err: unknown): boolean {
@@ -83,8 +84,19 @@ async function aplicarPasse(
     // implica convite vivo.
     const tx = await db.transaction.findUniqueOrThrow({
       where: { id: transactionId },
-      select: { eventId: true },
+      select: { eventId: true, event: { select: { status: true, expiresAt: true } } },
     });
+    // Pix pago DEPOIS de o convite vencer: a janela e gravada mesmo assim (o
+    // UPDATE abaixo nao pergunta a data), mas `edicaoAberta` reprova em seguida
+    // por convite encerrado — dinheiro dentro, nada aberto, e o estorno e manual.
+    // Nao da para calar isso: sem o log, ninguem nunca fica sabendo.
+    if (conviteEncerrado(tx.event, agora)) {
+      console.error(
+        `[passe-edicao] passe PAGO de convite ENCERRADO — tx=${transactionId} evento=${tx.eventId} ` +
+          `expirou=${tx.event.expiresAt.toISOString()} status=${tx.event.status}. ` +
+          "A janela nao abre (`edicaoAberta` reprova): ESTORNAR na mao.",
+      );
+    }
 
     // EMPILHA, e a soma e feita PELO BANCO num UPDATE so.
     //

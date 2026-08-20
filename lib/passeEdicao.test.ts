@@ -8,7 +8,7 @@
 //     npx vitest run lib/passeEdicao.test.ts
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { PASSE_PRECO_CENTS, fimDoPasse } from "./edicao";
+import { PASSE_PRECO_CENTS, edicaoAberta, fimDoPasse } from "./edicao";
 import { confirmarPasseEdicao } from "./passeEdicao";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
@@ -251,6 +251,30 @@ describe("confirmarPasseEdicao", () => {
 
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.edicaoAte!.getTime()).toBe(primeira.getTime());
+  });
+
+  // Pix pago DEPOIS de a festa passar: a janela e gravada, mas `edicaoAberta`
+  // reprova por convite encerrado. Dinheiro dentro, nada aberto — e o estorno e
+  // manual. O log alto e a unica coisa entre isso e o silencio.
+  it.skipIf(!enabled)("passe pago de convite ENCERRADO grita no log", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    await db.event.update({
+      where: { id: event.id },
+      data: { eventDate: new Date("2020-01-01T00:00:00Z"), expiresAt: new Date("2020-01-03T00:00:00Z") },
+    });
+    const tx = await cobrancaPendente(db, event.id);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await confirmarPasseEdicao(tx.id, new Date(), `${MARCA}-cob-vencido-${Date.now()}`);
+
+    const gritou = log.mock.calls.flat().join(" ");
+    expect(gritou).toContain("ENCERRADO");
+    expect(gritou).toContain(tx.id);
+    log.mockRestore();
+    // E o que a pessoa realmente ve: a janela nao abre.
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(edicaoAberta(depois, new Date())).toBe(false);
   });
 
   it.skipIf(!enabled)("SEGUNDO Pix sobre a mesma cobranca ja paga vira incidente no log", async () => {
