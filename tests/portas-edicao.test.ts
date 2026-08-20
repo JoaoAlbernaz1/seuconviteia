@@ -24,8 +24,9 @@ vi.mock("@/auth", () => ({ auth: sessionMock, signIn: vi.fn(), signOut: vi.fn() 
 // `revalidatePath` so existe dentro de um request do Next; aqui o que importa e
 // o que ficou gravado no banco.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-// As acoes do painel legado nao devolvem erro: elas REDIRECIONAM. O mock deixa o
-// destino visivel (o `redirect` de verdade so lanca um digest opaco).
+// As acoes do painel (`adicionarConvidado` e companhia) nao devolvem erro: elas
+// REDIRECIONAM. O mock deixa o destino visivel (o `redirect` de verdade so lanca
+// um digest opaco).
 const redirectMock = vi.hoisted(() =>
   vi.fn((url: string): never => {
     throw new Error(`REDIRECT:${url}`);
@@ -36,7 +37,7 @@ vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 const { salvarDocumentoConvite, publicarDocumentoConvite } = await import(
   "@/app/(dashboard)/painel/criar/acoes"
 );
-const { atualizarDetalhes, adicionarConvidado } = await import("@/app/(dashboard)/painel/acoes");
+const { adicionarConvidado } = await import("@/app/(dashboard)/painel/acoes");
 
 const FECHADO = "Este convite está publicado. Libere a edição para mexer no site.";
 
@@ -140,23 +141,25 @@ describe("portas do editor no convite fechado", () => {
 
   // A DUPLA que define a linha do produto: o convite fechado congela o SITE e
   // deixa livre o que e movimento da festa.
-  it.skipIf(!enabled)("o painel antigo nao edita o site fechado, mas a lista de convidados anda", async () => {
+  //
+  // A metade de cima chamava `atualizarDetalhes` — a tela "Detalhes" do painel
+  // antigo, que gravava direto no que o convidado ve (inclusive `expiresAt`).
+  // Aquelas seis telas morreram na Task 11: hoje a UNICA porta do site e a
+  // action do editor, e e ela que precisa recusar.
+  it.skipIf(!enabled)("o convite fechado nao muda o site, mas a lista de convidados anda", async () => {
     const db = prisma!;
-    const { event } = await convite(db, {
+    const { event, document } = await convite(db, {
       status: "PUBLISHED",
       publishedAt: new Date("2026-01-01T00:00:00Z"),
       edicaoAte: new Date(Date.now() - 60_000),
     });
 
-    // "Gerenciar o site" -> Detalhes: a tela legada grava direto no que o
-    // convidado ve, e ainda reescreve `expiresAt`.
-    const detalhes = new FormData();
-    detalhes.set("eventId", event.id);
-    detalhes.set("title", "Nome trocado por fora");
-    detalhes.set("date", "2031-05-05");
-    await expect(atualizarDetalhes({}, detalhes)).rejects.toThrow(
-      `REDIRECT:/painel/${event.id}/liberar`,
-    );
+    const salvo = await salvarDocumentoConvite({
+      id: event.id,
+      expectedVersion: 1,
+      document: { ...document, basic: { ...document.basic, name: "Nome trocado por fora" } },
+    });
+    expect(salvo).toEqual({ ok: false, kind: "fechado", error: FECHADO });
 
     const site = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(site.title).toBe(event.title);

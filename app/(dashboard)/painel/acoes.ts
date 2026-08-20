@@ -1,10 +1,16 @@
 "use server";
 
 /**
- * Acoes PARCIAIS por evento — o painel DARK edita o site em telas focadas
- * (Detalhes · Estilo · Fotos · Presentes · Programacao · Recursos · Convidados),
- * entao cada acao grava SO o seu pedaco, com MERGE no `customization`
- * (nunca substitui o JSON inteiro — o resto do evento fica intacto).
+ * Acoes do painel que mexem no que e VIVO num convite: a lista de convidados e
+ * o proprio convite (excluir). Nao ha mais acao que edite o SITE aqui.
+ *
+ * Ate a Task 11 este arquivo tinha seis acoes de edicao (Detalhes, Estilo,
+ * Recursos, Fotos, Presentes, Programacao), uma por tela do painel antigo. Elas
+ * gravavam em `Event.customization` — e o convite PUBLICADO nao le mais dali:
+ * `publishedEventProjection` troca o `customization` inteiro pelo derivado do
+ * snapshot. Editar por ali era escrever numa gaveta que ninguem abre. Quem edita
+ * o site agora e o editor de 6 passos (`painel/criar/acoes.ts`), atras da janela
+ * de edicao (`lib/edicao.ts`).
  *
  * Regras herdadas de `actions.ts`:
  *  - Zod na borda; tenant SEMPRE da sessao; ownership revalidado por acao.
@@ -17,22 +23,14 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { mergeCustomization, removeCustomizationWhenMissing } from "@/lib/customizationMerge";
+import { mergeCustomization } from "@/lib/customizationMerge";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema } from "@/lib/temas";
 import { FONTE_KEYS, FONTE_PADRAO } from "@/lib/fontes";
-import { TEMPLATES, TEMPLATE_PADRAO } from "@/lib/templates";
-import { limiteEventos, planoEfetivo, podeVitrine, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
-import { edicaoAberta, type EventoEdicao } from "@/lib/edicao";
-import {
-  TEMA_KEYS,
-  montarMapsUrls,
-  parseProgramacao,
-  parsePresentes,
-  parseFotos,
-  parseRecursosForm,
-} from "@/lib/eventoForm";
+import { TEMPLATES } from "@/lib/templates";
+import { limiteEventos, planoEfetivo, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
+import { TEMA_KEYS, montarMapsUrls } from "@/lib/eventoForm";
 
 export type AcaoEventoState = {
   error?: string;
@@ -46,15 +44,6 @@ const EVENT_TYPES = [
   "BODAS",
   "ANIVERSARIO",
 ] as const;
-
-const urlish = z
-  .string()
-  .trim()
-  .max(500)
-  .refine(
-    (v) => !v || v.startsWith("/") || /^https?:\/\//i.test(v),
-    "Use uma URL (https://...) ou um caminho iniciado por /.",
-  );
 
 /** Le string do FormData ("" -> undefined). */
 function str(formData: FormData, k: string): string | undefined {
@@ -72,33 +61,8 @@ async function eventoDoDono(eventId: unknown) {
   });
 }
 
-/**
- * Guarda das telas que editam o SITE. Convite publicado so se mexe dentro de uma
- * janela (cortesia, cota do plano ou passe), e estas acoes gravam DIRETO no que
- * o convidado esta vendo — nao ha snapshot no meio como no editor novo.
- * `atualizarDetalhes` e a mais grave: reescreve `expiresAt`, que e uma das
- * entradas da propria regra.
- *
- * De proposito FORA de `eventoDoDono`: aquele funil tambem serve
- * `excluirEvento` e `adicionarConvidado`, que sao do lado VIVO da festa
- * (apagar o proprio convite, tocar a lista de convidados) e continuam livres com
- * o site fechado — e justamente o que esta feature promete manter aberto.
- *
- * Estas seis telas morrem na Task 11, quando o editor novo assume tudo; este
- * helper morre junto com elas.
- */
-function exigirEdicaoAberta(event: EventoEdicao & { id: string }): void {
-  if (!edicaoAberta(event, new Date())) redirect(`/painel/${event.id}/liberar`);
-}
-
 const mesclar = (atual: unknown, patch: Record<string, unknown>): Prisma.InputJsonValue =>
   mergeCustomization(atual, patch) as Prisma.InputJsonValue;
-
-/** Destino do "Pronto, voltar" — so caminhos internos do painel. */
-function destinoVoltar(formData: FormData, fallback: string): string {
-  const v = formData.get("voltar");
-  return typeof v === "string" && v.startsWith("/painel") ? v : fallback;
-}
 
 /** Data+hora (-03:00) com as regras de negocio. Devolve erro legivel. */
 function parseDataHora(
@@ -251,289 +215,6 @@ export async function criarRascunho(
 
   revalidatePath("/painel");
   redirect(`/painel/criar?id=${event.id}`);
-}
-
-// ----------------------------------------------------------------------------
-// Detalhes (essencial) — tela "Editar o site"
-// ----------------------------------------------------------------------------
-
-const detalhesSchema = z.object({
-  title: z.string().trim().min(2, "Informe o nome.").max(120),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida."),
-  time: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido.")
-    .optional(),
-  local: z.string().trim().max(200).optional(),
-  endereco: z.string().trim().max(300).optional(),
-  traje: z.string().trim().max(120).optional(),
-  mensagem: z.string().trim().max(2000).optional(),
-});
-
-export async function atualizarDetalhes(
-  _prev: AcaoEventoState,
-  formData: FormData,
-): Promise<AcaoEventoState> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) return { error: "Evento não encontrado." };
-  exigirEdicaoAberta(event);
-
-  const parsed = detalhesSchema.safeParse({
-    title: formData.get("title"),
-    date: formData.get("date"),
-    time: str(formData, "time"),
-    local: str(formData, "local"),
-    endereco: str(formData, "endereco"),
-    traje: str(formData, "traje"),
-    mensagem: str(formData, "mensagem"),
-  });
-  if (!parsed.success) {
-    const f = z.flattenError(parsed.error).fieldErrors;
-    return {
-      fieldErrors: Object.fromEntries(
-        Object.entries(f).map(([k, v]) => [k, v?.[0]]),
-      ),
-    };
-  }
-  const { title, date, time, local, endereco, traje, mensagem } = parsed.data;
-
-  const dh = parseDataHora(date, time, "edit");
-  if (!dh.ok) return { fieldErrors: { date: dh.erro } };
-
-  const { mapsUrl, mapsEmbedUrl } = montarMapsUrls(local, endereco);
-  await prisma.event.update({
-    where: { id: event.id },
-    data: {
-      title,
-      eventDate: dh.eventDate,
-      expiresAt: dh.expiresAt,
-      customization: mesclar(event.customization, {
-        mensagem: removeCustomizationWhenMissing(mensagem),
-        local,
-        endereco: removeCustomizationWhenMissing(endereco),
-        traje: removeCustomizationWhenMissing(traje),
-        mapsUrl,
-        mapsEmbedUrl,
-      }),
-    },
-  });
-
-  revalidatePath("/painel");
-  redirect(destinoVoltar(formData, `/painel/${event.id}`));
-}
-
-// ----------------------------------------------------------------------------
-// Estilo (template/cor/letras) e Recursos (toggles)
-// ----------------------------------------------------------------------------
-
-export async function salvarEstilo(formData: FormData): Promise<void> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) redirect("/painel");
-  exigirEdicaoAberta(event);
-
-  const tema = formData.get("tema");
-  const fontes = formData.get("fontes");
-  const patch: Record<string, unknown> = {};
-  if (typeof tema === "string" && TEMA_KEYS.includes(tema)) {
-    patch.tema = tema;
-    patch.accent = acentoDoTema(tema);
-  }
-  if (typeof fontes === "string" && FONTE_KEYS.includes(fontes)) {
-    patch.fontes = removeCustomizationWhenMissing(fontes === FONTE_PADRAO ? undefined : fontes);
-  }
-  const template = formData.get("template");
-  if (typeof template === "string" && template in TEMPLATES) {
-    patch.template = removeCustomizationWhenMissing(template === TEMPLATE_PADRAO ? undefined : template);
-  }
-  // Tamanho das letras (multiplicador do lockup da capa: 0.9 / 1 / 1.15).
-  const capaEscala = Number(formData.get("capaEscala"));
-  if (Number.isFinite(capaEscala) && capaEscala >= 0.5 && capaEscala <= 2) {
-    patch.capaEscala = removeCustomizationWhenMissing(capaEscala === 1 ? undefined : capaEscala);
-  }
-  await prisma.event.update({
-    where: { id: event.id },
-    data: { customization: mesclar(event.customization, patch) },
-  });
-  revalidatePath("/painel");
-  redirect(destinoVoltar(formData, `/painel/${event.id}`));
-}
-
-export async function salvarRecursos(formData: FormData): Promise<void> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) redirect("/painel");
-  exigirEdicaoAberta(event);
-  await prisma.event.update({
-    where: { id: event.id },
-    data: {
-      customization: mesclar(event.customization, {
-        recursos: removeCustomizationWhenMissing(parseRecursosForm((k) => formData.get(k))),
-      }),
-    },
-  });
-  revalidatePath("/painel");
-  redirect(destinoVoltar(formData, `/painel/${event.id}`));
-}
-
-// ----------------------------------------------------------------------------
-// Fotos (capa + álbum + foto da lista)
-// ----------------------------------------------------------------------------
-
-export async function salvarFotos(
-  _prev: AcaoEventoState,
-  formData: FormData,
-): Promise<AcaoEventoState> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) return { error: "Evento não encontrado." };
-  exigirEdicaoAberta(event);
-
-  const fotoUrl = urlish.safeParse(formData.get("fotoUrl") ?? "");
-  const presentesFotoUrl = urlish.safeParse(formData.get("presentesFotoUrl") ?? "");
-  if (!fotoUrl.success || !presentesFotoUrl.success) {
-    return { error: "Foto inválida." };
-  }
-  const fotos = parseFotos(formData.getAll("fotos").map(String));
-
-  await prisma.event.update({
-    where: { id: event.id },
-    data: {
-      customization: mesclar(event.customization, {
-        fotoUrl: removeCustomizationWhenMissing(fotoUrl.data || undefined),
-        presentesFotoUrl: removeCustomizationWhenMissing(presentesFotoUrl.data || undefined),
-      }),
-    },
-  });
-  await prisma.photo.deleteMany({ where: { eventId: event.id } });
-  if (fotos.length) {
-    await prisma.photo.createMany({
-      data: fotos.map((url, i) => ({ eventId: event.id, url, order: i })),
-    });
-  }
-  revalidatePath("/painel");
-  redirect(destinoVoltar(formData, `/painel/${event.id}`));
-}
-
-// ----------------------------------------------------------------------------
-// Lista de presentes (Pix + QR + texto + itens)
-// ----------------------------------------------------------------------------
-
-const presentesSchema = z.object({
-  pixNome: z.string().trim().max(140).optional(),
-  pixChave: z.string().trim().max(200).optional(),
-  pixQrUrl: urlish.optional(),
-  presentesTexto: z.string().trim().max(500).optional(),
-});
-
-export async function salvarPresentes(
-  _prev: AcaoEventoState,
-  formData: FormData,
-): Promise<AcaoEventoState> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) return { error: "Evento não encontrado." };
-  exigirEdicaoAberta(event);
-
-  const parsed = presentesSchema.safeParse({
-    pixNome: str(formData, "pixNome"),
-    pixChave: str(formData, "pixChave"),
-    pixQrUrl: str(formData, "pixQrUrl"),
-    presentesTexto: str(formData, "presentesTexto"),
-  });
-  if (!parsed.success) {
-    const f = z.flattenError(parsed.error).fieldErrors;
-    return {
-      fieldErrors: Object.fromEntries(
-        Object.entries(f).map(([k, v]) => [k, v?.[0]]),
-      ),
-    };
-  }
-  const { pixNome, pixChave, pixQrUrl, presentesTexto } = parsed.data;
-
-  // Modelo da lista (painel/vitrine). A vitrine é gateada pelo plano EFETIVO do
-  // dono — quem parou de pagar volta ao modelo do Básico.
-  const prof = await prisma.professional.findUnique({
-    where: { id: event.professionalId },
-    select: SELECT_ASSINATURA,
-  });
-  const listaModelo =
-    str(formData, "listaModelo") === "vitrine" && prof && podeVitrine(planoEfetivo(prof, new Date()))
-      ? "vitrine"
-      : "painel";
-
-  const presentes = parsePresentes(
-    formData.getAll("gift_titulo").map(String),
-    formData.getAll("gift_descricao").map(String),
-    formData.getAll("gift_valor").map(String),
-    formData.getAll("gift_foto").map(String),
-    formData.getAll("gift_modo").map(String),
-    formData.getAll("gift_cotas").map(String),
-  );
-
-  await prisma.event.update({
-    where: { id: event.id },
-    data: {
-      customization: mesclar(event.customization, {
-        pixNome: removeCustomizationWhenMissing(pixNome),
-        pixChave: removeCustomizationWhenMissing(pixChave),
-        pixQrUrl: removeCustomizationWhenMissing(pixQrUrl),
-        presentesTexto: removeCustomizationWhenMissing(presentesTexto),
-        listaModelo,
-      }),
-    },
-  });
-
-  // PROTEÇÃO DO LEDGER: se já houve contribuição, NÃO reescreve a lista — o
-  // deleteMany cascatearia (onDelete: Cascade) e apagaria o histórico de Pix.
-  const temContrib = await prisma.giftContribution.count({
-    where: { eventId: event.id },
-  });
-  if (temContrib === 0) {
-    await prisma.giftItem.deleteMany({ where: { eventId: event.id } });
-    if (presentes.length) {
-      await prisma.giftItem.createMany({
-        data: presentes.map((g) => {
-          const cents = g.valorCents ?? 0;
-          const ehCota = g.modo === "COTAS" && !!g.cotas && cents > 0;
-          // Valor único SEM preço não pode existir (checkout quebra): vira valor livre.
-          const pricingMode = ehCota ? "COTAS" : cents > 0 ? "FIXO" : "LIVRE";
-          return {
-            eventId: event.id,
-            title: g.titulo,
-            description: g.descricao ?? null,
-            priceCents: cents,
-            imageUrl: g.foto ?? null,
-            mode: "PIX" as const,
-            pricingMode: pricingMode as "FIXO" | "COTAS" | "LIVRE",
-            quotaCount: ehCota ? g.cotas : null,
-          };
-        }),
-      });
-    }
-  }
-  revalidatePath("/painel");
-  redirect(destinoVoltar(formData, `/painel/${event.id}`));
-}
-
-// ----------------------------------------------------------------------------
-// Programação (linha do tempo)
-// ----------------------------------------------------------------------------
-
-export async function salvarProgramacao(formData: FormData): Promise<void> {
-  const event = await eventoDoDono(formData.get("eventId"));
-  if (!event) redirect("/painel");
-  exigirEdicaoAberta(event);
-  const programacao = parseProgramacao(
-    formData.getAll("programacao_hora").map(String),
-    formData.getAll("programacao_titulo").map(String),
-  );
-  await prisma.event.update({
-    where: { id: event.id },
-    data: {
-      customization: mesclar(event.customization, {
-        programacao: removeCustomizationWhenMissing(programacao.length ? programacao : undefined),
-      }),
-    },
-  });
-  revalidatePath("/painel");
-  redirect(destinoVoltar(formData, `/painel/${event.id}`));
 }
 
 // ----------------------------------------------------------------------------
