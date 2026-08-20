@@ -96,6 +96,12 @@ export default async function RecursosPage({
       }
     : lerToggles(event.customization);
 
+  // "Ativo NO SITE" só é verdade enquanto o site responde. Com o convite fora do
+  // ar (ou a festa encerrada) o selo passa a ser só "Ativo" / "Oculto": o
+  // contrário é um selo cinza dizendo "Festa encerrada" ao lado de seis
+  // dizendo "no site".
+  const sufixo = estado === "no-ar" ? " no site" : "";
+
   // Mesma regra da tela do convite (Task 10): festa encerrada não tem o que
   // liberar (o servidor recusa o passe), e com a janela já aberta o destino é o
   // editor, não a tela de venda.
@@ -170,12 +176,12 @@ export default async function RecursosPage({
                 {on ? (
                   <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-teal/10 px-2.5 py-1 text-[11px] font-semibold text-scv-teal-ink">
                     <i className="bi bi-check2" aria-hidden />
-                    {sempre ? "Sempre ativo" : "Ativo no site"}
+                    {sempre ? "Sempre ativo" : `Ativo${sufixo}`}
                   </span>
                 ) : (
                   <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-card px-2.5 py-1 text-[11px] font-semibold text-scv-muted">
                     <i className="bi bi-eye-slash" aria-hidden />
-                    Oculto no site
+                    {`Oculto${sufixo}`}
                   </span>
                 )}
               </div>
