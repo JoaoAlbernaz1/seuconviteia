@@ -379,3 +379,42 @@ Decisão: **não arranquei.** Parece faxina, mas `pix` vive no
 do editor, para **zero** ganho visível. O que enganava de verdade era o cabeçalho
 de `app/_sites/[sub]/presentes/page.tsx` prometendo "Pix DIRETO (copiar chave) —
 sem checkout/taxa": esse eu corrigi, dizendo o que é verdade hoje.
+
+---
+
+## 2026-08-20 (3) — Pix REAL provado em produção, ponta a ponta
+
+João colou as credenciais de produção do MP e cadastrou o webhook. Testei de
+verdade, com dinheiro (R$ 1,00), e passou:
+
+1. **Convite de teste em produção** (criado por SQL, conta `teste-pix@orivya.com.br`,
+   subdomínio `teste-pix`). Dois detalhes que custaram tentativa: a lista
+   interativa só aparece com `customization.listaModelo = "vitrine"` **e** com um
+   `template` cujo `/presentes` implemente a vitrine — hoje só
+   `quinze-anos-glamour-rose` usa `usarVitrine`/`PresentearModal`. Com
+   `templateId` nulo (ou no template de aniversário) a página cai no layout
+   estático, sem botão "PRESENTEAR", e não há como gerar cobrança.
+2. **Cobrança real:** o copia-e-cola veio como EMV do Bacen
+   (`00020126360014br.gov.bcb.pix…mpqrinter…`), e não o `00020126FAKE-` do
+   simulado. `GiftContribution.provider = "mercadopago"`,
+   `providerChargeId = 174770546000`, R$ 1,00 (taxa 4, líquido 96).
+3. **Confirmação pelo WEBHOOK**, não por polling: `paidAt` 15:34:43 com o
+   navegador JÁ FECHADO (o modal é quem faz polling) e o único cron do projeto
+   rodando 6h da manhã. Logo, quem virou a chave foi
+   `/api/webhooks/mercadopago` — o que prova de uma vez: URL cadastrada,
+   evento de pagamento disparando, **assinatura validada** com o segredo (senão
+   401 e nada gravaria) e reconsulta do status no MP com o token válido.
+4. **Ledger:** `Transaction` GIFT_PIX / PAID / 100 / `providerId` igual ao da
+   cobrança.
+
+**Ainda NÃO testado com dinheiro real:** o passe de edição de R$ 19,90
+(`kind = EDIT_PASS` + `lib/passeEdicao.ts`). Compartilha o mesmo
+`criarCobrancaPix` e o mesmo webhook — o que muda é o roteamento por `kind` e o
+compare-and-set em `Event.edicaoAte`. Risco baixo, mas é o que a branch de ontem
+vende, então merece uma passada quando o João quiser gastar os R$ 19,90 (que
+voltam para a conta dele menos a taxa do MP).
+
+**Sobra para limpar** (avisei o João): a conta `teste-pix@orivya.com.br` e o
+convite `teste-pix` continuam em produção até ele decidir sobre o teste do passe.
+Apagar a conta leva o convite, o presente, a contribuição e a Transaction em
+cascata — a R$ 1,00 no Mercado Pago, obviamente, fica.
