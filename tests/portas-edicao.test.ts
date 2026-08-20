@@ -196,3 +196,78 @@ describe("portas do editor no convite fechado", () => {
     expect(depois.status).toBe("DRAFT");
   });
 });
+
+// ----------------------------------------------------------------------------
+// Moderacao de recado (Task 12) — a porta que NAO existe e a que precisa provar
+// ----------------------------------------------------------------------------
+//
+// As acoes de recado sao o oposto das tres de cima: elas NAO podem exigir janela
+// de edicao (tirar ofensa do ar nao se compra). O que as segura e so o `eventId`
+// dentro do `where` — uma clausula que qualquer refactor apaga sem quebrar nada
+// visivel na tela. Estes dois casos sao o que morde nesse dia: com a clausula
+// fora, o recado do A some pelas maos do B e os testes ficam verdes.
+const { esconderRecado, excluirRecado } = await import("@/app/(dashboard)/painel/acoes");
+
+describe("moderacao de recado: um tenant nao alcanca o mural do outro", () => {
+  afterAll(async () => {
+    if (!prisma) return;
+    await prisma.event.deleteMany({ where: { subdomain: { startsWith: MARCA } } });
+    await prisma.professional.deleteMany({ where: { email: { contains: MARCA } } });
+  });
+
+  /** Dois donos, dois convites, e um recado no mural do primeiro. */
+  async function doisMurais(db: PrismaClient) {
+    const a = await convite(db, { status: "PUBLISHED" });
+    const b = await convite(db, { status: "PUBLISHED" }); // deixa a sessao em B
+    const recado = await db.recado.create({
+      data: { eventId: a.event.id, name: "Convidada do A", message: "Recado do mural do A" },
+    });
+    return { a, b, recado };
+  }
+
+  it.skipIf(!enabled)("B nao APAGA recado do A passando o proprio eventId", async () => {
+    const db = prisma!;
+    const { a, b, recado } = await doisMurais(db);
+
+    // O ataque: id de recado alheio + um eventId que E do atacante. `eventoDoDono`
+    // sozinho aprova (o evento e mesmo do B) — quem recusa e o `eventId` do where.
+    await excluirRecado(recado.id, b.event.id);
+
+    const vivo = await db.recado.findUnique({ where: { id: recado.id } });
+    expect(vivo).not.toBeNull();
+    expect(vivo?.eventId).toBe(a.event.id);
+  });
+
+  it.skipIf(!enabled)("B nao ESCONDE recado do A passando o proprio eventId", async () => {
+    const db = prisma!;
+    const { recado } = await doisMurais(db);
+
+    // Controle: com o eventId do A a porta ja fecha antes (`eventoDoDono` nao
+    // acha o evento e a acao redireciona) — este caso nao depende do `where`.
+    await expect(esconderRecado(recado.id, recado.eventId)).rejects.toThrow(/REDIRECT/);
+    expect((await db.recado.findUniqueOrThrow({ where: { id: recado.id } })).approved).toBe(true);
+
+    // O caso que importa: eventId PROPRIO do B. Aqui `eventoDoDono` aprova, e a
+    // unica coisa entre o B e o mural do A e o `eventId` do `where`.
+    const meu = await db.event.findFirstOrThrow({
+      where: { subdomain: { startsWith: MARCA }, id: { not: recado.eventId } },
+      orderBy: { createdAt: "desc" },
+    });
+    await esconderRecado(recado.id, meu.id);
+    expect((await db.recado.findUniqueOrThrow({ where: { id: recado.id } })).approved).toBe(true);
+  });
+
+  it.skipIf(!enabled)("o DONO esconde e apaga o proprio recado", async () => {
+    const db = prisma!;
+    const { event } = await convite(db, { status: "PUBLISHED" }); // sessao = dono
+    const recado = await db.recado.create({
+      data: { eventId: event.id, name: "Vovo", message: "Parabens!" },
+    });
+
+    await esconderRecado(recado.id, event.id);
+    expect((await db.recado.findUniqueOrThrow({ where: { id: recado.id } })).approved).toBe(false);
+
+    await excluirRecado(recado.id, event.id);
+    expect(await db.recado.findUnique({ where: { id: recado.id } })).toBeNull();
+  });
+});
