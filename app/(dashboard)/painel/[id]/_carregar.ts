@@ -38,7 +38,11 @@ export async function carregarEventoDono(id: string) {
       _count: {
         select: {
           guests: { where: { status: "CONFIRMED" } },
-          recados: true,
+          // So os APROVADOS: o KPI do Dashboard fica ao lado de "confirmaram
+          // presenca" e le como "o que o convite tem hoje". Contando os
+          // escondidos, esconder um recado nao mexia no numero — e quem acabou
+          // de esconder concluiria que nao funcionou.
+          recados: { where: { approved: true } },
         },
       },
     },

@@ -158,7 +158,14 @@ export default async function AcompanharEventoPage({
 
   const kpis = [
     { n: event._count.guests, label: "confirmaram presença", icon: "bi-check2-circle" },
-    { n: event._count.recados, label: "recados de carinho", icon: "bi-chat-heart" },
+    // Conta so os APROVADOS (ver `_carregar`), entao o rotulo precisa dizer
+    // isso — senao esconder um recado derruba o numero sem explicacao. E "no
+    // site" so vale enquanto o site responde, a mesma regra dos selos.
+    {
+      n: event._count.recados,
+      label: estado === "no-ar" ? "recados no site" : "recados visíveis",
+      icon: "bi-chat-heart",
+    },
     { n: event.gifts.length, label: "presentes na lista", icon: "bi-gift" },
   ];
 
