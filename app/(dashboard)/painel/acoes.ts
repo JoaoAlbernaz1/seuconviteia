@@ -121,3 +121,53 @@ export async function removerConvidado(formData: FormData): Promise<void> {
     revalidatePath(`/painel/${eventId}/convidados`);
   }
 }
+
+// ----------------------------------------------------------------------------
+// Recados (moderacao do mural) — LADO VIVO
+// ----------------------------------------------------------------------------
+//
+// Estas tres acoes NAO passam por `edicaoAberta`, e isso e a regra, nao um
+// esquecimento: o convite fechado tranca o SITE (texto, cores, fotos), nao o
+// que os convidados escrevem depois de publicado. Exigir "liberar edicao" para
+// tirar um recado ofensivo do ar deixaria o dono do convite refem de uma
+// compra para apagar uma ofensa.
+//
+// Ownership em DOIS niveis: o evento precisa ser do profissional logado
+// (`eventoDoDono`) E o recado precisa ser daquele evento (`eventId` no where).
+// So o segundo ja bastaria, mas o primeiro mantem o padrao das outras acoes e
+// evita que um id de recado adivinhado toque em evento alheio.
+
+/** Esconde o recado do site publico (`approved: false`). Reversivel. */
+export async function esconderRecado(recadoId: string, eventId: string): Promise<void> {
+  await definirVisibilidade(recadoId, eventId, false);
+}
+
+/** Devolve o recado ao site publico (`approved: true`). */
+export async function mostrarRecado(recadoId: string, eventId: string): Promise<void> {
+  await definirVisibilidade(recadoId, eventId, true);
+}
+
+async function definirVisibilidade(
+  recadoId: string,
+  eventId: string,
+  visivel: boolean,
+): Promise<void> {
+  const event = await eventoDoDono(eventId);
+  if (!event) redirect("/painel");
+  if (typeof recadoId !== "string" || !recadoId) return;
+  await prisma.recado.updateMany({
+    where: { id: recadoId, eventId: event.id },
+    data: { approved: visivel },
+  });
+  revalidatePath(`/painel/${event.id}/recados`);
+}
+
+/** Apaga o recado de vez (confirmacao em dois toques vive na tela). */
+export async function excluirRecado(recadoId: string, eventId: string): Promise<void> {
+  const event = await eventoDoDono(eventId);
+  if (!event) redirect("/painel");
+  if (typeof recadoId !== "string" || !recadoId) return;
+  await prisma.recado.deleteMany({ where: { id: recadoId, eventId: event.id } });
+  revalidatePath(`/painel/${event.id}/recados`);
+  revalidatePath(`/painel/${event.id}`);
+}

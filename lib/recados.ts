@@ -8,8 +8,11 @@
  *    gravado sob o `eventId` validado (sem vazar entre eventos).
  *  - `listarRecadosAprovados` filtra SEMPRE por `eventId` + `approved`.
  *
- * Moderacao: por enquanto auto-aprovado (`approved` default `true` no schema);
- * a tela de moderacao fica para depois.
+ * Moderacao: o recado nasce APROVADO (`approved` default `true` no schema) —
+ * mural de festa que so aparece depois de o dono aprovar chega vazio na noite
+ * do evento. Quem tira do ar e a tela `/painel/[id]/recados`, que alterna
+ * `approved`. E por isso que o filtro `approved: true` abaixo NAO e decorativo:
+ * ele e o unico ponto que faz "esconder no painel" virar "sumiu do site".
  *
  * LGPD: coleta o minimo (nome + recado) e exige consentimento explicito.
  */
