@@ -132,9 +132,14 @@ export default async function RecursosPage({
             const on = ativos[d.key];
             const sempre = d.key === "contador";
             return (
+              /* `flex-wrap` + `min-w-[9.5rem]` no texto: em 390px o selo e o
+                 texto disputavam a mesma linha e sobravam ~130px para o titulo,
+                 que quebrava em duas linhas e empurrava a descricao para tres.
+                 Sem espaco para os dois, o selo desce sozinho para a segunda
+                 linha (encostado a direita) e o texto fica inteiro. */
               <div
                 key={d.key}
-                className={`flex min-h-[64px] items-center gap-3.5 rounded-[13px] border border-scv-line p-3.5 ${
+                className={`flex min-h-[64px] flex-wrap items-center gap-x-3.5 gap-y-2.5 rounded-[13px] border border-scv-line p-3.5 ${
                   on ? "bg-scv-card" : "bg-scv-soft"
                 }`}
               >
@@ -145,7 +150,7 @@ export default async function RecursosPage({
                 >
                   <i className={`bi ${ICONE[d.key]}`} aria-hidden />
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[9.5rem] flex-1">
                   {/* Sobre `bg-scv-soft` o cinza secundário dá 4,2:1 — abaixo do
                       mínimo. Na linha rebaixada o texto sobe para `scv-text2`
                       (9,1:1); o "desligado" quem diz é o selo, não o borrão. */}
@@ -163,12 +168,12 @@ export default async function RecursosPage({
                   </p>
                 </div>
                 {on ? (
-                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-teal/10 px-2.5 py-1 text-[11px] font-semibold text-scv-teal-ink">
+                  <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-teal/10 px-2.5 py-1 text-[11px] font-semibold text-scv-teal-ink">
                     <i className="bi bi-check2" aria-hidden />
                     {sempre ? "Sempre ativo" : "Ativo no site"}
                   </span>
                 ) : (
-                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-card px-2.5 py-1 text-[11px] font-semibold text-scv-muted">
+                  <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-card px-2.5 py-1 text-[11px] font-semibold text-scv-muted">
                     <i className="bi bi-eye-slash" aria-hidden />
                     Oculto no site
                   </span>
