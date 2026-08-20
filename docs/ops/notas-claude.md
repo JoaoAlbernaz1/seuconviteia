@@ -407,12 +407,31 @@ verdade, com dinheiro (R$ 1,00), e passou:
 4. **Ledger:** `Transaction` GIFT_PIX / PAID / 100 / `providerId` igual ao da
    cobrança.
 
-**Ainda NÃO testado com dinheiro real:** o passe de edição de R$ 19,90
-(`kind = EDIT_PASS` + `lib/passeEdicao.ts`). Compartilha o mesmo
-`criarCobrancaPix` e o mesmo webhook — o que muda é o roteamento por `kind` e o
-compare-and-set em `Event.edicaoAte`. Risco baixo, mas é o que a branch de ontem
-vende, então merece uma passada quando o João quiser gastar os R$ 19,90 (que
-voltam para a conta dele menos a taxa do MP).
+### O passe de R$ 19,90 também passou (mesmo dia, dinheiro real)
+
+5. **Tela de venda em produção:** conta `teste-pix@orivya.com.br` em BASICO
+   (`passesIncluidos = 0`, então aparece o caminho do Pix e não a cota). Convite
+   PUBLISHED com `edicaoAte` nulo = fechado.
+6. **Cobrança:** `Transaction` EDIT_PASS / PENDING / 1990 / `providerId
+   173839957689`, e — o ponto do desenho — `edicaoAte` continuou **null** depois
+   do clique. Quem abre a janela é o webhook, e a tela não mente sobre isso.
+7. **Pagamento real:** dois hits no webhook, visíveis no runtime log da Vercel.
+   O primeiro às 15:39:45 (200) é a notificação da cobrança CRIADA — o handler
+   devolve 200 sem conceder nada, correto. O segundo às 15:46:45 é o pagamento,
+   e aí sim: `Transaction` → PAID e `edicaoAte` = `2026-08-22 15:46:46`, ou seja
+   **47,99h à frente do momento do webhook** — 48 horas contadas de quando o
+   dinheiro caiu, não de quando o QR nasceu.
+8. **Efeito final conferido no navegador:** `/painel/criar?id=…` **abriu o
+   editor** em vez de redirecionar para `/liberar`, que era o comportamento antes
+   do pagamento.
+
+Ou seja: os DOIS caminhos de dinheiro do produto (presente e passe de edição)
+estão provados em produção, com webhook, assinatura e ledger.
+
+**Limpeza feita:** a conta `teste-pix@orivya.com.br` e tudo em cascata (convite
+`teste-pix`, presente, contribuição e as duas Transactions) foram apagados de
+produção depois do teste. Os R$ 20,90 ficaram na conta do Mercado Pago do João,
+menos a taxa.
 
 **Sobra para limpar** (avisei o João): a conta `teste-pix@orivya.com.br` e o
 convite `teste-pix` continuam em produção até ele decidir sobre o teste do passe.
