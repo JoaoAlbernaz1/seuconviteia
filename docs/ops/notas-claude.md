@@ -437,3 +437,46 @@ menos a taxa.
 convite `teste-pix` continuam em produção até ele decidir sobre o teste do passe.
 Apagar a conta leva o convite, o presente, a contribuição e a Transaction em
 cascata — a R$ 1,00 no Mercado Pago, obviamente, fica.
+
+---
+
+## 2026-08-20 (4) — blindando o caminho do dinheiro (e o que NÃO valia fazer)
+
+Com Pix real circulando, fui fechar as frestas do caminho do dinheiro. Primeiro
+**conferi cada item** da lista de 17/08 em vez de confiar nela — e metade já
+estava resolvida:
+
+- **Crédito em dobro: JÁ ESTAVA FECHADO** na migration
+  `20260817030000_pagamento_unico_e_transacional`. `confirmarContribuicaoPaga`
+  faz compare-and-set dentro de `$transaction`, e os índices únicos existem **em
+  produção** (conferi no `pg_indexes`): `Transaction_providerId_key`,
+  `GiftContribution_providerChargeId_key`, `CobrancaAssinatura_providerId_key`.
+  A nota antiga dizia "nenhum consertado" porque foi escrita ANTES dessa
+  migration. Lição: reler o código antes de repetir a auditoria.
+- **Estorno: só metade estava feita.** O webhook tratava estorno do PASSE
+  (`registrarEstornoPasse`) e **nada** do presente. Presente estornado ficava
+  PAID e, como o saldo é Σ dos `netCents` PAID, o dono podia sacar dinheiro que
+  já voltou para o convidado. Fechado em `dc71a34` com
+  `estornarContribuicao`: compare-and-set (o MP reentrega por dias), ledger
+  REFUNDED **no lugar** — linha nova exigiria inventar um `providerId` que não
+  existe no gateway, e o campo é único — e `purchased` **recalculado**, porque em
+  COTAS uma cota estornada não desfaz as outras.
+- **`notification_url` na cobrança:** feito no mesmo commit. Sai vazio em domínio
+  local de propósito: o MP não alcança `localhost` e recusaria a cobrança
+  inteira, quebrando o dev com credencial real.
+
+### O que decidi NÃO fazer, e por quê
+
+- **Checar a validade do `ts` da assinatura (anti-replay).** Parece dívida, mas o
+  ganho é ilusório: reentregar uma notificação legítima capturada não concede
+  nada de novo — o handler **reconsulta o status no MP** e é idempotente pelo
+  compare-and-set. E o risco é concreto: o MP reentrega notificação por horas, e
+  uma janela apertada jogaria fora confirmação de pagamento de verdade. Trocaria
+  um ataque sem efeito por perda de dinheiro real.
+- **Corrida de cotas (`iniciarPresente` lê e depois grava).** Continua aberta.
+  O pior caso é vender a 11ª cota de 10 — o dono recebe a mais e o convidado paga
+  por uma cota que não existia. Chato, não é perda nossa, e o conserto pede lock
+  ou constraint com desenho próprio.
+- **Resgate concorrente criando dois payouts.** Sem efeito hoje: `transferir()`
+  do Mercado Pago **lança erro** — payout não existe. A corrida vira real no dia
+  em que o saque for implementado, e é lá que ela deve ser resolvida.
