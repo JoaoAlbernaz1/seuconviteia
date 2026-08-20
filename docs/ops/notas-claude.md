@@ -332,3 +332,51 @@ cancelado no cleanup.
 O pedido do João ("pode tirar essas adições rápidas") era o bloco **"Adicionar
 rápido"**, com esse nome na tela. A lista inicial `GIFTS` continua — é outra
 coisa, e ele não pediu. Fica anotado como pergunta para ele.
+
+---
+
+## 2026-08-20 — por que o "conserto da chave Pix" foi revertido: o Pix direto NÃO existe no site
+
+Retomei o `4d1af82` (conserto da chave Pix fora do editor) porque ele foi
+revertido na madrugada de 19/08 **sem nota nenhuma** — nem no corpo do revert,
+nem aqui. Refiz, provei, e no meio da prova achei o motivo.
+
+**O campo `pix` (chave + nome + toggle) não chega ao convidado.** Rastreei a
+ponta a ponta:
+
+- `pix.key` / `pixChave` aparece só em: `lib/event-editor/{document,legacy,render,
+  registry}.ts`, `lib/{convite,eventoFesta,previewEvento}.ts`, `lib/cofre.ts` e
+  no estado do editor (`CriarConvite.tsx`, linhas 238/399-401).
+- **Nenhum componente do site renderiza `pixChave`/`pixNome`.** `grep` em
+  `components/evt` e `components/invitation-renderer`: zero.
+- `app/_sites/[sub]/presentes/page.tsx` ainda tem no cabeçalho o comentário
+  "Pix DIRETO (copiar chave) — sem checkout/taxa", mas a tela que existe hoje é
+  a `PresentearModal`, e ela cobra pelo **checkout do Mercado Pago** (QR +
+  copia-e-cola gerados pelo provedor). O bloco de copiar a chave do dono saiu
+  quando o checkout entrou (`1862714 feat(presentes): vitrine editável, cotas e
+  Pix via Mercado Pago`) e o campo ficou.
+- O editor também **não tem controle** para essa chave: `CriarConvite.tsx` carrega
+  e devolve `pixChave` no documento, mas não há input ligado a ela.
+  `SECTION_REGISTRY.pix` / `TOGGLE_REGISTRY` (com `pix.enabled`) só são
+  importados por `lib/event-editor/state.ts` e pelo teste de contrato — nada em
+  `app/` consome. É andaime da fundação do editor, não UI viva.
+
+**Consequência:** a justificativa do commit ("o dinheiro do convidado vai para um
+estranho a cada minuto") **não vale no código de hoje** — o convidado nunca vê a
+chave do dono. Reaplicar aquele cartão colocaria na tela de Recebimentos uma
+frase falsa ("É a chave que o convidado copia na página de presentes"). O revert
+estava certo; o que faltou foi ESTA nota.
+
+**Verificado na prova (build de produção, banco local, convite publicado e
+fechado):** o cartão salva nos dois lugares e o campo volta com a chave nova; a
+porta do editor continua fechada (`/painel/criar?id=` → redirect para
+`/liberar`); e `admin-2.localhost/presentes` **não mostra chave nenhuma**, nem
+antes nem depois — que é justamente o achado.
+
+**Estado:** nada disso foi para produção. Fica na branch
+`build/pix-do-convite` (`68a23a0` reaplica o cartão, `ac1ed22` adiciona na tela
+de liberar a linha que aponta o conserto grátis), com tsc/lint limpos e 515
+testes passando. Só faz sentido mergear se a decisão for **fazer o Pix direto
+aparecer no convite** — aí a chave passa a ser visível e o conserto grátis passa
+a ser obrigatório. Se a decisão for que presente só entra pelo checkout, o certo
+é matar o campo morto em vez de dar tela a ele.
