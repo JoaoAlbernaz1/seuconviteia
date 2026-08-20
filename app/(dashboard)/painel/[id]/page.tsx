@@ -169,6 +169,9 @@ export default async function AcompanharEventoPage({
     { label: "Convidados", desc: "Lista e confirmações", href: `${base}/convidados`, icon: "bi-people" },
     { label: "Recados", desc: "O que os convidados escreveram", href: `${base}/recados`, icon: "bi-chat-heart" },
     { label: "Recebimentos", desc: "Presentes recebidos e resgate por Pix", href: `${base}/cofre`, icon: "bi-wallet2" },
+    // Único caminho para a tela de leitura dos recursos: ela não edita nada, só
+    // conta o que o convidado encontra no site publicado.
+    { label: "O que está no ar", desc: "Os recursos que o site mostra hoje", href: `${base}/recursos`, icon: "bi-broadcast" },
   ];
 
   // Festa encerrada não tem o que liberar: o servidor recusa o passe, e um botão

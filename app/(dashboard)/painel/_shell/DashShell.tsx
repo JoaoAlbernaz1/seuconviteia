@@ -25,8 +25,6 @@ export type ConviteResumo = {
   estado: EstadoConvite;
   /** Confirmacao de presenca ATIVA neste convite (plano ∩ liga/desliga). */
   rsvp: boolean;
-  /** Lista de presentes ATIVA neste convite. */
-  presentes: boolean;
 };
 
 /**
@@ -92,11 +90,7 @@ export function DashShell({
   const fid = ativo?.id ?? null;
   // Abas de convite: somem pra quem ainda nao criou nenhum, e seguem o que
   // esta ativo no convite selecionado (ver lib/navPainel).
-  const abas = abasDoPainel({
-    temConvite: !!ativo,
-    rsvp: !!ativo?.rsvp,
-    presentes: !!ativo?.presentes,
-  });
+  const abas = abasDoPainel({ temConvite: !!ativo, rsvp: !!ativo?.rsvp });
 
   /** Troca o convite ativo; numa tela de convite, vai à MESMA tela do outro. */
   function trocarConvite(id: string) {
@@ -125,7 +119,6 @@ export function DashShell({
             (!!fid &&
               p.startsWith(`/painel/${fid}`) &&
               !p.includes("/convidados") &&
-              !p.includes("/presentes") &&
               !p.includes("/cofre")),
         },
         ...(abas.convidados
@@ -135,16 +128,6 @@ export function DashShell({
                 d: IC.users,
                 href: hrefDoConvite(fid, "convidados"),
                 match: (p: string) => p.includes("/convidados"),
-              },
-            ]
-          : []),
-        ...(abas.presentes
-          ? [
-              {
-                label: "Presentes",
-                d: IC.gift,
-                href: hrefDoConvite(fid, "presentes"),
-                match: (p: string) => p.includes("/presentes"),
               },
             ]
           : []),

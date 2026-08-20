@@ -1,7 +1,7 @@
 // Layout do PAINEL — shell do Claude Design (sidebar escura + topbar). Protege
 // a área: sem sessão volta para /entrar. Passa ao shell o nome/e-mail reais e a
 // LISTA de convites (o shell tem um seletor de convite ativo — quem tem vários
-// escolhe qual está gerenciando; Convidados/Presentes/Recebimentos o seguem).
+// escolhe qual está gerenciando; Convidados/Recebimentos o seguem).
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -71,7 +71,6 @@ export default async function PainelLayout({
           // outras duas telas agora (`lib/estadoConvite`).
           estado: estadoDoConvite(c, agora),
           rsvp: r.rsvp,
-          presentes: r.presentes,
         };
       })}
     >

@@ -240,11 +240,15 @@ export default async function DashboardPage() {
                 href={`/painel/${evento.id}/convidados`}
                 borda
               />
+              {/* Vai para "Recebimentos" e nao para a tela de editar a lista:
+                  aquela tela morreu na Task 11 (gravava onde o convite
+                  publicado nao le). Quem responde "quais presentes escolheram?"
+                  e o extrato "Quem ja presenteou" do cofre. */}
               <StatCol
                 d={IC.gift}
                 rotulo="Presentes escolhidos"
                 valor={presentes}
-                href={`/painel/${evento.id}/presentes`}
+                href={`/painel/${evento.id}/cofre`}
               />
             </div>
           ) : (
