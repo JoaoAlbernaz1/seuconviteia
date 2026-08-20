@@ -114,6 +114,11 @@ export async function comprarPasseEdicao(eventId: string): Promise<ComprarPasseR
     // FAILED so vale AQUI, onde a cobranca provavelmente nem nasceu. A linha
     // REAPROVEITADA fica quieta: o Pix dela pode estar vivo desde a tentativa
     // anterior, e derrubar a linha derrubaria o unico rastro dele.
+    //
+    // "Provavelmente" e o limite deste palpite: timeout de rede DEPOIS de o MP
+    // criar a cobranca deixa um QR vivo marcado como falha. Por isso o
+    // compare-and-set do webhook (`lib/passeEdicao.ts`) aceita FAILED — la o
+    // pagamento ja foi reconsultado no gateway, e a palavra dele vale mais.
     if (!aberta) {
       await prisma.transaction.update({ where: { id: tx.id }, data: { status: "FAILED" } });
     }

@@ -217,21 +217,40 @@ describe("confirmarPasseEdicao", () => {
     log.mockRestore();
   });
 
-  it.skipIf(!enabled)("Pix pago de uma linha FAILED nao abre nada, mas GRITA no log", async () => {
+  // O FAILED do nosso lado e um PALPITE: `comprarPasseEdicao` marca a linha
+  // assim quando `criarCobrancaPix` LANCA, e o caso classico e o timeout de rede
+  // depois de o MP ja ter criado a cobranca — o QR existe e o cliente paga. Quem
+  // chega aqui e o webhook, que ja reconsultou o pagamento e ouviu PAID do
+  // gateway: recusar seria ficar com o dinheiro e nao abrir a janela.
+  it.skipIf(!enabled)("Pix pago de uma linha FAILED abre a janela (o QR estava vivo)", async () => {
     const db = prisma!;
     const event = await conviteFechado(db);
     const tx = await cobrancaPendente(db, event.id);
     await db.transaction.update({ where: { id: tx.id }, data: { status: "FAILED" } });
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const agora = new Date();
 
-    await confirmarPasseEdicao(tx.id, new Date(), `${MARCA}-cob-failed`);
+    await confirmarPasseEdicao(tx.id, agora, `${MARCA}-cob-failed-${Date.now()}`);
 
-    // Marcamos como falha e o cliente pagou assim mesmo: dinheiro nosso, sem
-    // nada entregue. Sair calado daqui e o que esconde o caso para sempre.
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
-    expect(depois.edicaoAte!.getTime()).toBeLessThan(Date.now());
-    expect(log.mock.calls.flat().join(" ")).toContain(tx.id);
-    log.mockRestore();
+    expect(depois.edicaoAte?.toISOString()).toBe(fimDoPasse(agora).toISOString());
+    expect((await db.transaction.findUniqueOrThrow({ where: { id: tx.id } })).status).toBe("PAID");
+  });
+
+  it.skipIf(!enabled)("a linha FAILED confirmada duas vezes tambem so concede uma janela", async () => {
+    const db = prisma!;
+    const event = await conviteFechado(db);
+    const tx = await cobrancaPendente(db, event.id);
+    await db.transaction.update({ where: { id: tx.id }, data: { status: "FAILED" } });
+    const cobranca = `${MARCA}-cob-failed2-${Date.now()}`;
+    const agora = new Date();
+
+    await confirmarPasseEdicao(tx.id, agora, cobranca);
+    const primeira = (await db.event.findUniqueOrThrow({ where: { id: event.id } })).edicaoAte!;
+    // Reentrega do MP: o CAS ja nao pega (a linha esta PAID) e nada empilha.
+    await confirmarPasseEdicao(tx.id, new Date(), cobranca);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.edicaoAte!.getTime()).toBe(primeira.getTime());
   });
 
   it.skipIf(!enabled)("SEGUNDO Pix sobre a mesma cobranca ja paga vira incidente no log", async () => {

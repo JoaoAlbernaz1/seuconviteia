@@ -59,8 +59,19 @@ async function aplicarPasse(
   providerId: string | null,
 ): Promise<void> {
   await prisma.$transaction(async (db) => {
+    // FAILED tambem entra. `comprarPasseEdicao` marca FAILED quando
+    // `criarCobrancaPix` LANCA — e o caso classico e o timeout de rede DEPOIS de
+    // o Mercado Pago ter criado a cobranca: o QR existe, o cliente paga, e uma
+    // linha presa em FAILED faria este compare-and-set nao pegar nada. Dinheiro
+    // dentro, janela fechada.
+    //
+    // Aceitar FAILED nao afrouxa nada: quem chega aqui e o webhook, que ja
+    // reconsultou o pagamento no MP e ouviu dele que esta PAID — a verdade e do
+    // gateway, e o FAILED do nosso lado era so um palpite. E o CAS continua
+    // garantindo concessao unica: depois da primeira passada a linha esta PAID,
+    // que nao esta na lista.
     const marcada = await db.transaction.updateMany({
-      where: { id: transactionId, kind: "EDIT_PASS", status: "PENDING" },
+      where: { id: transactionId, kind: "EDIT_PASS", status: { in: ["PENDING", "FAILED"] } },
       data: { status: "PAID", ...(providerId ? { providerId } : {}) },
     });
     if (marcada.count !== 1) {
