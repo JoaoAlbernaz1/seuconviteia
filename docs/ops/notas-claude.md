@@ -332,3 +332,50 @@ cancelado no cleanup.
 O pedido do João ("pode tirar essas adições rápidas") era o bloco **"Adicionar
 rápido"**, com esse nome na tela. A lista inicial `GIFTS` continua — é outra
 coisa, e ele não pediu. Fica anotado como pergunta para ele.
+
+---
+
+## 2026-08-20 (2) — produção estava em Pix SIMULADO, e o simulado abre uma porta
+
+Fui fazer o "teste do Pix real" que estava pendente e o bloqueio é maior do que
+confirmar um evento no painel do MP: **as duas variáveis do Mercado Pago existem
+em Production na Vercel com valor VAZIO** (`MERCADO_PAGO_ACCESS_TOKEN=""` e
+`MERCADO_PAGO_WEBHOOK_SECRET=""`, conferido com `vercel env pull`).
+
+Sem token, `getPaymentProvider()` caía no `FakePaymentProvider` — inclusive em
+produção. E o simulado **não é neutro lá**:
+
+- No modo "fake" quem confirma o presente é um botão na tela do convidado
+  (`confirmarPresente`, cuja trava é justamente `nome !== "fake"`). Um convite
+  publicado de verdade aceitaria **"presente confirmado" com zero real**.
+- O passe de R$ 19,90 vai pelo caminho oposto: gera um QR que **nunca** confirma,
+  porque quem abre a janela de edição é o webhook, e o webhook exige provedor
+  real (`provider.nome !== "mercadopago"` → 200 "provider inativo").
+
+Ninguém foi exposto ainda porque **não há nenhum convite PUBLISHED em produção**
+(consultei: 5 DRAFT + 1 EXPIRED). Era uma bomba armada para o primeiro cliente.
+
+**Consertado e no ar (`93f1240`, deploy Ready em 20/08):** sem token e com
+`VERCEL_ENV=production`, o provedor passa a ser `IndisponivelPaymentProvider`, que
+recusa alto. Os dois chamadores de `criarCobrancaPix` já tratavam o throw (marcam
+a linha FAILED e devolvem "Não foi possível gerar o Pix agora"), então o convidado
+vê recado, não stack trace. A régua é `VERCEL_ENV` e **não** `NODE_ENV`: `pnpm
+build && pnpm start` local e o e2e rodam em `NODE_ENV=production` e PRECISAM do
+simulado. Teste do seam nos três casos em `lib/pagamentos/index.test.ts`.
+
+**Falta o João (não dá para fazer por ele):** colar as credenciais de PRODUÇÃO do
+MP nas duas env vars e cadastrar o webhook em
+`https://seuconvite.orivya.com.br/api/webhooks/mercadopago` com os eventos
+**Pagamentos** e **Assinaturas**. O endpoint já responde 401 a payload sem
+assinatura nos dois hosts (falha fechada).
+
+### Sobre "matar o campo morto" do Pix
+
+Decisão: **não arranquei.** Parece faxina, mas `pix` vive no
+`EventEditorDocumentSchema` — o documento canônico do editor — e os snapshots
+`publishedData` em produção carregam o campo. Tirar cruza ~15 arquivos
+(`document`, `schema`, `legacy`, `render`, `registry`, `state`, `CriarConvite`,
+`convite`, `eventoFesta`, `previewEvento` + testes) e mexe no contrato da fundação
+do editor, para **zero** ganho visível. O que enganava de verdade era o cabeçalho
+de `app/_sites/[sub]/presentes/page.tsx` prometendo "Pix DIRETO (copiar chave) —
+sem checkout/taxa": esse eu corrigi, dizendo o que é verdade hoje.

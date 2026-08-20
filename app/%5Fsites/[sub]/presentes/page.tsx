@@ -1,7 +1,16 @@
 // Pagina /presentes do site publico (servida por subdominio). Porte fiel do
 // festa-15-maria-clara (`app/presentes/page.tsx`): UM painel unico (foto +
-// lista de presentes + Pix). Data-driven via `lerEventoFesta` (gifts do evento +
-// Pix do customization). Pix DIRETO (copiar chave) — sem checkout/taxa.
+// lista de presentes). Data-driven via `lerEventoFesta`.
+//
+// ATENCAO — este cabecalho dizia "Pix DIRETO (copiar chave), sem checkout/taxa",
+// e isso NAO e mais verdade: o bloco de copiar a chave do dono saiu quando o
+// checkout entrou (`1862714`), e hoje presente so e pago pela `PresentearModal`,
+// no checkout do Mercado Pago (com a nossa taxa). O campo `pix` do documento
+// (`pix.key`/`pixChave`) sobreviveu na modelagem, mas NAO tem controle no editor
+// e NENHUM componente do site o renderiza — e campo morto. Conferido em
+// 20/08/2026; ver `docs/ops/notas-claude.md`. Se um dia o Pix direto voltar, ele
+// nasce aqui — e ai a chave precisa de conserto gratuito fora do editor, porque
+// o convite publicado fecha para edicao.
 import SiteIndisponivel from "@/components/SiteIndisponivel";
 import { eventoPublico } from "@/lib/event";
 import { carregarEventoFesta } from "@/lib/eventoFestaDb";
