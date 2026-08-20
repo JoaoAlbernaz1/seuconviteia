@@ -10,6 +10,7 @@
 //     (consultarCobranca) como rede de segurança.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PayStatus } from "./contribuicao";
+import { protocoloDe, rootDomain } from "@/lib/tenant";
 import type {
   CobrancaPix,
   CobrancaPixInput,
@@ -54,11 +55,18 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
   }
 
   async criarCobrancaPix(input: CobrancaPixInput): Promise<CobrancaPix> {
+    // `notification_url` viaja com a COBRANCA, e nao so no painel: a config do
+    // painel e manual e invisivel daqui — basta alguem cadastrar so o modo teste,
+    // trocar de aplicacao ou errar a URL para o dinheiro entrar sem conceder
+    // nada, com o convidado olhando um QR que nunca confirma. Mandando junto, a
+    // cobranca carrega o proprio caminho de volta.
+    const notificacao = urlDoWebhookMp();
     const body = {
       transaction_amount: Number((input.valorCents / 100).toFixed(2)),
       description: (input.descricao || "Presente").slice(0, 240),
       payment_method_id: "pix",
       external_reference: input.referencia,
+      ...(notificacao ? { notification_url: notificacao } : {}),
       payer: {
         email: emailPagador(input),
         first_name: (input.pagador?.nome || "Convidado").slice(0, 40),
@@ -115,6 +123,22 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     // fluxo do convidado). Evita uso acidental antes de estar homologado.
     throw new Error("Transferência (payout) via Mercado Pago ainda não implementada.");
   }
+}
+
+/**
+ * URL publica do nosso webhook, para viajar dentro da propria cobranca.
+ *
+ * Devolve `undefined` em dominio local (localhost, IP cru, nip.io): o Mercado
+ * Pago nao alcanca esses hosts e RECUSA a criacao da cobranca inteira se a
+ * `notification_url` nao for publica — o que quebraria o desenvolvimento com
+ * credencial real. Em dev o webhook continua vindo do painel (ou de um tunel).
+ *
+ * O `rootDomain` entra por parametro para o teste nao depender de env var, mas
+ * o padrao e o dominio configurado.
+ */
+export function urlDoWebhookMp(root: string = rootDomain()): string | undefined {
+  if (protocoloDe(root) !== "https") return undefined;
+  return `https://${root}/api/webhooks/mercadopago`;
 }
 
 /**

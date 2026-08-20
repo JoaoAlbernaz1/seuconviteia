@@ -20,7 +20,7 @@ import {
   webhookDesprotegido,
 } from "@/lib/pagamentos/mercadopago";
 import { acharPasseEdicao, confirmarPasseEdicao, registrarEstornoPasse } from "@/lib/passeEdicao";
-import { confirmarContribuicaoPaga } from "@/lib/presentearCore";
+import { confirmarContribuicaoPaga, estornarContribuicao } from "@/lib/presentearCore";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -112,9 +112,23 @@ export async function POST(req: Request): Promise<Response> {
           }
         }
       } else if (status === "REFUNDED") {
-        // Estorno: registra no ledger e NAO fecha a janela (ver registrarEstornoPasse).
-        const passe = await acharPasseEdicao(dataId, referencia);
-        if (passe) await registrarEstornoPasse(passe, dataId);
+        // Estorno (refund no MP ou chargeback do cartao do convidado). A ORDEM e
+        // a mesma do caminho do pagamento — presente primeiro, passe depois —
+        // porque e o mesmo `dataId` procurando dono nos dois lugares.
+        //
+        // O presente TEM de sair do cofre: o saldo e a soma dos liquidos PAID, e
+        // dinheiro devolvido ao convidado que continua sacavel e prejuizo nosso.
+        // O passe e o contrario de proposito: a janela de edicao fica aberta (o
+        // dono pode estar editando agora) e o estorno vira incidente no log.
+        const contrib = await prisma.giftContribution.findFirst({
+          where: { providerChargeId: dataId },
+        });
+        if (contrib) {
+          await estornarContribuicao(contrib.id);
+        } else {
+          const passe = await acharPasseEdicao(dataId, referencia);
+          if (passe) await registrarEstornoPasse(passe, dataId);
+        }
       }
     } else if (tipo === "assinatura") {
       // Mudou o estado da assinatura (autorizou, pausou, cancelou).
