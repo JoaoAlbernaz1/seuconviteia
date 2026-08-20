@@ -12,6 +12,8 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { legacyEventToDocument } from "@/lib/event-editor/legacy";
 import { CORTESIA_MINUTOS } from "@/lib/edicao";
+import { calcularExpiracao } from "@/lib/dates";
+import { eventoPublico } from "@/lib/event";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
@@ -171,6 +173,70 @@ describe("portas do editor no convite fechado", () => {
     convidado.set("name", "Tia Nilza");
     await adicionarConvidado(convidado);
     expect(await db.guest.count({ where: { eventId: event.id } })).toBe(1);
+  });
+
+  // O AUTOSAVE nao pode derrubar o site que esta no ar. A promessa esta escrita
+  // na tela do dono ("o site atual continua no ar ate voce publicar as
+  // alteracoes") e `expiresAt` e o que `eventoPublico` le para responder ou nao:
+  // gravar a data do rascunho na linha fazia o convite sumir para os convidados
+  // no meio da edicao PAGA, e sem volta (dali em diante toda porta recusava por
+  // "festa passou").
+  it.skipIf(!enabled)("o autosave do publicado NAO mexe na data do site; publicar mexe", async () => {
+    const db = prisma!;
+    const { event, document } = await convite(db, {
+      status: "PUBLISHED",
+      publishedVersion: 1,
+      publishedAt: new Date("2026-01-01T00:00:00Z"),
+      edicaoAte: new Date(Date.now() + 48 * 3_600_000), // janela paga, correndo
+    });
+
+    // O erro classico: o ano digitado errado, que joga a festa para o passado.
+    const comAnoErrado = { ...document, schedule: { ...document.schedule, date: "2020-05-10" } };
+    const salvo = await salvarDocumentoConvite({ id: event.id, expectedVersion: 1, document: comAnoErrado });
+    expect(salvo.ok).toBe(true);
+
+    const durante = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(durante.expiresAt.getTime()).toBe(event.expiresAt.getTime());
+    expect(durante.eventDate.getTime()).toBe(event.eventDate.getTime());
+    // O site continua no ar, e o proprio editor continua salvando/publicando.
+    expect(eventoPublico(durante, new Date()).ok).toBe(true);
+
+    // O conserto sobe pela porta de sempre: corrigir a data e PUBLICAR.
+    const corrigido = { ...document, schedule: { ...document.schedule, date: "2031-05-10", time: "21:00" } };
+    const resalvo = await salvarDocumentoConvite({ id: event.id, expectedVersion: 2, document: corrigido });
+    expect(resalvo.ok).toBe(true);
+
+    const r = await publicarDocumentoConvite({ id: event.id, expectedDraftVersion: 3 });
+    expect(r.ok).toBe(true);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    const esperada = new Date("2031-05-10T21:00:00-03:00");
+    expect(depois.eventDate.getTime()).toBe(esperada.getTime());
+    expect(depois.expiresAt.getTime()).toBe(calcularExpiracao(esperada).getTime());
+  });
+
+  // E a outra ponta da mesma regra: com a data so na linha ANTIGA, publicar
+  // ainda precisa reprovar o rascunho cuja data ja passou.
+  it.skipIf(!enabled)("publicar reprova a data vencida que veio no RASCUNHO", async () => {
+    const db = prisma!;
+    const { event, document } = await convite(db, {
+      status: "PUBLISHED",
+      publishedVersion: 1,
+      publishedAt: new Date("2026-01-01T00:00:00Z"),
+      edicaoAte: new Date(Date.now() + 48 * 3_600_000),
+    });
+
+    const vencido = { ...document, schedule: { ...document.schedule, date: "2020-05-10" } };
+    expect((await salvarDocumentoConvite({ id: event.id, expectedVersion: 1, document: vencido })).ok).toBe(true);
+
+    const r = await publicarDocumentoConvite({ id: event.id, expectedDraftVersion: 2 });
+    expect(r).toEqual({
+      ok: false,
+      kind: "validation",
+      error: "Com essa data o convite já estaria encerrado. Escolha uma data futura.",
+    });
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(depois.expiresAt.getTime()).toBe(event.expiresAt.getTime());
   });
 
   it.skipIf(!enabled)("rascunho com data vencida SALVA, mas nao publica", async () => {

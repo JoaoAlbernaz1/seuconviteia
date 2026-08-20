@@ -207,8 +207,21 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     where: { id, professionalId, draftVersion: expectedVersion },
     data: {
       title: document.basic.name || "Convite sem título",
-      eventDate,
-      expiresAt,
+      // A DATA da linha e do SITE PUBLICADO, nao do rascunho.
+      //
+      // `expiresAt` e o que `eventoPublico` usa para decidir se o site responde,
+      // e `eventDate` e o que o .ics do convidado marca na agenda. Nenhuma das
+      // duas passa pelo snapshot, entao grava-las aqui com o convite ja no ar
+      // fazia o AUTOSAVE derrubar o site: o dono abria o editor dentro da janela
+      // que pagou, errava o ano da data, e em 800ms o convite sumia para os
+      // convidados — e, a partir dali, salvar, publicar e ate comprar outro
+      // passe recusavam por "festa passou". Pagou e perdeu o convite.
+      //
+      // Quem passa as duas para a linha e `publicarDocumentoConvite`, junto com
+      // o resto do snapshot: e o unico momento em que o dono pediu para trocar o
+      // que os convidados veem. O rascunho continua guardando a data no
+      // documento (e a previa le de la), entao nada se perde no caminho.
+      ...(owned.status === "DRAFT" ? { eventDate, expiresAt } : {}),
       customization,
       draftData: jsonDoDocumento(document),
       draftVersion: { increment: 1 },
@@ -249,17 +262,22 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   if (!edicaoAberta(event, agora)) {
     return { ok: false, kind: "fechado", error: "Este convite está publicado. Libere a edição para mexer no site." };
   }
-  // Salvar o rascunho com a data vencida PODE (é o conserto); publicar, não —
-  // subiria um site que já nasce fora do ar. As duas portas respondem coisas
-  // diferentes de propósito.
-  if (event.expiresAt.getTime() <= agora.getTime()) {
-    return { ok: false, kind: "validation", error: "Com essa data o convite já estaria encerrado. Escolha uma data futura." };
-  }
   if (event.draftVersion !== expectedDraftVersion) {
     return { ok: false, kind: "conflict", currentVersion: event.draftVersion, error: "Existem alterações mais novas. Salve antes de publicar." };
   }
   const document = EventEditorDocumentSchema.safeParse(event.draftData);
   if (!document.success) return { ok: false, kind: "validation", error: "O rascunho precisa ser revisado antes de publicar." };
+
+  // A data que vai VALER: a do rascunho que esta subindo, nao a da linha — que
+  // desde o conserto do autosave continua sendo a do site atualmente no ar.
+  const eventDate = dataDoDocumento(document.data);
+  const expiresAt = calcularExpiracao(eventDate);
+  // Salvar o rascunho com a data vencida PODE (é o conserto); publicar, não —
+  // subiria um site que já nasce fora do ar. As duas portas respondem coisas
+  // diferentes de propósito.
+  if (expiresAt.getTime() <= agora.getTime()) {
+    return { ok: false, kind: "validation", error: "Com essa data o convite já estaria encerrado. Escolha uma data futura." };
+  }
 
   // O endereço só é calculado na PRIMEIRA publicação. Depois dela o link já foi
   // mandado no WhatsApp: mudar o nome da debutante não pode mudar o subdomínio
@@ -277,6 +295,12 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
     data: {
       subdomain,
       status: "PUBLISHED",
+      // A data entra na linha AQUI, junto com o snapshot: publicar é o único
+      // momento em que o dono pediu para trocar o que os convidados veem, e
+      // `expiresAt`/`eventDate` são a metade do site que não cabe no snapshot
+      // (o ar do convite e o .ics da agenda).
+      eventDate,
+      expiresAt,
       publishedData: jsonDoDocumento(document.data),
       publishedVersion: expectedDraftVersion,
       publishedAt,
