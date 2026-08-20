@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  lerToggles,
-  recursosDoSite,
-  togglesParaCustomization,
-  RECURSOS_SITE,
-  type TogglesSite,
-} from "./recursos";
+import { lerToggles, recursosDoSite, RECURSOS_SITE, type TogglesSite } from "./recursos";
 
 const LIGADOS: TogglesSite = {
   rsvp: true,
@@ -62,18 +56,6 @@ describe("recursosDoSite (ativo = plano permite ∩ toggle)", () => {
 
   it("PREMIUM sem toggles: tudo ativo", () => {
     expect(recursosDoSite("PREMIUM", {})).toEqual(LIGADOS);
-  });
-});
-
-describe("togglesParaCustomization", () => {
-  it("todos ligados -> undefined (JSON limpo)", () => {
-    expect(togglesParaCustomization(LIGADOS)).toBeUndefined();
-  });
-
-  it("grava so os desligados, como false", () => {
-    expect(togglesParaCustomization({ ...LIGADOS, presentes: false })).toEqual({
-      presentes: false,
-    });
   });
 });
 

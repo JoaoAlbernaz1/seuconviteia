@@ -50,8 +50,6 @@ export type EventoFesta = {
   programacao: ProgramacaoItem[];
   pixNome?: string;
   pixChave?: string;
-  /** QR do Pix (opcional) — so aparece se preenchido. */
-  pixQrUrl?: string;
   /** Itens da lista de presentes (gifts do evento; Pix direto, sem checkout). */
   presentes: PresenteItem[];
   /** Foto da capa (hero) — mobile/retrato. */
@@ -124,7 +122,6 @@ const extrasSchema = z
     presentesFotoUrl: z.string(),
     presentesTexto: z.string(),
     mapsEmbedUrl: z.string(),
-    pixQrUrl: z.string(),
     /** Multiplicador do tamanho do lockup da capa (0.9 / 1 / 1.15). */
     capaEscala: z.coerce.number().min(0.5).max(2),
     /** Escurecer a foto da capa p/ melhorar a leitura. */
@@ -227,7 +224,6 @@ export function lerEventoFesta(event: EventoParaConteudo): EventoFesta {
     programacao: c.programacao,
     pixNome: c.pixNome,
     pixChave: c.pixChave,
-    pixQrUrl: texto(extras.pixQrUrl),
     presentes: c.presentes,
     fotoUrl: c.fotoUrl,
     fotoDesktopUrl: texto(extras.fotoDesktopUrl) ?? c.fotoUrl,

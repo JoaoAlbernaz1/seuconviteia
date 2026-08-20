@@ -1,14 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  brlParaCents,
-  parseRecursosForm,
-  parseProgramacao,
-  parsePresentes,
-  parseFotos,
-  montarMapsUrls,
-  semUndefined,
-  TEMA_KEYS,
-} from "./eventoForm";
+import { brlParaCents, montarMapsUrls, semUndefined } from "./eventoForm";
 
 describe("brlParaCents", () => {
   it.each([
@@ -56,118 +47,6 @@ describe("brlParaCents", () => {
   });
 });
 
-describe("parseProgramacao", () => {
-  it("faz o zip das colunas paralelas", () => {
-    expect(
-      parseProgramacao(["20h30", "22h00"], ["Recepção", "Jantar"]),
-    ).toEqual([
-      { hora: "20h30", titulo: "Recepção" },
-      { hora: "22h00", titulo: "Jantar" },
-    ]);
-  });
-
-  it("descarta linhas totalmente vazias e faz trim", () => {
-    expect(
-      parseProgramacao([" 20h ", "", "  "], [" Recepção ", "", ""]),
-    ).toEqual([{ hora: "20h", titulo: "Recepção" }]);
-  });
-
-  it("mantem a linha quando so a hora OU so o titulo esta preenchido", () => {
-    expect(parseProgramacao(["20h", ""], ["", "Valsa"])).toEqual([
-      { hora: "20h", titulo: "" },
-      { hora: "", titulo: "Valsa" },
-    ]);
-  });
-
-  it("tolera arrays de tamanhos diferentes", () => {
-    expect(parseProgramacao(["20h"], [])).toEqual([{ hora: "20h", titulo: "" }]);
-  });
-});
-
-describe("parsePresentes", () => {
-  it("zipa titulo/descricao/valor e converte o valor para centavos", () => {
-    expect(
-      parsePresentes(
-        ["Cota da festa", "Vale look"],
-        ["Contribua via Pix", ""],
-        ["150,00", "120"],
-      ),
-    ).toEqual([
-      { titulo: "Cota da festa", descricao: "Contribua via Pix", valorCents: 15000 },
-      { titulo: "Vale look", descricao: undefined, valorCents: 12000 },
-    ]);
-  });
-
-  it("descarta itens sem titulo", () => {
-    expect(parsePresentes(["", "Perfume"], ["x", ""], ["10", "250,00"])).toEqual([
-      { titulo: "Perfume", descricao: undefined, valorCents: 25000 },
-    ]);
-  });
-
-  it("deixa valorCents undefined quando o valor e vazio/invalido", () => {
-    expect(parsePresentes(["Presente"], [""], [""])).toEqual([
-      { titulo: "Presente", descricao: undefined, valorCents: undefined },
-    ]);
-  });
-
-  it("zipa a foto (4o array, opcional) e apara vazios", () => {
-    expect(
-      parsePresentes(
-        ["Air Fryer", "Cota"],
-        ["", ""],
-        ["", "150"],
-        ["  https://x/a.png  ", ""],
-      ),
-    ).toEqual([
-      { titulo: "Air Fryer", descricao: undefined, valorCents: undefined, foto: "https://x/a.png" },
-      { titulo: "Cota", descricao: undefined, valorCents: 15000, foto: undefined },
-    ]);
-  });
-
-  it("zipa modo/cotas: COTAS válido vira {modo:'COTAS', cotas}; resto fica undefined", () => {
-    expect(
-      parsePresentes(
-        ["Vestido", "Buquê", "Jantar"],
-        ["", "", ""],
-        ["2000", "300", "180"],
-        ["", "", ""],
-        ["COTAS", "COTAS", "FIXO"],
-        ["20", "1", ""], // 2o item: 1 cota é inválido (< 2) -> ignora cotas
-      ),
-    ).toEqual([
-      { titulo: "Vestido", descricao: undefined, valorCents: 200000, foto: undefined, modo: "COTAS", cotas: 20 },
-      { titulo: "Buquê", descricao: undefined, valorCents: 30000, foto: undefined, modo: "COTAS", cotas: undefined },
-      { titulo: "Jantar", descricao: undefined, valorCents: 18000, foto: undefined, modo: undefined, cotas: undefined },
-    ]);
-  });
-});
-
-describe("parseFotos", () => {
-  it("apara, descarta vazios e mantem a ordem", () => {
-    expect(
-      parseFotos(["/uploads/a.jpg", "  ", " /uploads/b.png ", ""]),
-    ).toEqual(["/uploads/a.jpg", "/uploads/b.png"]);
-  });
-
-  it("aceita caminhos / e URLs http(s); rejeita o resto", () => {
-    expect(
-      parseFotos(["/uploads/a.jpg", "https://x.com/b.png", "javascript:alert(1)", "ftp://x"]),
-    ).toEqual(["/uploads/a.jpg", "https://x.com/b.png"]);
-  });
-
-  it("deduplica preservando a primeira ocorrencia", () => {
-    expect(parseFotos(["/a.jpg", "/b.jpg", "/a.jpg"])).toEqual([
-      "/a.jpg",
-      "/b.jpg",
-    ]);
-  });
-
-  it("respeita o limite maximo", () => {
-    const urls = Array.from({ length: 5 }, (_, i) => `/u${i}.jpg`);
-    expect(parseFotos(urls, 3)).toEqual(["/u0.jpg", "/u1.jpg", "/u2.jpg"]);
-  });
-});
-
 describe("montarMapsUrls", () => {
   it("deriva os dois links do local + endereco", () => {
     const { mapsUrl, mapsEmbedUrl } = montarMapsUrls(
@@ -200,43 +79,6 @@ describe("semUndefined", () => {
       a: 1,
       c: "",
       d: null,
-    });
-  });
-});
-
-describe("TEMA_KEYS", () => {
-  it("expoe as 6 paletas conhecidas", () => {
-    expect(TEMA_KEYS).toEqual(
-      expect.arrayContaining([
-        "rose",
-        "dourado",
-        "azul",
-        "lavanda",
-        "verde",
-        "terracota",
-      ]),
-    );
-    expect(TEMA_KEYS).toHaveLength(6);
-  });
-});
-
-describe("parseRecursosForm", () => {
-  const get = (map: Record<string, string>) => (k: string) => map[k] ?? null;
-
-  it("ausente -> undefined (tudo ligado, JSON limpo)", () => {
-    expect(parseRecursosForm(get({}))).toBeUndefined();
-  });
-
-  it('"on"/valor estranho -> ligado; so "off" desliga', () => {
-    expect(
-      parseRecursosForm(get({ rec_rsvp: "on", rec_contador: "off", rec_galeria: "x" })),
-    ).toEqual({ contador: false });
-  });
-
-  it("varios desligados", () => {
-    expect(parseRecursosForm(get({ rec_recados: "off", rec_presentes: "off" }))).toEqual({
-      presentes: false,
-      recados: false,
     });
   });
 });

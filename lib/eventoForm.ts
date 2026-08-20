@@ -1,65 +1,18 @@
 /**
- * Helpers PUROS do formulario de criacao/edicao de evento (painel).
+ * Helpers PUROS que sobraram do formulario de evento do painel antigo.
  *
- * Ficam aqui (em vez de na server action) por serem logica de parsing sem banco
- * nem sessao — faceis de testar no Vitest. A action so faz: auth -> Zod ->
- * chamar estes helpers -> Prisma.
+ * As telas que liam FormData (Detalhes, Estilo, Recursos, Fotos, Presentes,
+ * Programacao) morreram na Task 11 e levaram junto os `parse*` — o editor de 6
+ * passos manda um DOCUMENTO em JSON, nao campos soltos. Ficaram os tres que
+ * outra gente usa:
  *
- * Decisoes:
- *  - As listas repetiveis (programacao, presentes) viajam no FormData como arrays
- *    paralelos de mesmo nome (`programacao_hora` / `programacao_titulo`, etc.).
- *    A action faz `formData.getAll(name)`; estes helpers fazem o "zip" + sanitize.
- *  - Valores em BRL ("150,00", "1.250,50", "R$ 90") viram centavos (Int).
- *  - Tudo aqui e tolerante: linhas vazias somem, valor invalido vira `undefined`.
+ *  - `brlParaCents` — dinheiro digitado ("1.250,50") em centavos; usado pelo
+ *    editor (`event-editor/render`) e pela previa.
+ *  - `montarMapsUrls` — as URLs do Maps derivadas de local + endereco; usado
+ *    pela previa e por `documentToLegacyCustomization` (sem ele o convite
+ *    publicado fica sem "Abrir no Maps").
+ *  - `semUndefined` — mantem o JSON do `customization` limpo.
  */
-import { TEMAS } from "./temas";
-import {
-  RECURSOS_SITE,
-  togglesParaCustomization,
-  type RecursoSite,
-  type TogglesSite,
-} from "./recursos";
-
-/** Chaves de paleta validas (para a validacao do `tema` na action). */
-export const TEMA_KEYS = Object.keys(TEMAS);
-
-/**
- * Le os toggles de recurso do FormData (campos `rec_<key>` com "on"/"off",
- * emitidos pela tela "Recursos do site" do editor). Ausente ou qualquer valor
- * diferente de "off" = ligado (tolerante; o default do produto e ligado).
- * Devolve o objeto pronto pro `customization.recursos` (so os desligados;
- * `undefined` quando todos ligados).
- */
-export function parseRecursosForm(
-  get: (name: string) => FormDataEntryValue | null,
-): Partial<Record<RecursoSite, false>> | undefined {
-  const toggles = {} as TogglesSite;
-  for (const def of RECURSOS_SITE) {
-    toggles[def.key] = get(`rec_${def.key}`) !== "off";
-  }
-  return togglesParaCustomization(toggles);
-}
-
-/** Uma linha da programacao do evento (`{hora, titulo}`). */
-export type ProgramacaoRow = { hora: string; titulo: string };
-
-/** Um item da lista de presentes, ja com o valor convertido em centavos. */
-export type PresenteParsed = {
-  titulo: string;
-  descricao?: string;
-  valorCents?: number;
-  foto?: string;
-  /** Cobrança: ausente = valor único (FIXO); "COTAS" = dividido em `cotas`. */
-  modo?: "COTAS";
-  cotas?: number;
-};
-
-/** Texto limpo -> `undefined` quando vazio. */
-function texto(valor: string | null | undefined): string | undefined {
-  const limpo = valor?.trim();
-  return limpo ? limpo : undefined;
-}
-
 /**
  * Converte um valor monetario digitado em centavos (Int >= 0).
  *
@@ -101,84 +54,6 @@ export function brlParaCents(valor: string | null | undefined): number | null {
   const n = Number(s);
   if (!Number.isFinite(n) || n < 0) return null;
   return Math.round(n * 100);
-}
-
-/**
- * "Zip" das colunas paralelas da programacao -> linhas sanitizadas.
- * Mantem a linha se tiver hora OU titulo (espelha o filtro de `lerConteudo`).
- */
-export function parseProgramacao(
-  horas: readonly string[],
-  titulos: readonly string[],
-): ProgramacaoRow[] {
-  const n = Math.max(horas.length, titulos.length);
-  const linhas: ProgramacaoRow[] = [];
-  for (let i = 0; i < n; i += 1) {
-    const hora = (horas[i] ?? "").trim();
-    const titulo = (titulos[i] ?? "").trim();
-    if (hora || titulo) linhas.push({ hora, titulo });
-  }
-  return linhas;
-}
-
-/**
- * "Zip" das colunas paralelas da lista de presentes -> itens sanitizados.
- * Mantem o item somente se tiver titulo. `descricao`/`valor` vazios viram
- * `undefined`; `valor` e convertido de BRL para centavos.
- */
-export function parsePresentes(
-  titulos: readonly string[],
-  descricoes: readonly string[],
-  valores: readonly string[],
-  fotos: readonly string[] = [],
-  modos: readonly string[] = [],
-  cotas: readonly string[] = [],
-): PresenteParsed[] {
-  const n = Math.max(
-    titulos.length,
-    descricoes.length,
-    valores.length,
-    fotos.length,
-    modos.length,
-    cotas.length,
-  );
-  const itens: PresenteParsed[] = [];
-  for (let i = 0; i < n; i += 1) {
-    const titulo = texto(titulos[i]);
-    if (!titulo) continue;
-    const cents = brlParaCents(valores[i]);
-    const ehCota = modos[i] === "COTAS";
-    const nCotas = ehCota ? Number.parseInt(cotas[i] ?? "", 10) : NaN;
-    itens.push({
-      titulo,
-      descricao: texto(descricoes[i]),
-      valorCents: cents != null ? cents : undefined,
-      foto: texto(fotos[i]),
-      modo: ehCota ? "COTAS" : undefined,
-      cotas: ehCota && Number.isFinite(nCotas) && nCotas >= 2 ? nCotas : undefined,
-    });
-  }
-  return itens;
-}
-
-/**
- * Sanitiza a lista de URLs de fotos do album (campos `fotos` repetidos no
- * FormData). Aparada, sem vazios, so caminhos `/...` ou `http(s)://...`,
- * deduplicada (preservando ordem) e limitada a `max` itens. PURO.
- */
-export function parseFotos(urls: readonly string[], max = 40): string[] {
-  const out: string[] = [];
-  const vistos = new Set<string>();
-  for (const raw of urls) {
-    const u = raw?.trim();
-    if (!u) continue;
-    if (!(u.startsWith("/") || /^https?:\/\//i.test(u))) continue;
-    if (vistos.has(u)) continue;
-    vistos.add(u);
-    out.push(u);
-    if (out.length >= max) break;
-  }
-  return out;
 }
 
 /**

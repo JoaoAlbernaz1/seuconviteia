@@ -34,8 +34,6 @@ export type RecursoSiteDef = {
    * do convite (todo plano tem).
    */
   gate: Recurso | null;
-  /** Tem configuracao propria no editor (link "Configurar")? */
-  temConfig?: boolean;
 };
 
 /** Definicao dos cards da tela "Recursos do site" (ordem de exibicao). */
@@ -51,7 +49,6 @@ export const RECURSOS_SITE: readonly RecursoSiteDef[] = [
     titulo: "Lista de presentes + Pix",
     descricao: "Presentes com valor e chave Pix, sem aplicativo.",
     gate: null,
-    temConfig: true,
   },
   {
     key: "contador",
@@ -119,22 +116,4 @@ export function recursosDoSite(plan: Plan, customization: unknown): TogglesSite 
       (def.gate === null || planoPermite(plan, def.gate)) && toggles[def.key];
   }
   return out;
-}
-
-/**
- * Serializa os toggles para o `customization` — so os DESLIGADOS entram
- * (`undefined` quando todos ligados, mantendo o JSON limpo).
- */
-export function togglesParaCustomization(
-  toggles: TogglesSite,
-): Partial<Record<RecursoSite, false>> | undefined {
-  const off: Partial<Record<RecursoSite, false>> = {};
-  let algum = false;
-  for (const def of RECURSOS_SITE) {
-    if (!toggles[def.key]) {
-      off[def.key] = false;
-      algum = true;
-    }
-  }
-  return algum ? off : undefined;
 }
