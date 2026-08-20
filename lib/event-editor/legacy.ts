@@ -1,5 +1,6 @@
 import { createDefaultEventDocument, type EventEditorDocument } from "./document";
 import { ESCALA_CAPA, tamanhoDaChave } from "../fontes";
+import { montarMapsUrls } from "../eventoForm";
 
 type LegacyGift = {
   id: string;
@@ -157,6 +158,10 @@ export function legacyEventToDocument(event: LegacyEditorEvent): EventEditorDocu
 }
 
 export function documentToLegacyCustomization(document: EventEditorDocument): Record<string, unknown> {
+  const local = document.location.venue;
+  const endereco = [document.location.address, document.location.city, document.location.state]
+    .filter(Boolean)
+    .join(", ");
   const resources: Record<string, false> = {};
   if (!document.rsvp.enabled) resources.rsvp = false;
   if (!document.gifts.enabled) resources.presentes = false;
@@ -203,8 +208,15 @@ export function documentToLegacyCustomization(document: EventEditorDocument): Re
     ctaLabel: document.content.cta.label,
     ctaHref: document.content.cta.href,
     ctaLead: document.content.cta.lead,
-    local: document.location.venue,
-    endereco: [document.location.address, document.location.city, document.location.state].filter(Boolean).join(", "),
+    local,
+    endereco,
+    // "Como chegar" NAO e um campo do documento: as duas URLs do Maps sempre
+    // foram DERIVADAS do endereco (`montarMapsUrls`), e quem derivava era a tela
+    // "Detalhes" do painel antigo. Como a projecao do publicado TROCA o
+    // `customization` inteiro por este objeto, nao emitir as URLs aqui apagava o
+    // botao "Abrir no Maps" (`glamour-rose/Evento.tsx`) de todo convite com
+    // snapshot — o convidado ficava sem rota para a festa.
+    ...montarMapsUrls(local, endereco),
     programacao: document.schedule.program.items.map((item) => ({ hora: item.time, titulo: item.title })),
     rsvpConfig: {
       permitirAcompanhantes: document.rsvp.companionsEnabled,

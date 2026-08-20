@@ -49,4 +49,32 @@ describe("adapter de eventos legados", () => {
     expect(customization.pixNome).toBe("Maria Martins");
     expect(customization.pixChave).toBe("maria@example.com");
   });
+
+  // O convite PUBLICADO e servido de `publishedEventProjection`, que troca o
+  // `customization` inteiro por este objeto. Enquanto ele nao emitia as URLs do
+  // Maps, todo convite com snapshot perdia o botao "Abrir no Maps" — e o unico
+  // lugar que ainda as gravava (a tela "Detalhes") morreu na Task 11.
+  it("deriva as URLs do Maps do endereco do documento", () => {
+    const document = legacyEventToDocument(legacyEvent);
+    const customization = documentToLegacyCustomization(document);
+    const query = encodeURIComponent(`${customization.local}, ${customization.endereco}`);
+
+    expect(customization.mapsUrl).toBe(
+      `https://www.google.com/maps/search/?api=1&query=${query}`,
+    );
+    expect(customization.mapsEmbedUrl).toBe(
+      `https://www.google.com/maps?q=${query}&output=embed`,
+    );
+  });
+
+  it("sem local nem endereco, nao inventa link de mapa", () => {
+    const document = legacyEventToDocument({
+      ...legacyEvent,
+      customization: { ...legacyEvent.customization, local: "", endereco: "" },
+    });
+    const customization = documentToLegacyCustomization(document);
+
+    expect(customization.mapsUrl).toBeUndefined();
+    expect(customization.mapsEmbedUrl).toBeUndefined();
+  });
 });

@@ -7,9 +7,10 @@
 // publicado, cada toggle salvo aqui mudava um JSON que ninguém consulta — a
 // pessoa desligava a galeria, via "salvo" e o site continuava com a galeria.
 //
-// Então a tela deixa de escrever e passa a LER do que está no ar (o snapshot
-// publicado). Quem quiser mudar tem um caminho só, o que o servidor de fato
-// aceita: liberar a edição e mexer no editor de 6 passos.
+// Então a tela deixa de escrever e passa a LER do que está no ar, pelas MESMAS
+// duas chamadas do site público (`publishedEventProjection` + `recursosDoSite`)
+// — não por uma conta própria. Quem quiser mudar tem um caminho só, o que o
+// servidor de fato aceita: liberar a edição e mexer no editor de 6 passos.
 //
 // O bloco de upsell tracejado ("com o plano X você desbloqueia") morreu junto:
 // desde 17/08 o Básico libera RSVP, recados e galeria (`lib/plans.ts`) e os
@@ -18,8 +19,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EVT_FONTS_CLASS } from "@/app/evt-fonts";
-import { RECURSOS_SITE, lerToggles, type RecursoSite, type TogglesSite } from "@/lib/recursos";
-import { publishedEditorDocument } from "@/lib/event-editor/public-document";
+import { RECURSOS_SITE, recursosDoSite, type RecursoSite } from "@/lib/recursos";
+import { publishedEventProjection } from "@/lib/event-editor/public-document";
+import { planoDoSite } from "@/lib/plans";
 import { estadoDoConvite, type EstadoConvite } from "@/lib/estadoConvite";
 import { edicaoAberta } from "@/lib/edicao";
 import { carregarEventoDono, voltarDe } from "../_carregar";
@@ -54,7 +56,10 @@ const APOIO: Record<EstadoConvite, string> = {
   "no-ar": "Isto é o que seus convidados veem hoje. Para mudar, libere a edição.",
   "fora-do-ar":
     "Isto é o que o convite mostra quando voltar ao ar. Para mudar, libere a edição.",
-  encerrada: "Isto é o que o convite mostrou até o dia da festa.",
+  // Presente, como o título e as pílulas: a festa passou, mas os recursos do
+  // convite continuam sendo os que estão aqui. Misturar "mostrou" (passado) com
+  // "Ativo" (presente) na mesma tela deixa o leitor sem saber qual vale.
+  encerrada: "A festa já passou e o site saiu do ar. Estes são os recursos do convite.",
   // Rascunho não chega aqui (redireciona para o editor), mas o mapa fica
   // completo para o dia em que um quinto estado nascer.
   rascunho: "Este convite ainda não foi publicado.",
@@ -79,28 +84,27 @@ export default async function RecursosPage({
   const estado = estadoDoConvite(event, agora);
   const selo = SELO_ESTADO[estado];
 
-  // A VERDADE do site publicado mora no snapshot. Sem snapshot (convite legado,
-  // publicado antes do editor novo), o site ainda lê o `customization` — e aí é
-  // dali que a tela tem de ler para não inventar.
-  const documento = publishedEditorDocument(event);
-  const ativos: TogglesSite = documento
-    ? {
-        rsvp: documento.rsvp.enabled,
-        presentes: documento.gifts.enabled,
-        // O contador não tem liga/desliga: `documentToRenderModel` o entrega
-        // sempre ligado (`lib/event-editor/render.ts`).
-        contador: true,
-        programacao: documento.schedule.program.enabled,
-        recados: documento.messages.enabled,
-        galeria: documento.gallery.enabled,
-      }
-    : lerToggles(event.customization);
+  // A MESMA DUPLA de chamadas das nove rotas públicas (`app/%5Fsites/[sub]/*`):
+  // primeiro a projeção do snapshot publicado — que substitui o `customization`
+  // inteiro pelo derivado do documento, e cai no evento cru quando não há
+  // snapshot (convite legado) —, depois `recursosDoSite`, que resolve
+  // **plano ∩ liga/desliga**.
+  //
+  // Ler só o liga/desliga daria o mesmo resultado hoje (nenhum plano trava
+  // recurso desde 17/08), mas seria uma segunda conta para a mesma pergunta: no
+  // dia em que um recurso virar degrau de plano, esta tela diria "ativo" sobre
+  // algo que o convidado não vê. É exatamente a mentira que a Task 11 veio matar.
+  const noAr = publishedEventProjection(event);
+  const ativos = recursosDoSite(planoDoSite(noAr, agora), noAr.customization);
 
-  // "Ativo NO SITE" só é verdade enquanto o site responde. Com o convite fora do
-  // ar (ou a festa encerrada) o selo passa a ser só "Ativo" / "Oculto": o
-  // contrário é um selo cinza dizendo "Festa encerrada" ao lado de seis
-  // dizendo "no site".
-  const sufixo = estado === "no-ar" ? " no site" : "";
+  // "no site" só é verdade enquanto o site responde: com o convite fora do ar
+  // (ou a festa encerrada), um selo cinza dizendo "Festa encerrada" ao lado de
+  // seis dizendo "no site" é contradição. As três pílulas trocam JUNTAS — o
+  // contador seguia sozinho em "Sempre ativo" e quebrava o padrão da coluna.
+  const ROTULO =
+    estado === "no-ar"
+      ? { ativo: "Ativo no site", oculto: "Oculto no site", sempre: "Sempre no site" }
+      : { ativo: "Ativo", oculto: "Oculto", sempre: "Sempre ativo" };
 
   // Mesma regra da tela do convite (Task 10): festa encerrada não tem o que
   // liberar (o servidor recusa o passe), e com a janela já aberta o destino é o
@@ -121,8 +125,12 @@ export default async function RecursosPage({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className={TITULO}>O que está no ar</h1>
-            <span className={selo.cls}>
-              {selo.icone ? <i className={`bi ${selo.icone} mr-1`} aria-hidden /> : null}
+            {/* O MESMO selo da lista e da tela do convite, com as duas partes
+                opcionais que elas renderizam — sem o pontinho, o "No ar" daqui
+                era um terceiro desenho do mesmo selo. */}
+            <span className={`${selo.cls} inline-flex items-center gap-1.5`}>
+              {selo.ponto ? <span className="size-1.5 rounded-full bg-current" /> : null}
+              {selo.icone ? <i className={`bi ${selo.icone}`} aria-hidden /> : null}
               {selo.texto}
             </span>
           </div>
@@ -176,12 +184,12 @@ export default async function RecursosPage({
                 {on ? (
                   <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-teal/10 px-2.5 py-1 text-[11px] font-semibold text-scv-teal-ink">
                     <i className="bi bi-check2" aria-hidden />
-                    {sempre ? "Sempre ativo" : `Ativo${sufixo}`}
+                    {sempre ? ROTULO.sempre : ROTULO.ativo}
                   </span>
                 ) : (
                   <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-scv-card px-2.5 py-1 text-[11px] font-semibold text-scv-muted">
                     <i className="bi bi-eye-slash" aria-hidden />
-                    {`Oculto${sufixo}`}
+                    {ROTULO.oculto}
                   </span>
                 )}
               </div>
