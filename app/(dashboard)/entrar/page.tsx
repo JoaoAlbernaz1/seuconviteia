@@ -1,9 +1,24 @@
 "use client";
 
-// Entrar / Criar conta — card central com abas (mockup DARK). As duas abas
-// usam as server actions existentes (`entrarComCredenciais` / `cadastrar-
-// Profissional`); o cadastro pede so nome+e-mail+senha (plano começa no
-// Básico; troca depois em /painel/plano).
+// Entrar / Criar conta — porta de entrada em DUAS METADES: vitrine do produto à
+// esquerda, formulário à direita.
+//
+// Era um cartão de 400px centralizado num fundo vazio: o desenho que todo SaaS
+// gerado por IA tem. O problema não era só estética — a primeira tela do produto
+// não dizia o que o produto faz. Agora a metade esquerda mostra o convite pronto
+// (ver `_Vitrine.tsx`) e a direita cuida do que a pessoa vem fazer aqui.
+//
+// A LÓGICA NÃO MUDOU: as mesmas abas, as mesmas server actions
+// (`entrarComCredenciais` / `cadastrarProfissional`), o mesmo `?plano=` vindo da
+// landing e o mesmo aviso de LGPD. Só o invólucro é novo.
+//
+// O que eu deliberadamente NÃO copiei da referência que o dono mandou:
+//  - Botões "Entrar com Google / Apple": este app só tem login por e-mail e
+//    senha (Auth.js com Credentials). Botão que não loga é mentira na tela.
+//  - Link "Esqueci minha senha": não existe recuperação em lugar nenhum do
+//    sistema, e link morto na porta de entrada é pior do que a ausência dele.
+//    Quando a recuperação existir (precisa de e-mail configurado), o lugar dele
+//    é ao lado do rótulo da senha.
 import { Suspense, useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -15,13 +30,14 @@ import {
 import { INPUT, BTN_PRIMARIO } from "../painel/_ui/estilos";
 import { PLANOS_INFO } from "@/lib/plans";
 import { formatarTelefone } from "@/lib/documento";
+import { Vitrine } from "./_Vitrine";
 
 function Erro({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <p className="mt-1 text-xs text-red-600">{msg}</p>;
 }
 
-function CardEntrar() {
+function Formulario() {
   const params = useSearchParams();
   const [aba, setAba] = useState<"entrar" | "criar">(
     params.get("criar") != null ? "criar" : "entrar",
@@ -44,42 +60,48 @@ function CardEntrar() {
 
   const criar = aba === "criar";
   const abaCls = (ativa: boolean) =>
-    `flex-1 rounded-full py-2.5 text-[13px] font-semibold transition ${
-      ativa ? "bg-scv-btn text-scv-btn-ink" : "text-scv-muted hover:text-scv-ink"
+    `flex-1 cursor-pointer rounded-full py-2.5 text-[13px] font-semibold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+      ativa
+        ? "bg-scv-card text-scv-ink shadow-[0_6px_16px_-10px_rgba(15,23,42,0.4)]"
+        : "text-scv-muted hover:text-scv-ink"
     }`;
 
   return (
-    <div className="scv-fade w-full max-w-[400px] rounded-[22px] border border-scv-line bg-scv-card p-8 text-center shadow-[0_28px_60px_-34px_rgba(15,23,42,0.14)]">
+    <div className="w-full max-w-[404px]">
+      {/* Identidade também na metade do formulário: abaixo de 1024px a vitrine
+          não é renderizada, e sem isto o celular abriria num formulário sem
+          marca nenhuma. */}
       <span
-        className="mx-auto grid size-11 place-items-center rounded-xl text-[15px] font-bold text-white"
+        className="grid size-10 place-items-center rounded-xl text-[14px] font-bold text-white lg:hidden"
         style={{ background: "var(--grad-faisca)" }}
         aria-hidden
       >
         sc
       </span>
-      <h1 className="mt-3.5 font-display text-[25px] font-semibold text-scv-ink">
-        Bem-vindo(a)
+
+      <p className="mt-6 inline-flex items-center rounded-full bg-scv-lilac px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-scv-violet lg:mt-0">
+        {criar ? "Criar conta" : "Entrar"}
+      </p>
+      <h1 className="mt-3 font-display text-[30px] font-semibold leading-[1.1] tracking-tight text-scv-ink">
+        {criar ? "Vamos criar o convite" : "Que bom ter você de volta"}
       </h1>
-      <p className="mt-2 text-[13.5px] leading-relaxed text-scv-muted">
+      <p className="mt-2.5 text-[14px] leading-relaxed text-scv-muted">
         {criar && planoEscolhido ? (
           <>
             Teste o{" "}
             <strong className="font-semibold text-scv-ink">
               {PLANOS_INFO.find((p) => p.key === planoEscolhido)?.label}
             </strong>{" "}
-            por 7 dias grátis.
-            <br />
-            Crie sua conta — o cartão vem na próxima tela.
+            por 7 dias grátis. O cartão vem na próxima tela.
           </>
+        ) : criar ? (
+          <>Em minutos, para a sua festa ou para a festa do seu cliente.</>
         ) : (
-          <>
-            Crie o site da sua festa em minutos —<br />
-            para você ou para seus clientes.
-          </>
+          <>Entre para continuar cuidando dos seus convites.</>
         )}
       </p>
 
-      <div className="my-5 flex rounded-full bg-scv-soft p-1" role="tablist">
+      <div className="my-6 flex rounded-full bg-scv-soft p-1" role="tablist">
         <button
           type="button"
           role="tab"
@@ -146,7 +168,7 @@ function CardEntrar() {
           {/* Para quem estamos vendendo. Muda a linguagem do painel e é a
               pergunta que todo SaaS faz no cadastro — em uma linha, não num
               questionário. */}
-          <div>
+          <div className="mt-0.5">
             <p className="mb-1.5 text-[12.5px] font-semibold text-scv-muted">Você vai usar para</p>
             <input type="hidden" name="perfilUso" value={perfilUso} />
             <div className="flex gap-2">
@@ -160,10 +182,10 @@ function CardEntrar() {
                   key={valor}
                   type="button"
                   onClick={() => setPerfilUso(valor)}
-                  className={`flex-1 rounded-[11px] border px-3 py-2.5 text-[12.5px] font-semibold transition ${
+                  className={`flex-1 cursor-pointer rounded-[11px] border px-3 py-2.5 text-[12.5px] font-semibold transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                     perfilUso === valor
                       ? "border-scv-violet bg-scv-lilac text-scv-violet"
-                      : "border-scv-line text-scv-muted hover:text-scv-ink"
+                      : "border-scv-line text-scv-muted hover:border-scv-violet/40 hover:text-scv-ink"
                   }`}
                 >
                   {rotulo}
@@ -176,12 +198,16 @@ function CardEntrar() {
               {signupState.error}
             </p>
           ) : null}
-          <button type="submit" disabled={signupPending} className={`${BTN_PRIMARIO} mt-1 w-full`}>
+          <button
+            type="submit"
+            disabled={signupPending}
+            className={`${BTN_PRIMARIO} mt-1.5 w-full active:scale-[0.99]`}
+          >
             {signupPending ? "Criando…" : "Criar minha conta"}
           </button>
           {/* LGPD: a conta passou a guardar telefone (e o checkout guarda
               CPF/CNPJ). Consentimento tem de estar à vista de quem envia. */}
-          <p className="text-center text-[11.5px] leading-relaxed text-scv-faint">
+          <p className="text-[11.5px] leading-relaxed text-scv-faint">
             Ao criar a conta você aceita os{" "}
             <a href="/termos" className="underline hover:text-scv-ink">
               Termos de uso
@@ -217,14 +243,20 @@ function CardEntrar() {
               {loginState.error}
             </p>
           ) : null}
-          <button type="submit" disabled={loginPending} className={`${BTN_PRIMARIO} mt-1 w-full`}>
+          <button
+            type="submit"
+            disabled={loginPending}
+            className={`${BTN_PRIMARIO} mt-1.5 w-full active:scale-[0.99]`}
+          >
             {loginPending ? "Entrando…" : "Entrar"}
           </button>
         </form>
       )}
 
-      <div className="mt-4 text-[11.5px] text-scv-faint">
+      <div className="mt-6 flex items-center gap-2 text-[11.5px] text-scv-faint">
+        <span className="h-px flex-1 bg-scv-line" />
         Grátis para começar · sem cartão
+        <span className="h-px flex-1 bg-scv-line" />
       </div>
     </div>
   );
@@ -232,10 +264,22 @@ function CardEntrar() {
 
 export default function EntrarPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <Suspense fallback={null}>
-        <CardEntrar />
-      </Suspense>
+    // `100dvh` e não `100vh`: no Safari do iPhone a barra de endereço muda de
+    // tamanho no meio da rolagem e o `vh` faz a tela pular.
+    <div className="grid min-h-[100dvh] place-items-center p-4 sm:p-6">
+      {/* Moldura dupla: a casca de fora com fio de cabelo e respiro de 6px, o
+          miolo com o raio calculado para as curvas ficarem concêntricas. É o que
+          separa "cartão colado no fundo" de peça assentada. */}
+      <div className="w-full max-w-[1120px] rounded-[34px] bg-scv-soft/60 p-1.5 ring-1 ring-black/[0.06] shadow-[0_50px_100px_-60px_rgba(15,23,42,0.45)]">
+        <div className="grid overflow-hidden rounded-[28px] bg-scv-card lg:min-h-[660px] lg:grid-cols-[1.05fr_1fr]">
+          <Vitrine />
+          <div className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-12">
+            <Suspense fallback={null}>
+              <Formulario />
+            </Suspense>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
