@@ -27,6 +27,7 @@ import {
   temPasseIncluido,
 } from "@/lib/edicao";
 import { planoEfetivo } from "@/lib/plans";
+import { publishedEditorDocument } from "@/lib/event-editor/public-document";
 import { carregarEventoDono, hostDoEvento, lerCustomStr } from "../_carregar";
 import { CapaEvento } from "../../_ui/CapaEvento";
 import { TopoCartao } from "../../_ui/TopoCartao";
@@ -66,6 +67,21 @@ export default async function LiberarPage({
   const publicadoEm = event.publishedAt ? DATA_CURTA.format(event.publishedAt) : null;
 
   const encerrado = conviteEncerrado(event, agora);
+
+  // Esta é a única tela onde alguém paga para mexer no convite — então é aqui
+  // que precisa estar escrito que consertar a chave Pix NÃO se paga (nem gasta
+  // liberação do plano): ela tem porta própria em Recebimentos. Sem esta linha o
+  // conserto de graça existe e ninguém acha, e a pessoa paga R$ 19,90 por aquilo
+  // que decidimos não vender.
+  //
+  // Só aparece quando há Pix DE VERDADE no ar (chave preenchida e seção ligada),
+  // pela mesma ordem que o site usa para renderizar: snapshot publicado primeiro,
+  // `customization` legado depois. Em convite sem Pix a linha seria ruído — e
+  // ruído numa tela de pagamento custa a confiança dela.
+  const publicado = publishedEditorDocument(event);
+  const pixNoConvite = publicado
+    ? publicado.pix.enabled && publicado.pix.key.trim() !== ""
+    : !!lerCustomStr(event.customization, "pixChave");
   // O chapeu diz o estado REAL do convite. Fixo em "Convite publicado" ele
   // contradizia o proprio corpo da tela nos dois casos em que o site nao esta no
   // ar — e chapeu que mente e pior do que chapeu nenhum.
@@ -129,6 +145,7 @@ export default async function LiberarPage({
           incluidosRestantes={incluidosRestantes}
           encerrado={encerrado}
           foraDoAr={event.foraDoAr}
+          pixNoConvite={pixNoConvite}
         />
       </div>
     </div>

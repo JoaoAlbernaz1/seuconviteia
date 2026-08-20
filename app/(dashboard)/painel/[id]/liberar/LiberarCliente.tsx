@@ -47,6 +47,7 @@ export function LiberarCliente({
   incluidosRestantes,
   encerrado,
   foraDoAr,
+  pixNoConvite,
 }: {
   eventId: string;
   /** Nome do convite: no Pix a capa pode ter saido da tela (celular). */
@@ -60,6 +61,8 @@ export function LiberarCliente({
   encerrado: boolean;
   /** O dono tirou o site do ar — a frase da garantia muda. */
   foraDoAr: boolean;
+  /** O convite mostra uma chave Pix hoje: existe conserto de graça a apontar. */
+  pixNoConvite: boolean;
 }) {
   const router = useRouter();
   const [pix, setPix] = useState<{ code: string; qr: string } | null>(null);
@@ -387,6 +390,29 @@ export function LiberarCliente({
                 </>
               )}
             </div>
+
+            {/* O caminho GRÁTIS, dito na única tela onde se paga.
+                Vem DEPOIS da decisão de propósito: acima dela roubaria a atenção
+                de quem precisa liberar o site inteiro; escondido, deixaria
+                alguém pagar R$ 19,90 (ou gastar a liberação do plano) por aquilo
+                que decidimos não vender — consertar a chave que manda o dinheiro
+                do convidado para um estranho.
+                `!text-` E `!underline` pelo mesmo motivo documentado em
+                `ListaConvites`: regra de `a` fora das @layer vence utility. */}
+            {pixNoConvite ? (
+              <div className="mt-5 border-t border-scv-line pt-4">
+                <p className="text-[12.5px] leading-relaxed text-scv-muted">
+                  Só a chave Pix do convite está errada? Isso se conserta de graça, sem
+                  passe e sem gastar liberação do plano.
+                </p>
+                <Link
+                  href={`/painel/${eventId}/cofre`}
+                  className="-mb-2 inline-flex min-h-[44px] items-center text-[12.5px] font-semibold !text-scv-ink !underline underline-offset-4 transition-colors hover:!text-scv-muted"
+                >
+                  Corrigir a chave Pix em Recebimentos
+                </Link>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
