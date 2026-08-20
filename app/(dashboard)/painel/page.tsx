@@ -107,16 +107,15 @@ export default async function DashboardPage() {
   const hora = evento ? HORA.format(evento.eventDate) : "";
   const dataPontos = evento ? DMY.format(evento.eventDate).replace(/\//g, " · ") : "";
 
-  // Progresso: site publicado = 100%; senão, heurística por preenchimento.
+  // Progresso do rascunho (o anel só vive ali): heurística por preenchimento.
   const feitos = evento
     ? [!!fotoUrl, evento._count.gifts > 0, evento._count.guests > 0, !!local].filter(Boolean).length
     : 0;
-  // Vaga no plano — perguntada SO quando o convite em destaque ja esta
-  // publicado (e o unico caso em que o CTA do topo oferece comecar outro).
-  // O `&&` corta antes do `await`: em rascunho a query nem sai.
+  // Vaga no plano — perguntada sempre que ja existe um convite, porque o CTA do
+  // topo oferece COMECAR outro em qualquer estado do convite em destaque
+  // (inclusive rascunho: terminar o que esta la e trabalho do card).
   const podeCriarOutro =
     !!evento &&
-    !rascunho &&
     podeCriarEvento(
       plano,
       await prisma.event.count({
@@ -128,7 +127,11 @@ export default async function DashboardPage() {
   // Ele levava ao editor com qualquer convite — e, quando a edição passou a ser
   // fechada depois de publicar (`lib/edicao`), virou "Gerenciar convite": o
   // mesmo rótulo, a mesma cor e o mesmo destino do botão do card, duas vezes na
-  // mesma tela.
+  // mesma tela. A mesma duplicata sobrevivia no RASCUNHO ("Continuar edição"
+  // nos dois, mesmo violeta, mesmo `/painel/criar?id=`), o que era pior do que
+  // ter o problema nos dois estados: a tela resolvia num e repetia no outro.
+  // Por isso a divisão de nível não tem exceção — o topo é o cabeçalho da
+  // CONTA, o card é o do CONVITE.
   //
   // Sem vaga no plano ele NÃO some — é a regra que a lista, o seletor da topbar
   // e a tela do convite já seguem ("ele não some, ele DIZ o que falta"): sumir
@@ -144,11 +147,9 @@ export default async function DashboardPage() {
   // brigar.
   const cta = !evento
     ? { href: "/painel/criar", label: "Criar meu convite", icone: IC.plus, forte: true }
-    : rascunho
-      ? { href: `/painel/criar?id=${evento.id}`, label: "Continuar edição", icone: IC.edit, forte: true }
-      : podeCriarOutro
-        ? { href: "/painel/criar", label: "Novo convite", icone: IC.plus, forte: true }
-        : { href: "/painel/plano", label: "Mais convites", icone: IC.lock, forte: false };
+    : podeCriarOutro
+      ? { href: "/painel/criar", label: "Novo convite", icone: IC.plus, forte: true }
+      : { href: "/painel/plano", label: "Mais convites", icone: IC.lock, forte: false };
 
   // O anel mede MONTAGEM, e montagem só está acontecendo no rascunho: publicado
   // ele marcava sempre 100% (o site está montado), um círculo mudo ao lado do
