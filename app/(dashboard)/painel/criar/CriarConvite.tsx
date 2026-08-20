@@ -37,6 +37,7 @@ import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
 import { activeDraftPointerKey, esquecerRascunhoLocal, localDraftKey, versaoInicialDoRascunho } from "@/lib/event-editor/local-draft";
 import { eventPublicUrl, rootDomain } from "@/lib/tenant";
+import { ehReservado } from "@/lib/slug";
 import { EscolherModelo } from "./EscolherModelo";
 import { BotaoBloqueado, RecursoBloqueado } from "@/components/plano/RecursoBloqueado";
 
@@ -632,7 +633,11 @@ export function CriarConvite({
   // Fila de um só: o save em curso, para o próximo esperar em vez de correr junto.
   const filaGravacao = useRef<Promise<SalvarDocumentoResult> | null>(null);
   const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
-  const [pubInfo, setPubInfo] = useState<{ host: string; url: string; publicadoEm: string; cortesiaAte: string | null } | null>(null);
+  // `pedido` e o endereco que a pessoa DIGITOU. Guardado porque quem decide o
+  // endereco final e o servidor (`gerarSlugUnico`): com o nome ja ocupado por
+  // outro profissional, ele emenda `-2` — e a partir dai congela. Sem comparar
+  // os dois, a tela dava os parabens com um endereco que nao e o dela.
+  const [pubInfo, setPubInfo] = useState<{ host: string; url: string; pedido: string; publicadoEm: string; cortesiaAte: string | null } | null>(null);
   const [erroPub, setErroPub] = useState<string | null>(null);
   // Publicar em DOIS toques: o primeiro so revela a confirmacao. Publicar fecha
   // o site, e fechar por engano custa dinheiro — mas `window.confirm` e um
@@ -965,12 +970,17 @@ export function CriarConvite({
 
   const req = (v: string) => !!v && v.trim().length > 0;
   const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
-  const slugTaken = ["maria15", "festa15"].includes(S.slug);
+  // `ehReservado` de `lib/slug`, a MESMA lista que o servidor usa. O que estava
+  // aqui era uma lista inventada de dois nomes: `admin` passava com o visto
+  // verde e o servidor devolvia `admin-2`, ja congelado. Unicidade de verdade
+  // continua sendo pergunta do servidor — e por isso o rotulo abaixo nao promete
+  // mais o endereco, so o formato.
+  const slugReservado = ehReservado(S.slug);
   // Endereco travado nao tem o que validar: quem manda e a coluna `subdomain`,
   // que o servidor nem le do rascunho. Sem esta saida, um rascunho com slug
   // esquisito reprovava no checklist e barrava o "Publicar alteracoes" de um
   // convite cujo link ja esta com os convidados.
-  const slugOk = slugTravado || (slugValid && !slugTaken);
+  const slugOk = slugTravado || (slugValid && !slugReservado);
   // Obrigatórios por passo: nome na Capa (passo 1); data/local no Conteúdo (passo 2);
   // link/endereço no Revisar (passo final, antes de publicar).
   const reqNome = req(S.nome);
@@ -1003,6 +1013,16 @@ export function CriarConvite({
   const slugExibido = (slugTravado ? subdomainPublicado : null) ?? S.slug;
   const linkPublico = pubInfo?.url ?? eventPublicUrl(slugExibido, ROOT_DOMAIN);
   const hostPublico = pubInfo?.host ?? `${slugExibido}.${ROOT_DOMAIN}`;
+  /**
+   * O servidor mudou o endereco que a pessoa pediu?
+   *
+   * Compara SLUG com SLUG (e nao host com host): o servidor devolve o host sem
+   * a porta, e em dev o `ROOT_DOMAIN` tem `:3000` — comparar os dois acusaria
+   * troca em toda publicacao local. So vale na primeira publicacao, a unica em
+   * que existe um endereco pedido (depois disso o campo nem e editavel).
+   */
+  const enderecoTrocado =
+    pubInfo && !slugTravado && pubInfo.pedido ? pubInfo.host.split(".")[0] !== pubInfo.pedido : false;
 
   const copyLink = () => {
     navigator.clipboard?.writeText(linkPublico).catch(() => {});
@@ -1120,6 +1140,7 @@ export function CriarConvite({
         setPubInfo({
           host: published.host,
           url: published.url,
+          pedido: S.slug,
           publicadoEm: published.publishedAt,
           // `fimDaCortesia` e não a conta na mão: quem define o prazo é
           // `lib/edicao`, a mesma função que o servidor grava no banco.
@@ -2634,7 +2655,11 @@ export function CriarConvite({
                       </div>
                       <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
                         <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
-                        {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
+                        {slugReservado
+                          ? "Este endereço é reservado. Escolha outro."
+                          : slugOk
+                            ? "Formato válido — confirmamos o endereço final ao publicar"
+                            : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
                       </div>
                     </>
                   )}
@@ -2834,6 +2859,17 @@ export function CriarConvite({
             </div>
             <div className="text-[22px] font-extrabold tracking-[-0.02em]">Seu convite está no ar</div>
             <div className="mb-4 mt-2 text-[13.5px] leading-relaxed text-[#6e6e76]">Compartilhe o link com os convidados e acompanhe tudo pelo painel.</div>
+            {/* O endereço é decidido no servidor e CONGELA aqui. Se ele não é o
+                que a pessoa pediu, ela precisa saber agora — antes de mandar o
+                link no WhatsApp e antes de a edição fechar. */}
+            {enderecoTrocado && pubInfo && (
+              <div className="mb-4 rounded-[12px] bg-scv-warn-bg px-3.5 py-3 text-left text-[12.5px] leading-relaxed text-scv-warn-ink">
+                <i className="bi bi-info-circle mr-1.5" aria-hidden />
+                O endereço que você pediu (<strong className="font-semibold">{pubInfo.pedido}</strong>) já
+                estava em uso — o seu ficou{" "}
+                <strong className="font-semibold">{pubInfo.host.split(".")[0]}</strong>.
+              </div>
+            )}
             {/* A CORTESIA, no único lugar em que ela é acionável: a pessoa
                 acabou de publicar e é AGORA que ela relê o convite e acha o
                 erro de digitação. Escondida, a rede que existe para esse erro

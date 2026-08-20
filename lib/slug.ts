@@ -9,7 +9,15 @@ import { RESERVED, slugify } from "./tenant";
 /** Slug usado quando o nome do evento nao gera nenhum caractere valido. */
 const FALLBACK = "evento";
 
-function ehReservado(slug: string): boolean {
+/**
+ * Este slug e uma palavra RESERVADA (nunca vira subdominio de evento)?
+ *
+ * Exportada porque a TELA precisa da mesma resposta: o editor validava o
+ * endereco contra uma lista inventada (`["maria15","festa15"]`) e dizia
+ * "disponivel" para `admin` — que o servidor recusa e emenda `-2`. Duas listas
+ * divergem; esta e a unica.
+ */
+export function ehReservado(slug: string): boolean {
   return (RESERVED as readonly string[]).includes(slug);
 }
 

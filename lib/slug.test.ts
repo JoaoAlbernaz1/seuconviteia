@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gerarSlugUnico } from "./slug";
+import { ehReservado, gerarSlugUnico } from "./slug";
 
 const nuncaExiste = async () => false;
 
@@ -27,6 +27,16 @@ describe("gerarSlugUnico", () => {
   it("trata palavras reservadas como ocupadas", async () => {
     expect(await gerarSlugUnico("app", nuncaExiste)).toBe("app-2");
     expect(await gerarSlugUnico("admin", nuncaExiste)).toBe("admin-2");
+  });
+
+  // A TELA usa a mesma funcao (`CriarConvite.tsx`): a lista inventada que
+  // estava la dizia "disponivel" para `admin`, e o servidor devolvia `admin-2`
+  // ja congelado. Uma lista so, e este par prova que as duas concordam.
+  it("`ehReservado` concorda com o que `gerarSlugUnico` recusa", async () => {
+    expect(ehReservado("admin")).toBe(true);
+    expect(ehReservado("app")).toBe(true);
+    expect(ehReservado("maria15")).toBe(false);
+    expect(await gerarSlugUnico("maria15", nuncaExiste)).toBe("maria15");
   });
 
   it("usa 'evento' como base quando o slug fica vazio", async () => {
