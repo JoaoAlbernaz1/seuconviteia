@@ -40,6 +40,14 @@ const DATA_HORA = new Intl.DateTimeFormat("pt-BR", {
 /** Quantos recados a pagina serve por vez (o "carregar mais" soma outro lote). */
 const LOTE = 200;
 
+/**
+ * Teto de uma pagina so. Acima disso a resposta fica grande demais para o
+ * navegador do celular, e nenhum "carregar mais" resolve — o que resolve e o
+ * filtro. Quando o teto e alcancado o BOTAO SOME e uma linha explica por que:
+ * botao que nao muda a tela e pior do que botao nenhum.
+ */
+const TETO = 2000;
+
 export default async function RecadosPainelPage({
   params,
   searchParams,
@@ -56,7 +64,7 @@ export default async function RecadosPainelPage({
   const filtro: FiltroRecados =
     so(sp.filtro) === "ocultos" ? "ocultos" : so(sp.filtro) === "visiveis" ? "visiveis" : "todos";
   const pedido = Number.parseInt(so(sp.ate) ?? "", 10);
-  const ate = Math.min(Number.isFinite(pedido) && pedido > LOTE ? pedido : LOTE, 2000);
+  const ate = Math.min(Number.isFinite(pedido) && pedido > LOTE ? pedido : LOTE, TETO);
 
   const [total, noSite] = await Promise.all([
     prisma.recado.count({ where: { eventId: event.id } }),
@@ -84,6 +92,11 @@ export default async function RecadosPainelPage({
 
   const noFiltro = filtro === "todos" ? total : filtro === "visiveis" ? noSite : ocultos;
   const restam = Math.max(noFiltro - recados.length, 0);
+  // O proximo lote so existe se ele couber abaixo do teto; se nao couber, o
+  // link pediria `?ate=2200`, o servidor truncaria em 2000 e a pagina voltaria
+  // igual — um clique que nao faz nada.
+  const proximo = Math.min(ate + LOTE, TETO);
+  const podeMais = proximo > ate;
 
   // "No site" so e verdade enquanto o site responde — a mesma licao da tela de
   // Recursos. Com o convite fora do ar (ou a festa encerrada), um selo verde
@@ -173,7 +186,11 @@ export default async function RecadosPainelPage({
                   }`}
                 >
                   {a.texto}
-                  <span className={ativa ? "opacity-80" : "opacity-70"}>{a.n}</span>
+                  {/* Sem `opacity`: a 12,5px ela derrubava o numero para 4,07:1
+                      (inativa) e 4,19:1 (ativa) — reprovado no AA, e o numero e
+                      justamente o dado da aba. A hierarquia ja vem do peso e do
+                      fundo da pilula. */}
+                  <span>{a.n}</span>
                 </Link>
               );
             })}
@@ -193,12 +210,19 @@ export default async function RecadosPainelPage({
             <span className="text-[12.5px] text-scv-muted">
               Mostrando {recados.length} de {noFiltro}
             </span>
-            <Link
-              href={`${base}?${filtro === "todos" ? "" : `filtro=${filtro}&`}ate=${ate + LOTE}`}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[10px] border border-scv-line bg-scv-card px-4 text-[13px] font-semibold !text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field"
-            >
-              Carregar mais {Math.min(restam, LOTE)}
-            </Link>
+            {podeMais ? (
+              <Link
+                href={`${base}?${filtro === "todos" ? "" : `filtro=${filtro}&`}ate=${proximo}`}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[10px] border border-scv-line bg-scv-card px-4 text-[13px] font-semibold !text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field"
+              >
+                Carregar mais {Math.min(restam, proximo - ate)}
+              </Link>
+            ) : (
+              <span className="text-[12.5px] text-scv-muted">
+                Esta é a maior lista que cabe numa página. Use o filtro para
+                chegar nos escondidos.
+              </span>
+            )}
           </div>
         ) : null}
       </div>
