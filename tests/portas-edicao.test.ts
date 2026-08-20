@@ -14,6 +14,7 @@ import { legacyEventToDocument } from "@/lib/event-editor/legacy";
 import { CORTESIA_MINUTOS } from "@/lib/edicao";
 import { calcularExpiracao } from "@/lib/dates";
 import { eventoPublico } from "@/lib/event";
+import { publishedEventProjection } from "@/lib/event-editor/public-document";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
@@ -40,6 +41,7 @@ const { salvarDocumentoConvite, publicarDocumentoConvite } = await import(
   "@/app/(dashboard)/painel/criar/acoes"
 );
 const { adicionarConvidado } = await import("@/app/(dashboard)/painel/acoes");
+const { salvarPixDoConvite } = await import("@/lib/cofre");
 
 const FECHADO = "Este convite está publicado. Libere a edição para mexer no site.";
 
@@ -237,6 +239,81 @@ describe("portas do editor no convite fechado", () => {
     });
     const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(depois.expiresAt.getTime()).toBe(event.expiresAt.getTime());
+  });
+
+  // A EXCECAO deliberada ao convite fechado: a chave Pix que o convidado copia.
+  // Errada, ela manda o dinheiro do convidado para um estranho a cada minuto —
+  // e cobrar R$ 19,90 de passe para consertar isso seria vender a correcao de um
+  // estrago nosso. Por isso ela tem porta propria, no cofre, e vale NA HORA:
+  // grava no snapshot publicado (o que o site le) e no rascunho (para a proxima
+  // publicacao nao devolver a chave errada).
+  it.skipIf(!enabled)("o convite fechado corrige a chave Pix que aparece no site", async () => {
+    const db = prisma!;
+    const { event, document } = await convite(db, {
+      status: "PUBLISHED",
+      publishedAt: new Date("2026-01-01T00:00:00Z"),
+      publishedVersion: 1,
+      edicaoAte: new Date(Date.now() - 60_000), // fechado ha um minuto
+    });
+    const errada = { ...document, pix: { enabled: true, name: "Nome errado", key: "chave@errada.test" } };
+    await db.event.update({
+      where: { id: event.id },
+      data: {
+        publishedData: errada as unknown as Prisma.InputJsonValue,
+        draftData: errada as unknown as Prisma.InputJsonValue,
+      },
+    });
+    // Confere o ponto de partida pelo MESMO caminho do site publico.
+    expect(publishedEventProjection(await db.event.findUniqueOrThrow({ where: { id: event.id } })).customization)
+      .toMatchObject({ pixChave: "chave@errada.test" });
+
+    // A porta do editor continua fechada para tudo o mais.
+    expect(await salvarDocumentoConvite({ id: event.id, expectedVersion: 1, document: errada })).toEqual({
+      ok: false,
+      kind: "fechado",
+      error: FECHADO,
+    });
+
+    const form = new FormData();
+    form.set("eventId", event.id);
+    form.set("pixKey", "maria@certa.test");
+    form.set("pixName", "Maria Clara Souza");
+    await salvarPixDoConvite(form);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: event.id } });
+    // O que o convidado ve HOJE (projecao do publicado) ja e a chave certa...
+    expect(publishedEventProjection(depois).customization).toMatchObject({
+      pixChave: "maria@certa.test",
+      pixNome: "Maria Clara Souza",
+    });
+    // ...e o rascunho tambem, senao a proxima publicacao devolvia a errada.
+    expect((depois.draftData as { pix: { key: string } }).pix.key).toBe("maria@certa.test");
+    // Nada mais do site se moveu.
+    expect((depois.publishedData as { basic: { name: string } }).basic.name).toBe(document.basic.name);
+    expect(depois.draftVersion).toBe(1);
+  });
+
+  it.skipIf(!enabled)("chave Pix do convite alheio nao se mexe", async () => {
+    const db = prisma!;
+    const a = await convite(db, { status: "PUBLISHED" });
+    await db.event.update({
+      where: { id: a.event.id },
+      data: {
+        publishedData: {
+          ...a.document,
+          pix: { enabled: true, name: "Dona A", key: "a@dona.test" },
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+    await convite(db, { status: "PUBLISHED" }); // a sessao passa a ser a do B
+
+    const form = new FormData();
+    form.set("eventId", a.event.id);
+    form.set("pixKey", "ladrao@pix.test");
+    await salvarPixDoConvite(form);
+
+    const depois = await db.event.findUniqueOrThrow({ where: { id: a.event.id } });
+    expect((depois.publishedData as { pix: { key: string } }).pix.key).toBe("a@dona.test");
   });
 
   it.skipIf(!enabled)("rascunho com data vencida SALVA, mas nao publica", async () => {

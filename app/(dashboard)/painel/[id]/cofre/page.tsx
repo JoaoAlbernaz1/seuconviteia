@@ -15,7 +15,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { carregarEventoDono, hostDoEvento, urlDoEvento, voltarDe } from "../_carregar";
-import { salvarChavePix, resgatar } from "@/lib/cofre";
+import { salvarChavePix, salvarPixDoConvite, resgatar } from "@/lib/cofre";
+import { publishedEditorDocument } from "@/lib/event-editor/public-document";
 import { lerCarteira, mascararCpf } from "@/lib/carteira";
 import { saldoDoEvento } from "@/lib/pagamentos/contribuicao";
 import { AtivarCarteira } from "./AtivarCarteira";
@@ -167,6 +168,86 @@ export default async function CofrePage({
     </div>
   );
 
+  /**
+   * A chave que APARECE no convite (Pix direto: o convidado copia e paga pelo
+   * próprio banco). Sai do snapshot publicado — que é o que está no ar agora —
+   * e cai no `customization` legado quando não há snapshot válido, a MESMA
+   * ordem que o site usa para renderizar.
+   *
+   * Este campo existe fora do editor de propósito: o convite publicado fecha
+   * para edição, e chave errada no ar manda o dinheiro do convidado para um
+   * estranho a cada minuto. Consertar isso não pode custar um passe.
+   */
+  const publicado = publishedEditorDocument(event);
+  const legado = (event.customization ?? {}) as { pixNome?: unknown; pixChave?: unknown };
+  const pixConvite = {
+    key: publicado?.pix.key ?? (typeof legado.pixChave === "string" ? legado.pixChave : ""),
+    name: publicado?.pix.name ?? (typeof legado.pixNome === "string" ? legado.pixNome : ""),
+  };
+  const pixDesligado = publicado ? !publicado.pix.enabled : false;
+
+  const pixDoConvite = (
+    <div className={`${CARD} p-4 sm:p-5`}>
+      <div className="flex items-center gap-2.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-scv-lilac text-scv-violet">
+          <i className="bi bi-qr-code text-[16px]" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-semibold text-scv-ink">Pix que aparece no convite</div>
+          <div className="text-[12.5px] text-scv-muted">
+            É a chave que o convidado copia na página de presentes e paga pelo banco dele.
+          </div>
+        </div>
+      </div>
+      {pixDesligado && (
+        <p className="mt-3 flex items-start gap-1.5 rounded-[11px] bg-scv-field px-3 py-2 text-[12px] text-scv-warn-ink">
+          <i className="bi bi-eye-slash mt-[2px]" aria-hidden />
+          O Pix direto está desligado neste convite: hoje esta chave não aparece para
+          os convidados. Ligue de novo no editor, na etapa de presentes.
+        </p>
+      )}
+      <form action={salvarPixDoConvite} className="mt-4 grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="eventId" value={event.id} />
+        <div>
+          <label className={LABEL} htmlFor="convitePixKey">Chave Pix exibida no convite</label>
+          <input
+            id="convitePixKey"
+            name="pixKey"
+            defaultValue={pixConvite.key}
+            placeholder="CPF, e-mail, telefone ou chave aleatória"
+            required
+            maxLength={200}
+            className={`${INPUT} text-[13.5px]`}
+          />
+        </div>
+        <div>
+          <label className={LABEL} htmlFor="convitePixName">Nome que o convidado vê</label>
+          <input
+            id="convitePixName"
+            name="pixName"
+            defaultValue={pixConvite.name}
+            placeholder="Ex.: Maria Clara Souza"
+            maxLength={140}
+            className={`${INPUT} text-[13.5px]`}
+          />
+        </div>
+        <div className="sm:col-span-2 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <p className="flex items-start gap-1.5 text-[11.5px] text-scv-faint">
+            <i className="bi bi-lightning-charge mt-[2px]" aria-hidden />
+            Vale no site na hora, mesmo com a edição do convite fechada. Não é a chave
+            de resgate — essa continua só sua.
+          </p>
+          <button
+            type="submit"
+            className="mt-3 cursor-pointer rounded-[11px] border border-scv-line bg-scv-card px-4 py-2 text-[13px] font-semibold text-scv-ink transition-colors duration-200 hover:border-scv-dash hover:bg-scv-field sm:mt-0"
+          >
+            Salvar chave do convite
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
   return (
     <div className="mx-auto w-full max-w-[1120px] scv-fade px-4 py-9 pb-24 sm:px-7">
       {/* CABEÇALHO */}
@@ -209,6 +290,9 @@ export default async function CofrePage({
               </p>
             </div>
             {pagas.length > 0 && extrato}
+            {/* O Pix direto do convite não depende da carteira: quem recebe é o
+                dono, pelo banco dele. Por isso o cartão aparece nos dois estados. */}
+            {pixDoConvite}
           </>
         ) : (
           /* ============ 2 e 3. CARTEIRA LIGADA ============ */
@@ -271,6 +355,7 @@ export default async function CofrePage({
             )}
 
             {chavePix}
+            {pixDoConvite}
 
             {payouts.length > 0 && (
               <div className={`${CARD} p-4 sm:p-5`}>

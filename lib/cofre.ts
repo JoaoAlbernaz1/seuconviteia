@@ -8,6 +8,7 @@
 //
 // Segurança: toda ação valida OWNERSHIP (o evento tem de ser do usuário logado).
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -45,6 +46,86 @@ export async function salvarChavePix(formData: FormData): Promise<void> {
   await prisma.event.update({
     where: { id: event.id },
     data: { payoutPixKey: parsed.data.pixKey, payoutPixName: parsed.data.pixName || null },
+  });
+  revalidatePath(`/painel/${event.id}/cofre`);
+}
+
+const pixDoConviteSchema = z.object({
+  eventId: z.string().min(1),
+  pixKey: z.string().trim().min(3, "Informe a chave Pix.").max(200),
+  pixName: z.string().trim().max(140).optional(),
+});
+
+/** Objeto JSON do Prisma como registro editavel (ou null se nao for um). */
+function objetoJson(valor: unknown): Record<string, unknown> | null {
+  return valor && typeof valor === "object" && !Array.isArray(valor)
+    ? { ...(valor as Record<string, unknown>) }
+    : null;
+}
+
+/**
+ * Troca SO a secao `pix` de um documento do editor, sem tocar no resto.
+ *
+ * Patch cirurgico de proposito: reescrever o documento inteiro a partir de um
+ * form de dois campos seria pedir para perder o que o dono ja publicou. Se a
+ * secao nao existir (documento antigo), ela nasce ligada — a pessoa esta
+ * justamente pedindo para o Pix aparecer certo no convite.
+ */
+function documentoComPix(
+  doc: unknown,
+  pix: { name: string; key: string },
+): Record<string, unknown> | null {
+  const base = objetoJson(doc);
+  if (!base) return null;
+  const atual = objetoJson(base.pix) ?? { enabled: true };
+  base.pix = { ...atual, name: pix.name, key: pix.key };
+  return base;
+}
+
+/**
+ * Corrige a chave Pix que APARECE NO CONVITE — a que o convidado copia no "Pix
+ * direto" e paga pelo proprio banco, sem passar pelo nosso checkout.
+ *
+ * Mora aqui, e nao no editor, porque o convite publicado FECHA para edicao: com
+ * a chave errada no ar, o dinheiro do convidado vai para um estranho a cada
+ * minuto — e cobrar R$ 19,90 de passe para consertar isso seria vender a
+ * correcao de um estrago nosso. Decisao do Joao (19/08/2026).
+ *
+ * Grava nos DOIS lugares porque sao dois leitores diferentes: o site publicado
+ * le `publishedData` (via `publishedEventProjection`) e o editor/previa leem
+ * `draftData`. So no publicado, a proxima publicacao devolveria a chave errada;
+ * so no rascunho, o site nao mudaria hoje. `customization` acompanha o rascunho
+ * (e o caminho legado dos convites sem snapshot valido).
+ *
+ * NAO e a chave de resgate (`payoutPixKey`, logo acima): aquela e privada e
+ * nunca aparece no convite.
+ */
+export async function salvarPixDoConvite(formData: FormData): Promise<void> {
+  const parsed = pixDoConviteSchema.safeParse({
+    eventId: formData.get("eventId"),
+    pixKey: formData.get("pixKey"),
+    pixName: formData.get("pixName") || undefined,
+  });
+  if (!parsed.success) return;
+
+  // Ownership no servidor, como o resto do cofre: id de convite alheio nao passa.
+  const event = await eventoDoDono(parsed.data.eventId);
+  if (!event) return;
+
+  const pix = { name: parsed.data.pixName ?? "", key: parsed.data.pixKey };
+  const draftData = documentoComPix(event.draftData, pix);
+  const publishedData = documentoComPix(event.publishedData, pix);
+  const customization = objetoJson(event.customization) ?? {};
+  customization.pixNome = pix.name;
+  customization.pixChave = pix.key;
+
+  await prisma.event.update({
+    where: { id: event.id },
+    data: {
+      customization: customization as Prisma.InputJsonValue,
+      ...(draftData ? { draftData: draftData as Prisma.InputJsonValue } : {}),
+      ...(publishedData ? { publishedData: publishedData as Prisma.InputJsonValue } : {}),
+    },
   });
   revalidatePath(`/painel/${event.id}/cofre`);
 }
