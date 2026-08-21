@@ -5,6 +5,7 @@ import {
   ResendEmailProvider,
   formatarEndereco,
   enviarEmail,
+  emailConfigurado,
 } from "./index";
 
 describe("escolherProvider — selecao LAZY por env", () => {
@@ -49,5 +50,15 @@ describe("enviarEmail — nunca propaga erro (protege o fluxo que chamou)", () =
     await expect(
       enviarEmail({ to: "x@y.com", subject: "s", html: "<p>h</p>" }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("emailConfigurado", () => {
+  it("diz se o envio existe neste ambiente", () => {
+    // A redefinicao de senha depende disto para nao prometer um e-mail que nao
+    // sai — o unico fluxo em que "engolir o erro" seria cruel.
+    expect(emailConfigurado({ RESEND_API_KEY: "re_123" })).toBe(true);
+    expect(emailConfigurado({})).toBe(false);
+    expect(emailConfigurado({ RESEND_API_KEY: "   " })).toBe(false);
   });
 });

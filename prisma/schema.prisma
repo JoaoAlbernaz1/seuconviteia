@@ -106,7 +106,30 @@ model Professional {
 
   events    Event[]
   cobrancas CobrancaAssinatura[]
+  passwordResets PasswordReset[]
 }
+
+/// Pedido de REDEFINICAO DE SENHA.
+///
+/// Guarda o HASH do token, nunca o token: se este banco vazar, o que esta
+/// gravado aqui nao serve para entrar em conta nenhuma. `tokenHash` e unico
+/// porque o link e a credencial — dois pedidos nunca podem colidir.
+///
+/// `usedAt` faz o link ser de USO UNICO (link de e-mail vive em caixa de
+/// entrada, em historico de navegador e em preview de mensageiro), e
+/// `expiresAt` limita a janela.
+model PasswordReset {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([professionalId])
+}
+
 
 /// Cobranca mensal da ASSINATURA do SaaS (o profissional pagando a plataforma).
 ///

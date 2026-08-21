@@ -99,6 +99,20 @@ export function escolherProvider(env?: EmailEnv): EmailProvider {
 }
 
 /**
+ * O envio de e-mail esta CONFIGURADO neste ambiente?
+ *
+ * Existe porque `enviarEmail` engole erro de proposito — nenhum fluxo pode
+ * quebrar por causa de e-mail — e sem `RESEND_API_KEY` o provider e um stub que
+ * so loga. Na maioria dos casos isso e bom (o cadastro nao pode falhar porque o
+ * e-mail de boas-vindas nao saiu). Ha UM caso em que e cruel: a redefinicao de
+ * senha, onde a pessoa esta trancada fora da conta e a tela diria "enviamos" para
+ * sempre. La a tela precisa poder dizer que o problema e NOSSO.
+ */
+export function emailConfigurado(env?: EmailEnv): boolean {
+  return !!(env ?? process.env).RESEND_API_KEY?.trim();
+}
+
+/**
  * Ponto de entrada seguro para disparar um e-mail transacional. Seleciona o
  * provider LAZY (na hora do envio) e ENGOLE qualquer erro (log, sem throw): o
  * cadastro/RSVP que chamou nunca pode quebrar por causa de e-mail.

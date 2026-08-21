@@ -212,6 +212,15 @@ function CardEntrar() {
             autoComplete="current-password"
             className={INPUT}
           />
+          {/* A porta de saida de quem esqueceu a senha. Ate 21/08/2026 ela nao
+              existia em lugar nenhum do sistema: quem perdia o acesso dependia
+              de alguem mexer no banco. */}
+          <a
+            href="/entrar/senha"
+            className="-mt-1 self-end text-[12.5px] font-semibold !text-scv-violet hover:!underline"
+          >
+            Esqueci minha senha
+          </a>
           {loginState.error ? (
             <p role="alert" className="text-sm text-red-600">
               {loginState.error}
