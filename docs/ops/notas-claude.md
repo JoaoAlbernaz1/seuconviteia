@@ -576,3 +576,51 @@ caracteres e validade de 1h exata.
 `EMAIL_FROM`) nas env vars da Vercel. Sem isso a recuperação existe mas o e-mail
 não sai — a tela avisa, e o caminho é o suporte destravar na mão. É o mesmo tipo
 de pendência que as credenciais do Mercado Pago eram até ontem.
+
+---
+
+## 2026-08-21 (3) — entrar com Google
+
+O risco do login social não é falhar, é **funcionar errado**: a mesma pessoa com
+duas contas (uma por senha, outra pelo Google), cada uma com os convites dela e
+nenhuma "errada". Por isso o vínculo é por e-mail — e vínculo por e-mail só é
+seguro com a condição que está no `signIn`: o Google precisa AFIRMAR que
+verificou o endereço (`email_verified`). Sem essa trava, bastaria criar uma conta
+Google com o e-mail de outra pessoa para cair dentro da conta dela aqui.
+
+- `lib/contaGoogle.ts`: acha por e-mail NORMALIZADO (`Joao@Gmail.com` ==
+  `joao@gmail.com` — sem isso nasce a segunda conta), preenche só buraco (nome
+  escolhido no cadastro não é sobrescrito por um login; plano e senha ficam
+  intactos), e conta nova nasce **sem senha** e no Básico.
+- Conta criada pelo Google não loga por senha (o `authorize` recusa conta sem
+  `passwordHash`) — e o caminho para ganhar uma senha é o "esqueci minha senha",
+  que serve igual para "nunca tive senha".
+- O provider **só entra na lista** quando há credenciais, e o botão só é
+  desenhado quando `googleConfigurado()`. Provider sem credencial responde erro
+  no callback: o botão levaria a uma tela de erro do Auth.js.
+
+**Pega importante:** `/entrar` era **estática** (`○` no build). A decisão de
+mostrar o botão ficava congelada no ambiente do BUILD — e na Vercel adicionar env
+var não refaz build, então o botão nunca apareceria depois de configurar tudo
+certo. Virou `force-dynamic`. Vale para qualquer página que leia `process.env`
+para decidir o que desenhar.
+
+**Verificado:** 562 testes (6 novos), e no navegador: sem credencial o botão não
+existe; com credencial o clique chega em `accounts.google.com` levando o nosso
+`client_id` (o Google recusa porque a credencial do teste é falsa — que é
+exatamente a prova de que o resto está ligado).
+
+**FALTA O JOÃO** (não dá para fazer por ele — é conta Google dele):
+
+1. console.cloud.google.com → criar projeto → **APIs e Serviços → Tela de
+   consentimento OAuth** → tipo **Externo** → preencher nome do app, e-mail de
+   suporte e e-mail do desenvolvedor.
+2. **Credenciais → Criar credenciais → ID do cliente OAuth → Aplicativo da Web**.
+3. Em **URIs de redirecionamento autorizados**, colar EXATAMENTE:
+   - `https://app.seuconvite.orivya.com.br/api/auth/callback/google`
+   - `http://localhost:3000/api/auth/callback/google` (para desenvolvimento)
+4. Copiar o **ID do cliente** e a **Chave secreta** → env vars da Vercel
+   (Production): `AUTH_GOOGLE_ID` e `AUTH_GOOGLE_SECRET`.
+
+O botão aparece sozinho assim que as duas variáveis existirem — sem novo deploy,
+porque a página é dinâmica.
