@@ -47,6 +47,10 @@ function emailPagador(input: CobrancaPixInput): string {
 
 export class MercadoPagoPaymentProvider implements PaymentProvider {
   readonly nome = "mercadopago";
+  // O Mercado Pago nao expoe saida para chave Pix de terceiro (o caminho deles e
+  // o split de pagamentos). Enquanto o split nao existir aqui, o repasse sai da
+  // fila do operador — ver `lib/repasse.ts`.
+  readonly podeTransferir = false;
 
   private token(): string {
     const t = process.env.MERCADO_PAGO_ACCESS_TOKEN;

@@ -38,6 +38,16 @@ export interface EstadoCobranca {
 
 export interface PaymentProvider {
   readonly nome: string;
+  /**
+   * O provedor sabe MANDAR dinheiro para fora (payout na chave Pix do dono)?
+   *
+   * Existe porque o Mercado Pago NAO tem essa API: o caminho oficial deles para
+   * o dinheiro chegar em outra conta e o split de pagamentos (o convidado paga
+   * ja dividido). Sem esta bandeira, `resgatar` chamava `transferir()`, comia o
+   * throw e marcava o pedido como FAILED — o que devolvia o valor ao saldo e
+   * fazia o dono pedir de novo, para sempre, sem nunca receber.
+   */
+  readonly podeTransferir: boolean;
   criarCobrancaPix(input: CobrancaPixInput): Promise<CobrancaPix>;
   consultarCobranca(chargeId: string): Promise<EstadoCobranca>;
   transferir(input: TransferirInput): Promise<Transferencia>;
@@ -57,6 +67,9 @@ function fakeQrDataUri(seed: string): string {
 /** Pix simulado: cobranca nasce PENDING; a confirmacao vem da nossa action (webhook fake). */
 export class FakePaymentProvider implements PaymentProvider {
   readonly nome = "fake";
+  // Em dev o resgate fecha o ciclo na hora: e o unico jeito de exercitar a tela
+  // do dono sem um humano no meio.
+  readonly podeTransferir = true;
   async criarCobrancaPix(input: CobrancaPixInput): Promise<CobrancaPix> {
     const chargeId = `fake_${input.referencia}`;
     const pixCode = `00020126FAKE-${input.referencia}-${input.valorCents}5204000053039865802BR6009SEUCONVITE`;
@@ -90,6 +103,7 @@ export class FakePaymentProvider implements PaymentProvider {
  */
 export class IndisponivelPaymentProvider implements PaymentProvider {
   readonly nome = "indisponivel";
+  readonly podeTransferir = false;
   async criarCobrancaPix(): Promise<CobrancaPix> {
     throw new Error(
       "pagamento indisponível: MERCADO_PAGO_ACCESS_TOKEN ausente na produção " +

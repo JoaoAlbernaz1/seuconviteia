@@ -16,6 +16,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { carregarEventoDono, hostDoEvento, urlDoEvento, voltarDe } from "../_carregar";
 import { salvarChavePix, resgatar } from "@/lib/cofre";
+import { getPaymentProvider } from "@/lib/pagamentos";
+import { repasseEhAutomatico, rotuloDoRepasse } from "@/lib/repasse";
 import { lerCarteira, mascararCpf } from "@/lib/carteira";
 import { saldoDoEvento } from "@/lib/pagamentos/contribuicao";
 import { AtivarCarteira } from "./AtivarCarteira";
@@ -69,7 +71,15 @@ export default async function CofrePage({
 
   const host = hostDoEvento(event.subdomain);
   const url = urlDoEvento(event.subdomain);
-  const podeResgatar = carteira.ativa && saldo > 0 && temChave;
+  // Um pedido em aberto POR VEZ: a action recusa o segundo (dois pedidos vivos
+  // da mesma conta é o jeito mais fácil de pagar a mesma pessoa duas vezes), e
+  // um botão que aceita clique para depois não fazer nada é pior do que um
+  // botão desligado com o motivo escrito ao lado.
+  const pedidoEmAberto = payouts.some((p) => p.status === "PENDING");
+  // Com Mercado Pago não existe API de saída: o resgate vira um pedido que uma
+  // pessoa liquida. A tela precisa dizer isso — ver `lib/repasse.ts`.
+  const repasseAutomatico = repasseEhAutomatico(getPaymentProvider());
+  const podeResgatar = carteira.ativa && saldo > 0 && temChave && !pedidoEmAberto;
 
   /** Extrato de quem presenteou. Aparece em qualquer estado que já tenha gente. */
   const extrato = (
@@ -235,13 +245,23 @@ export default async function CofrePage({
                     disabled={!podeResgatar}
                     className={`${BTN_PRIMARIO} w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto`}
                   >
-                    {saldo > 0 ? `Resgatar ${fmt(saldo)}` : "Nada para resgatar"}
+                    {pedidoEmAberto
+                      ? "Resgate pedido"
+                      : saldo > 0
+                        ? `Resgatar ${fmt(saldo)}`
+                        : "Nada para resgatar"}
                   </button>
-                  {saldo > 0 && !temChave && (
+                  {pedidoEmAberto ? (
+                    <p className="mt-2 text-[11.5px] text-scv-muted">
+                      {repasseAutomatico
+                        ? "Seu resgate está sendo processado."
+                        : "Seu pedido está na fila — o valor cai na sua chave Pix em até 1 dia útil."}
+                    </p>
+                  ) : saldo > 0 && !temChave ? (
                     <p className="mt-2 text-[11.5px] text-scv-warn-ink">
                       Informe a chave Pix aqui embaixo para liberar o resgate.
                     </p>
-                  )}
+                  ) : null}
                 </form>
               </div>
             </div>
@@ -284,7 +304,7 @@ export default async function CofrePage({
                       <span className="flex items-center gap-2 text-[13px] text-scv-muted">
                         <i className="bi bi-arrow-up-right-circle text-scv-violet" aria-hidden />
                         {dataBR.format(p.paidAt ?? p.createdAt)} ·{" "}
-                        {p.status === "PAID" ? "Pago" : p.status === "PENDING" ? "Processando" : "Falhou"}
+                        {rotuloDoRepasse(p.status, repasseAutomatico)}
                       </span>
                       <span className="text-[14px] font-semibold text-scv-ink">− {fmt(p.amountCents)}</span>
                     </div>

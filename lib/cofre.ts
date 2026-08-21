@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/pagamentos";
 import { saldoDoEvento } from "@/lib/pagamentos/contribuicao";
+import { repasseEhAutomatico } from "@/lib/repasse";
 import { cpfValido, lerCarteira, soDigitos } from "@/lib/carteira";
 
 /** Retorna o evento SE for do dono logado; senão null. */
@@ -157,35 +158,77 @@ export async function resgatar(formData: FormData): Promise<void> {
   if (!event || !event.payoutPixKey) return; // precisa da chave cadastrada
   if (!lerCarteira(event.customization).ativa) return; // precisa da carteira ATIVA
 
-  const [contribs, payouts] = await Promise.all([
-    prisma.giftContribution.findMany({
-      where: { eventId: event.id },
-      select: { netCents: true, status: true },
-    }),
-    prisma.payout.findMany({
-      where: { eventId: event.id },
-      select: { amountCents: true, status: true },
-    }),
-  ]);
-  const saldo = saldoDoEvento(contribs, payouts);
-  if (saldo <= 0) return;
-
   const provider = getPaymentProvider();
-  const payout = await prisma.payout.create({
-    data: {
-      eventId: event.id,
-      amountCents: saldo,
-      pixKey: event.payoutPixKey,
-      pixName: event.payoutPixName,
-      status: "PENDING",
-      provider: provider.nome,
-    },
+  const automatico = repasseEhAutomatico(provider);
+
+  /**
+   * O pedido nasce dentro de UMA transação, com a linha do evento TRAVADA.
+   *
+   * Sem a trava, dois cliques (ou duas abas) liam o mesmo saldo, os dois
+   * passavam pela checagem e nasciam DOIS payouts do mesmo dinheiro — o cofre
+   * ia a negativo e o operador pagava duas vezes. `FOR UPDATE` faz a segunda
+   * transação ESPERAR a primeira: quando ela acorda, já vê o pedido em aberto e
+   * desiste. É o mesmo remédio do compare-and-set do passe, na única forma que
+   * funciona quando a condição depende de LER várias tabelas.
+   *
+   * Um pedido em aberto por convite, de propósito: dois pedidos vivos na fila da
+   * mesma conta é o jeito mais fácil de pagar a mesma pessoa duas vezes na mão.
+   */
+  const payout = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${event.id} FOR UPDATE`;
+
+    const emAberto = await tx.payout.count({
+      where: { eventId: event.id, status: "PENDING" },
+    });
+    if (emAberto > 0) return null;
+
+    const [contribs, payouts] = await Promise.all([
+      tx.giftContribution.findMany({
+        where: { eventId: event.id },
+        select: { netCents: true, status: true },
+      }),
+      tx.payout.findMany({
+        where: { eventId: event.id },
+        select: { amountCents: true, status: true },
+      }),
+    ]);
+    const saldo = saldoDoEvento(contribs, payouts);
+    if (saldo <= 0) return null;
+
+    return tx.payout.create({
+      data: {
+        eventId: event.id,
+        amountCents: saldo,
+        pixKey: event.payoutPixKey!,
+        pixName: event.payoutPixName,
+        status: "PENDING",
+        provider: provider.nome,
+      },
+    });
   });
+
+  if (!payout) {
+    revalidatePath(`/painel/${event.id}/cofre`);
+    return;
+  }
+
+  // SEM API de saída (o caso do Mercado Pago): o pedido FICA PENDING — ele é a
+  // fila do operador, que liquida em `/painel/repasses`. Chamar `transferir()`
+  // aqui só serviria para comer um throw e marcar FAILED, devolvendo o valor ao
+  // saldo e deixando o dono pedir de novo eternamente, sem nunca receber.
+  if (!automatico) {
+    console.info(
+      `[repasse] PEDIDO na fila — payout=${payout.id} evento=${event.id} ` +
+        `valor=${payout.amountCents} chave=${payout.pixKey}`,
+    );
+    revalidatePath(`/painel/${event.id}/cofre`);
+    return;
+  }
 
   try {
     const t = await provider.transferir({
-      valorCents: saldo,
-      pixKey: event.payoutPixKey,
+      valorCents: payout.amountCents,
+      pixKey: payout.pixKey,
       referencia: payout.id,
     });
     await prisma.payout.update({
