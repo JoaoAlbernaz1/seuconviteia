@@ -480,3 +480,50 @@ estava resolvida:
 - **Resgate concorrente criando dois payouts.** Sem efeito hoje: `transferir()`
   do Mercado Pago **lança erro** — payout não existe. A corrida vira real no dia
   em que o saque for implementado, e é lá que ela deve ser resolvida.
+
+---
+
+## 2026-08-21 — o dono passou a conseguir SACAR (repasse)
+
+O buraco: `MercadoPagoPaymentProvider.transferir()` **lança**. Todo resgate
+nascia PENDING, o `catch` marcava FAILED — e como `saldoDoEvento` só desconta
+payout PAID ou PENDING, o valor VOLTAVA para o saldo. O dono pedia de novo, para
+sempre, sem nunca receber. Dinheiro entrava e não saía.
+
+**Por que não automatizei:** o Mercado Pago não tem API de saída para chave Pix
+de terceiro. O caminho oficial deles é o **split de pagamentos**: o convidado
+paga já dividido, com a conta MP do dono conectada por OAuth (credencial que
+expira em 6 meses). É a arquitetura certa lá na frente, mas obriga cada cliente
+final (noiva, mãe de debutante) a ter conta no Mercado Pago — decisão de produto,
+não de código, e não é para hoje.
+
+**O que entrou** (`e94f6ae`, no ar em 21/08):
+
+- `PaymentProvider.podeTransferir` — o simulado transfere (dev fecha o ciclo na
+  hora), Mercado Pago e "indisponível" não. Sem a bandeira a action não
+  distinguia "falhou" de "não existe", e era essa confusão que virava FAILED.
+- `resgatar` agora cria o pedido dentro de UMA transação com `SELECT … FOR
+  UPDATE` na linha do `Event`. Antes, dois cliques liam o mesmo saldo, os dois
+  passavam pela checagem e nasciam **dois payouts do mesmo dinheiro** — cofre
+  negativo e dono pago duas vezes. Um pedido em aberto por convite; o botão do
+  dono desliga enquanto ele vive, com o motivo ao lado.
+- Sem API de saída, o pedido **fica PENDING de propósito** — é a fila, não uma
+  falha. `rotuloDoRepasse` troca "Processando" por "Pedido enviado — em até 1
+  dia útil": "processando" promete máquina e segundos.
+- **Fila do operador em `/painel/repasses`**: chave Pix com botão de copiar,
+  valor, convite, dono e quando pediu. "Paguei — marcar como pago" e "Não
+  consegui pagar", os dois com compare-and-set (clique duplo não reescreve a data
+  do pagamento). Recusar devolve o valor ao saldo **sozinho** e libera um novo
+  pedido — que é o caminho de chave Pix errada.
+- Acesso: `ADMIN_EMAILS` (lista por vírgula). **Sem a variável, ninguém entra** —
+  é a única tela do sistema que vê dinheiro de todos os convites. `notFound()` em
+  vez de "acesso negado", que confirmaria a rota. Já configurada em produção com
+  `joaoalbernaz@orivya.com.br` e `joaovictoralbernaz95@gmail.com`.
+
+**Verificado**: 537 testes (7 novos, sendo 4 contra banco real), tsc/lint limpos,
+build ok, e a fila conferida no navegador com um pedido de R$ 285 — botão do dono
+desligado dizendo "Resgate pedido", fila mostrando chave, valor e as duas ações.
+
+**Fica anotado**: a atomicidade do resgate concorrente, que a auditoria de 17/08
+listou como aberta, foi fechada aqui — com trava de linha, e não com índice
+parcial (que o Prisma não declara e o `migrate dev` derrubaria no diff seguinte).
