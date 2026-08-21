@@ -624,3 +624,37 @@ exatamente a prova de que o resto está ligado).
 
 O botão aparece sozinho assim que as duas variáveis existirem — sem novo deploy,
 porque a página é dinâmica.
+
+---
+
+## 2026-08-21 (4) — e-mail LIGADO em produção (Resend)
+
+João criou a chave e verificou `orivya.com.br` no Resend. Configurado por mim na
+Vercel (Production):
+
+- `RESEND_API_KEY` (dele, sensível)
+- `EMAIL_FROM = seuconvite@orivya.com.br`
+
+**Por que esse remetente e não um `no-reply`:** `seuconvite@orivya.com.br` já
+existe como apelido no Workspace dele. Se um cliente responder o e-mail, a
+resposta chega — com `no-reply` ela quicaria, e cliente de festa responde e-mail.
+
+**O que quase passou batido:** o código cai num fallback
+`no-reply@seuconviteia.com` quando `EMAIL_FROM` não existe — domínio que ele não
+tem verificado. O Resend recusaria (domínio não verificado), o `enviarEmail`
+engoliria o erro, e a tela diria "enviamos" para sempre. Chave configurada sem
+`EMAIL_FROM` é uma armadilha silenciosa.
+
+**DNS conferido** (`vercel dns ls orivya.com.br`): DKIM do Resend
+(`resend._domainkey`) na raiz, SPF e MX de retorno no `send.` — e o **MX do
+Google Workspace na raiz intacto** (`1 smtp.google.com`). O e-mail da empresa não
+foi tocado.
+
+**Prova:** disparei uma recuperação real para `joaovictoralbernaz95@gmail.com`
+(que NÃO é o dono da conta Resend — com o remetente de teste `resend.dev` isso
+falharia). Os logs de runtime voltaram a indexar e mostram as chamadas em
+`/entrar/senha` com **zero erros** — e `enviarEmail` loga em nível de erro sempre
+que o provedor recusa. Logo, o Resend aceitou o envio.
+
+Com isso a recuperação de senha está completa de ponta a ponta. Falta só o
+`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` para o botão do Google aparecer.
