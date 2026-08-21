@@ -527,3 +527,52 @@ desligado dizendo "Resgate pedido", fila mostrando chave, valor e as duas açõe
 **Fica anotado**: a atomicidade do resgate concorrente, que a auditoria de 17/08
 listou como aberta, foi fechada aqui — com trava de linha, e não com índice
 parcial (que o Prisma não declara e o `migrate dev` derrubaria no diff seguinte).
+
+---
+
+## 2026-08-21 (2) — recuperação de senha (não existia nenhuma)
+
+Quem perdia a senha ficava trancado fora da conta: não havia rota, formulário nem
+e-mail. A única saída era alguém mexer no banco. Num produto em que o cliente
+paga e volta meses depois para editar o convite, isso é suporte manual por
+telefone — ou cliente perdido.
+
+**O link do e-mail É uma credencial**, e as regras seguem isso:
+
+- Token de 32 bytes (`randomBytes`), no banco só o **hash SHA-256**. Dump do
+  banco não vira lista de acessos prontos. SHA-256 sem KDF é o certo aqui: 256
+  bits de entropia não têm dicionário nem força bruta viável — KDF protege
+  segredo de gente (senha), não token de máquina.
+- **Uso único** (`usedAt`) e **1 hora** de validade: link de e-mail não
+  desaparece — fica na caixa, no histórico e no preview do mensageiro.
+- **Pedido novo mata os anteriores**; **trocar a senha derruba os que sobraram**
+  (quem trocou por desconfiar de invasão não pode deixar link vivo na caixa do
+  invasor).
+- **Resposta sempre igual**, exista a conta ou não — senão o formulário vira um
+  verificador de quem tem conta aqui.
+- **3 pedidos por e-mail / 15 min**: sem limite, o formulário é um canhão de
+  e-mail apontado para a caixa de outra pessoa, e a reputação de remetente vai
+  junto.
+- `emailConfigurado()` novo em `lib/email`: `enviarEmail` engole erro de propósito
+  (nenhum fluxo pode quebrar por e-mail), mas na recuperação isso seria cruel —
+  a tela diria "enviamos" para sempre. Agora ela avisa que o problema é NOSSO.
+
+**Telas:** `/entrar/senha` e `/entrar/senha/nova`. O token é conferido no
+SERVIDOR antes de a tela existir, e a conferência **não consome** o link (só a
+troca grava `usedAt`), então recarregar não queima link de ninguém. O link
+"Esqueci minha senha" entrou na tela de login, onde nunca esteve.
+
+**Pega do build (vale lembrar):** `NovaSenha.tsx` é client component e importava
+`SENHA_MINIMA` de `lib/senhaReset`, que usa `node:crypto` → o webpack quebrou o
+build. O mínimo passou a vir por prop do servidor. Quem sabe a regra é o
+servidor; a tela só exibe.
+
+**Verificado:** 18 testes novos (11 puros + 7 de ponta a ponta contra banco), o
+fluxo inteiro no navegador (pedir → link → senha nova → login com ela → link
+reusado recusado) e **em produção**: página no ar, linha criada com hash de 64
+caracteres e validade de 1h exata.
+
+**FALTA O JOÃO:** criar a conta no **Resend** e pôr `RESEND_API_KEY` (e
+`EMAIL_FROM`) nas env vars da Vercel. Sem isso a recuperação existe mas o e-mail
+não sai — a tela avisa, e o caminho é o suporte destravar na mão. É o mesmo tipo
+de pendência que as credenciais do Mercado Pago eram até ontem.
