@@ -13,9 +13,11 @@
  */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { contaDoGoogle, googleConfigurado } from "@/lib/contaGoogle";
 
 /** Validacao das credenciais cruas recebidas no `authorize`. */
 const credentialsSchema = z.object({
@@ -27,6 +29,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/entrar" },
   providers: [
+    // O Google entra na lista SO quando as credenciais existem. Provider
+    // declarado sem credencial responde erro no callback, e a tela mostraria um
+    // botao que leva a uma pagina de erro — pior do que nao ter botao. A tela
+    // pergunta a mesma coisa (`googleConfigurado`) para decidir se desenha.
+    ...(googleConfigurado()
+      ? [
+          Google({
+            // `allowDangerousEmailAccountLinking` NAO entra aqui: quem vincula
+            // por e-mail e o nosso `jwt`, e so depois do `signIn` conferir que o
+            // Google VERIFICOU o endereco.
+            authorization: {
+              params: { prompt: "select_account" },
+            },
+          }),
+        ]
+      : []),
     Credentials({
       credentials: {
         email: { label: "E-mail", type: "email" },
@@ -57,9 +75,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    /**
+     * A TRAVA do login social: so passa Google com e-mail VERIFICADO.
+     *
+     * Vincular conta por e-mail e o que evita a mesma pessoa ter duas contas
+     * aqui — mas so e seguro se o provedor afirmar que o endereco e dela. Sem
+     * esta checagem, bastaria criar uma conta Google com o e-mail de outra
+     * pessoa para cair dentro da conta dela na plataforma.
+     */
+    signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      return Boolean(profile?.email && profile.email_verified !== false);
+    },
     // Persiste o id do Professional no token na hora do login.
-    jwt({ token, user }) {
+    async jwt({ token, user, account, profile }) {
       if (user?.id) token.id = user.id;
+      // Login pelo Google: `user.id` vem do Google, nao do nosso banco. Aqui a
+      // conta e achada (ou criada) por e-mail e o id que viaja na sessao passa a
+      // ser o NOSSO — tudo no sistema pendura dados nele.
+      //
+      // `account` so existe na requisicao do login; nas seguintes o token ja tem
+      // o id e nada disto roda de novo.
+      if (account?.provider === "google" && profile?.email) {
+        token.id = await contaDoGoogle({
+          email: profile.email,
+          nome: typeof profile.name === "string" ? profile.name : null,
+          avatarUrl: typeof profile.picture === "string" ? profile.picture : null,
+        });
+        token.email = profile.email;
+      }
       return token;
     },
     // Expoe o id na sessao consumida pelo servidor (`auth()`).

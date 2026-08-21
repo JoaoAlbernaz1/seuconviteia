@@ -143,6 +143,19 @@ const loginSchema = z.object({
   plan: z.string().optional(),
 });
 
+/**
+ * Entrar com Google.
+ *
+ * `signIn` do Auth.js RESPONDE com um redirect (ele lanca um erro especial que o
+ * Next transforma em navegacao), entao esta action nao "devolve" nada — quem
+ * chama nao continua depois dela. E por isso que ela nao tem estado de erro: o
+ * que pode dar errado acontece do outro lado, no callback, e o Auth.js manda a
+ * pessoa para `/entrar?error=...`.
+ */
+export async function entrarComGoogle(): Promise<void> {
+  await signIn("google", { redirectTo: urlDoPainel() });
+}
+
 export type LoginState = { error?: string };
 
 export async function entrarComCredenciais(
