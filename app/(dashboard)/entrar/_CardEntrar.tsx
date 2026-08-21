@@ -8,7 +8,7 @@
 // Profissional`); o cadastro pede so nome+e-mail+senha (plano começa no
 // Básico; troca depois em /painel/plano).
 import { useActionState, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   cadastrarProfissional,
   entrarComCredenciais,
@@ -27,8 +27,11 @@ function Erro({ msg }: { msg?: string }) {
 
 export function CardEntrar({ googleAtivo }: { googleAtivo: boolean }) {
   const params = useSearchParams();
+  // Vindo de `/cadastrar` (a rota que a landing usa), a aba certa e a de criar —
+  // sem `?criar=1` na URL, porque agora e a propria rota que diz isso.
+  const caminho = usePathname();
   const [aba, setAba] = useState<"entrar" | "criar">(
-    params.get("criar") != null ? "criar" : "entrar",
+    params.get("criar") != null || caminho === "/cadastrar" ? "criar" : "entrar",
   );
   // `?plano=classico` (da landing) → CLASSICO. Valor invalido é ignorado; quem
   // valida de verdade é o servidor.
