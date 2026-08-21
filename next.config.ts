@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+      // Fotos da vitrine da tela de entrar. Vem do Unsplash (licenca permite uso
+      // comercial e o proprio guia deles pede para servir pelo `images.unsplash`
+      // em vez de baixar). Sem declarar o host, `next/image` devolve 400 e a
+      // metade esquerda da tela nasce vazia.
+      { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
   // O indicador de dev do Next fica no canto inferior-ESQUERDO por padrao, em
