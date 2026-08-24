@@ -1113,6 +1113,12 @@ export function CriarConvite({
           if (eventIdRef.current) router.push(`/painel/${eventIdRef.current}/liberar`);
           return;
         }
+        // Cota do plano estourada: o popup explica o que libera, igual ao
+        // autosave — linha vermelha aqui nao diz o que fazer.
+        if (saved.kind === "limit") {
+          setLimitePlano(true);
+          return;
+        }
         setErroPub(saved.error);
         if (saved.kind === "conflict") setS((state) => ({ ...state, sv: "erro" }));
         return;
@@ -1127,6 +1133,10 @@ export function CriarConvite({
           if (published.kind === "fechado") {
             fecharJanelaNaTela();
             router.push(`/painel/${saved.id}/liberar`);
+            return;
+          }
+          if (published.kind === "limit") {
+            setLimitePlano(true);
             return;
           }
           setErroPub(published.error);

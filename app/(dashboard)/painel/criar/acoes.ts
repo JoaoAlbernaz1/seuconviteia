@@ -19,7 +19,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao } from "@/lib/dates";
-import { limiteEventos, planoEfetivo, rotuloPlano, SELECT_ASSINATURA } from "@/lib/plans";
+import { limiteEventos, planoEfetivo, podeCriarEvento, rotuloPlano, SELECT_ASSINATURA, type Plan } from "@/lib/plans";
 import { ID_CONTRIBUICAO_LIVRE, presentesDoDocumento } from "@/lib/event-editor/render";
 import { imagemPermitida, imagensDoDocumento } from "@/lib/imagemPermitida";
 import { protocoloDe, rootDomain } from "@/lib/tenant";
@@ -38,7 +38,7 @@ export type SalvarDocumentoResult =
 export type PublicarDocumentoResult =
   | { ok: true; id: string; publishedVersion: number; publishedAt: string; host: string; url: string }
   | { ok: false; kind: "conflict"; currentVersion: number; error: string }
-  | { ok: false; kind: "validation" | "auth" | "not_found" | "fechado" | "server"; error: string };
+  | { ok: false; kind: "validation" | "auth" | "not_found" | "limit" | "fechado" | "server"; error: string };
 
 /** Host + URL publicos do subdominio (mesma regra de `_carregar.ts`). */
 function enderecoPublico(subdomain: string): { host: string; url: string } {
@@ -58,6 +58,24 @@ const publicarDocumentoSchema = z.object({
   id: z.string().max(40),
   expectedDraftVersion: z.number().int().min(0),
 });
+
+/**
+ * Ha vaga no plano para ESTE convite ficar ATIVO (no ar, ocupando lugar)?
+ *
+ * Conta so os OUTROS convites validos: o proprio nao disputa vaga consigo mesmo
+ * — senao republicar o unico convite da conta se recusaria sozinho.
+ */
+async function vagaParaAtivar(professionalId: string, plano: Plan, exceto: string): Promise<boolean> {
+  const outrosAtivos = await prisma.event.count({
+    where: { professionalId, expiresAt: { gt: new Date() }, id: { not: exceto } },
+  });
+  return podeCriarEvento(plano, outrosAtivos);
+}
+
+/** A mesma frase nas tres portas da cota (criar, reativar, publicar). */
+function mensagemLimite(plano: Plan): string {
+  return `O plano ${rotuloPlano(plano)} inclui ${limiteEventos(plano)} convite(s) no ar ao mesmo tempo.`;
+}
 
 function dataDoDocumento(document: EventEditorDocument): Date {
   const candidate = new Date(`${document.schedule.date}T${document.schedule.time || "20:00"}:00-03:00`);
@@ -155,7 +173,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     const limit = limiteEventos(planoDaConta);
     if (limit !== null) {
       const count = await prisma.event.count({ where: { professionalId, expiresAt: { gt: new Date() } } });
-      if (count >= limit) return { ok: false, kind: "limit", error: `O plano ${rotuloPlano(planoDaConta)} inclui até ${limit} convite(s).` };
+      if (count >= limit) return { ok: false, kind: "limit", error: mensagemLimite(planoDaConta) };
     }
     const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
       Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
@@ -201,6 +219,21 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
   }
   if (owned.draftVersion !== expectedVersion) {
     return { ok: false, kind: "conflict", currentVersion: owned.draftVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
+  }
+  // A SEGUNDA porta da cota: REATIVAR custa vaga igual criar.
+  //
+  // Convite vencido nao ocupa lugar (festa que passou libera a vaga). So que a
+  // cota era cobrada UMA vez, na criacao — e o campo de data aceita dia no
+  // passado. Dava para o Basico nascer um convite ja morto (data velha), a vaga
+  // continuar livre, criar o segundo de verdade e so entao voltar no primeiro e
+  // arrumar a data: dois convites no ar no plano de um.
+  //
+  // So vale para RASCUNHO porque so nele a data da linha muda aqui embaixo; no
+  // convite publicado quem mexe em `expiresAt` e o publicar, que tem a porta
+  // dele. E salvar rascunho com data VENCIDA continua podendo — e o conserto do
+  // ano digitado errado, e nao poe convite nenhum no ar.
+  if (owned.status === "DRAFT" && owned.expiresAt <= savedAt && expiresAt > savedAt && !(await vagaParaAtivar(professionalId, planoDaConta, id))) {
+    return { ok: false, kind: "limit", error: mensagemLimite(planoDaConta) };
   }
 
   const updated = await prisma.event.updateMany({
@@ -277,6 +310,21 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   // diferentes de propósito.
   if (expiresAt.getTime() <= agora.getTime()) {
     return { ok: false, kind: "validation", error: "Com essa data o convite já estaria encerrado. Escolha uma data futura." };
+  }
+  // A TERCEIRA porta da cota. Publicar e o que POE no ar: se esta linha ainda
+  // nao ocupava vaga (rascunho vencido, ou convite cuja festa ja passou), ela
+  // passa a ocupar agora — e ai a conta precisa ter lugar. Sem isto, o mesmo
+  // convite morto que abriu espaco para o segundo voltava a viver ao publicar.
+  //
+  // Quem JA ocupava vaga nao paga de novo: republicar o unico convite da conta
+  // nao pode se recusar sozinho.
+  if (event.expiresAt.getTime() <= agora.getTime()) {
+    const prof = await prisma.professional.findUnique({ where: { id: professionalId }, select: SELECT_ASSINATURA });
+    if (!prof) return { ok: false, kind: "auth", error: "Conta não encontrada." };
+    const plano = planoEfetivo(prof, agora);
+    if (!(await vagaParaAtivar(professionalId, plano, id))) {
+      return { ok: false, kind: "limit", error: mensagemLimite(plano) };
+    }
   }
 
   // O endereço só é calculado na PRIMEIRA publicação. Depois dela o link já foi

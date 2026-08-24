@@ -658,3 +658,45 @@ que o provedor recusa. Logo, o Resend aceitou o envio.
 
 Com isso a recuperação de senha está completa de ponta a ponta. Falta só o
 `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` para o botão do Google aparecer.
+
+---
+
+## 2026-08-24 — a cota de convites tinha UMA porta (e dava para ficar com 2 no ar)
+
+João pediu para conferir se o plano Grátis deixa criar um convite só. **Deixa** —
+a regra (`limiteEventos("BASICO") === 1`), o botão escondido no painel e a
+recusa da action de criar estavam todos de pé, e nenhuma conta em produção está
+com mais de 1 convite ativo. Mas a cota era cobrada **uma vez só, na criação**, e
+isso não bastava.
+
+**O buraco** (clicando normal, sem truque de API): o campo "Data da festa" aceita
+dia no passado, e convite vencido não ocupa vaga.
+
+1. cria o convite A com data velha → nasce vencido, a vaga continua livre;
+2. o botão "Novo convite" volta → cria o convite B, o de verdade;
+3. volta em A, arruma a data e publica → **dois convites no ar no plano de um**.
+
+**O conserto:** a vaga passou a ser cobrada também na **reativação** (salvar um
+rascunho vencido com data futura) e no **publicar**, em
+`app/(dashboard)/painel/criar/acoes.ts`. Quem JÁ ocupa a vaga não paga por ela de
+novo — senão republicar o único convite da conta se recusaria sozinho — e
+**salvar rascunho com data vencida continua podendo**, que é o conserto do ano
+digitado errado e não põe convite nenhum no ar.
+
+**Por que as duas portas, e não só uma:** a do salvar pega o caso comum na hora
+em que a pessoa mexe na data. A do publicar pega o caso que a outra não vê — o
+rascunho que foi salvo com a data certa ANTES de a vaga ser tomada, e só depois
+foi publicado. Uma sozinha deixava metade do caminho aberto.
+
+O editor não mostra mais linha vermelha nesse caso: volta o mesmo popup de plano
+do autosave, que explica o que o plano pago libera (`CriarConvite.tsx`).
+
+**Verificado:** `tests/limite-de-convites.test.ts` (5 casos, banco de verdade).
+Provado nos dois sentidos — com o conserto revertido, os dois casos do buraco
+voltam `ok: true`, que é o exploit acontecendo. Suíte cheia: 567 testes, lint sem
+erro, `pnpm build` limpo.
+
+**O que continua de propósito:** convite vencido não ocupa vaga. Passada a festa,
+o Grátis pode fazer outro — é decisão antiga do dono ("senão o Básico virava uso
+único para sempre"), e os testes cobrem esse caminho para ninguém fechá-lo sem
+querer.
