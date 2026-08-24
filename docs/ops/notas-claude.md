@@ -700,3 +700,50 @@ erro, `pnpm build` limpo.
 o Grátis pode fazer outro — é decisão antiga do dono ("senão o Básico virava uso
 único para sempre"), e os testes cobrem esse caminho para ninguém fechá-lo sem
 querer.
+
+---
+
+## 2026-08-24 (2) — "a tela pula sozinha ao subir na Programação"
+
+Sintoma do João: no editor, com a Programação aberta, rolar a tela para cima
+subia um pouco e voltava — repetidas vezes, a cada passo da roda.
+
+**Causa raiz** (medida no navegador, não deduzida). A prévia mora num **iframe**
+(`/previa-convite`), e o destaque da seção em edição (`components/evt/PreviewFoco.tsx`)
+chamava `el.scrollIntoView()` para mostrar a seção nova. `scrollIntoView` **não
+para na borda do iframe**: o navegador rola também os ANCESTRAIS para deixar o
+iframe visível — e aqui o ancestral é o `<main class="dash-scroll">`, que é quem
+rola o painel (a janela não rola: `scrollHeight === innerHeight`).
+
+O laço fechava assim:
+
+1. a pessoa rola para cima;
+2. o editor troca a seção em foco (`secaoEmLeitura`, "a prévia segue a rolagem")
+   e manda a seção nova para a prévia;
+3. dentro do iframe, `scrollIntoView` puxa o `<main>` do editor de volta;
+4. essa rolagem forçada dispara de novo o passo 2.
+
+Instrumentando o iframe durante ~1,8s de rolagem apareceram **seis**
+`scrollIntoView` (traje, programacao, quando, carta-titulo…) — e nenhuma rolagem
+programática no documento pai, que é o que descarta ser código do editor.
+
+**Conserto:** `rolarNaPrevia()` — calcula o destino e chama `window.scrollTo` do
+documento da prévia, que não sai do iframe. É a mesma conta que o
+`block: "center"` fazia, feita do lado de dentro.
+
+**Medida, antes e depois** (scrollTop do `<main>` a cada passo de roda para cima):
+
+```
+antes:  539 -> 419 -> 299 -> 231 -> 240 -> 173 -> 181 -> 116 -> 0
+depois: 539 -> 419 -> 299 -> 179 ->  59 ->   0
+```
+
+**Verificado:** `e2e/previa-nao-puxa-rolagem.spec.ts` (falha sem o conserto,
+passa com ele), 567 testes de unidade, lint sem erro, `pnpm build` limpo.
+
+**O que NÃO era bug:** digitar num campo fora da vista move a página ~58px. É o
+navegador trazendo o cursor de volta — nativo de qualquer `<input>`, sem chamada
+nossa na pilha. O que era nosso era a outra metade: o mesmo gesto pulava 117px.
+
+**Pega para a próxima:** o painel não rola na janela. Medir `window.scrollY` aqui
+dá sempre 0 e faz o bug parecer inexistente — quem rola é `main.dash-scroll`.

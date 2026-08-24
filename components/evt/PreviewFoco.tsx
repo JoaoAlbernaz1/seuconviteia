@@ -42,6 +42,30 @@ const ROTULOS: Record<string, string> = {
   "obrigada-nao": "Mensagem para quem não vai",
 };
 
+/**
+ * Rola SÓ o documento da prévia até deixar `el` no meio da tela.
+ *
+ * Por que não `el.scrollIntoView()`: a prévia mora num IFRAME, e o
+ * `scrollIntoView` não para na borda dele — o browser rola também os
+ * ANCESTRAIS para deixar o iframe visível, o que aqui significa rolar o
+ * `<main>` do painel. Era esse o "a tela sobe e volta sozinha" que o dono via
+ * ao subir na Programação (24/08/2026): rolando, o editor troca a seção em
+ * foco, a prévia tentava mostrar a seção nova e arrastava a página do editor
+ * junto — e a página arrastada trocava o foco de novo.
+ *
+ * `window.scrollTo` do documento da prévia não sai do iframe. É a mesma conta
+ * que o `block: "center"` fazia, feita aqui dentro.
+ */
+function rolarNaPrevia(el: HTMLElement, suave: boolean): void {
+  const r = el.getBoundingClientRect();
+  const destino = r.top + window.scrollY - (window.innerHeight - r.height) / 2;
+  const limite = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  window.scrollTo({
+    top: Math.min(Math.max(0, destino), limite),
+    behavior: suave ? "smooth" : "auto",
+  });
+}
+
 export function PreviewFoco({ sec }: { sec?: string }) {
   useEffect(() => {
     if (!sec) return;
@@ -93,7 +117,7 @@ export function PreviewFoco({ sec }: { sec?: string }) {
             const r = el.getBoundingClientRect();
             const vh = window.innerHeight;
             const visivel = r.bottom > vh * 0.12 && r.top < vh * 0.9;
-            if (!visivel && visivelAgora()) el.scrollIntoView({ block: "center" });
+            if (!visivel && visivelAgora()) rolarNaPrevia(el, false);
           }, ms),
         ),
       );
@@ -106,7 +130,7 @@ export function PreviewFoco({ sec }: { sec?: string }) {
         if (y && Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
       } catch {}
       if (visivelAgora()) {
-        el.scrollIntoView({ behavior: reduz ? "auto" : "smooth", block: "center" });
+        rolarNaPrevia(el, !reduz);
       }
       try {
         sessionStorage.setItem(K_SEC, sec);
