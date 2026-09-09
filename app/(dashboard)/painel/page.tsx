@@ -66,7 +66,7 @@ export default async function DashboardPage() {
   const temConvite = !!evento;
   // "Continuar edição" leva direto ao editor de conteúdo ("Editar o site"),
   // não à tela de publicar/acompanhar (pedido do João).
-  const conviteHref = evento ? `/painel/${evento.id}/detalhes` : "/painel/criar";
+  const conviteHref = evento ? `/painel/criar?id=${evento.id}` : "/painel/criar";
 
   // Números reais do convite em destaque.
   let confirmadas = 0;

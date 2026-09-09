@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { abasDoPainel, hrefDoConvite } from "./navPainel";
+import { abasDoPainel, hrefDoConvite, hrefDoEditorConvite, hrefDoEditorDominio } from "./navPainel";
 
 describe("abasDoPainel — quem nao tem convite nao ve as abas de convite", () => {
   it("sem nenhum convite: as tres abas somem", () => {
@@ -57,5 +57,15 @@ describe("hrefDoConvite — menu que depende do convite ativo", () => {
     expect(hrefDoConvite(null, "convidados")).toBe("/painel/convites");
     expect(hrefDoConvite(null, "presentes")).toBe("/painel/convites");
     expect(hrefDoConvite(null, "cofre")).toBe("/painel/convites");
+  });
+});
+
+describe("hrefDoEditorConvite — edição atual do convite", () => {
+  it("leva qualquer atalho de edição para o editor guiado em uso", () => {
+    expect(hrefDoEditorConvite("abc123")).toBe("/painel/criar?id=abc123");
+  });
+
+  it("leva o atalho de domínio direto ao passo que altera o endereço", () => {
+    expect(hrefDoEditorDominio("abc123")).toBe("/painel/criar?id=abc123&step=6");
   });
 });

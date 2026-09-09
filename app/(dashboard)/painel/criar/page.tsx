@@ -12,9 +12,12 @@ import { CriarConvite } from "./CriarConvite";
 
 export const dynamic = "force-dynamic";
 
-export default async function CriarConvitePage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+export default async function CriarConvitePage({ searchParams }: { searchParams: Promise<{ id?: string; step?: string | string[] }> }) {
   const session = await auth();
-  const { id } = await searchParams;
+  const { id, step: rawStep } = await searchParams;
+  const stepParam = Array.isArray(rawStep) ? rawStep[0] : rawStep;
+  const parsedStep = Number(stepParam);
+  const initialStep = Number.isInteger(parsedStep) && parsedStep >= 1 && parsedStep <= 6 ? parsedStep : undefined;
   let plano: Plan = "BASICO";
   let initialDocument: EventEditorDocument | undefined;
   let initialEventId: string | undefined;
@@ -63,6 +66,7 @@ export default async function CriarConvitePage({ searchParams }: { searchParams:
       initialDocument={initialDocument}
       initialEventId={initialEventId}
       initialDraftVersion={initialDraftVersion}
+      initialStep={initialStep}
       storageScope={session?.user?.id ?? "anonymous"}
     />
   );

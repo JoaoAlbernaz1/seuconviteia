@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { carregarEventoDono, hostDoEvento, urlDoEvento } from "../_carregar";
+import { hrefDoEditorDominio } from "@/lib/navPainel";
 import { CopiarLink } from "../CopiarLink";
 import { Confete } from "./Confete";
 
@@ -95,6 +96,13 @@ export default async function PublicadoPage({
           className="mt-6 inline-block text-[13.5px] font-semibold text-scv-violet transition hover:opacity-80"
         >
           Acompanhar as confirmações →
+        </Link>
+        <Link
+          href={hrefDoEditorDominio(event.id)}
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-scv-line bg-scv-card px-5 py-2.5 text-[13px] font-semibold text-scv-ink transition hover:border-scv-dash"
+        >
+          <i className="bi bi-globe2 text-scv-violet" aria-hidden />
+          Mudar domínio do convite
         </Link>
       </div>
     </div>

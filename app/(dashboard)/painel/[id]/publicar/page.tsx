@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { ExcluirEvento } from "../ExcluirEvento";
 import { prisma } from "@/lib/db";
+import { hrefDoEditorDominio } from "@/lib/navPainel";
 import { publicarEComemorar } from "@/app/(dashboard)/painel/acoes";
 import {
   carregarEventoDono,
@@ -188,6 +189,13 @@ export default async function PublicarPage({
               >
                 Ver site ↗
               </a>
+              <Link
+                href={hrefDoEditorDominio(event.id)}
+                className="mt-3 inline-flex items-center gap-2 rounded-xl border border-teal/30 bg-white/70 px-5 py-3 text-[13.5px] font-semibold text-scv-ink transition hover:bg-white"
+              >
+                <i className="bi bi-globe2 text-scv-violet" aria-hidden />
+                Mudar domínio
+              </Link>
             </div>
           ) : (
             <div className="relative overflow-hidden rounded-2xl p-6 text-white">

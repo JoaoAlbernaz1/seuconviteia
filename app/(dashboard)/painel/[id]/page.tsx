@@ -11,6 +11,7 @@ import { lerTemaKey } from "@/lib/temas";
 import { lerFonteKey } from "@/lib/fontes";
 import { textosDoNicho } from "@/lib/textos";
 import { despublicarEvento } from "@/app/(dashboard)/actions";
+import { hrefDoEditorConvite, hrefDoEditorDominio } from "@/lib/navPainel";
 import { ExcluirEvento } from "./ExcluirEvento";
 import {
   carregarEventoDono,
@@ -152,7 +153,7 @@ export default async function AcompanharEventoPage({
             {/* ações principais */}
             <div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
               <Link
-                href={`${base}/detalhes`}
+                href={hrefDoEditorConvite(event.id)}
                 className="group inline-flex items-center gap-3 rounded-xl bg-violeta py-3.5 pl-5 pr-3.5 text-[14.5px] font-semibold !text-white shadow-[0_10px_24px_-12px_rgba(109,40,217,0.45)] transition-[filter,box-shadow,transform] duration-200 hover:brightness-110 hover:shadow-[0_14px_30px_-12px_rgba(109,40,217,0.5)] active:scale-[0.99]"
               >
                 Editar o site
@@ -167,6 +168,27 @@ export default async function AcompanharEventoPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* domínio: atalho permanente para o endereço, inclusive depois de publicar */}
+      <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-violeta/20 bg-gradient-to-r from-[#F7F3FF] to-[#FCF9FF] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex min-w-0 items-start gap-3.5">
+          <span className="grid size-11 shrink-0 place-items-center rounded-[13px] bg-violeta/10 text-violeta">
+            <i className="bi bi-globe2 text-lg" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-violeta">Endereço publicado</div>
+            <div className="mt-1 break-all text-[16px] font-semibold text-scv-ink">{host}</div>
+            <p className="mt-1 text-[12.5px] text-scv-muted">Quer usar outro nome? Você pode mudar o domínio quando quiser.</p>
+          </div>
+        </div>
+        <Link
+          href={hrefDoEditorDominio(event.id)}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violeta px-5 py-3 text-[13.5px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(109,40,217,0.45)] transition hover:brightness-110"
+        >
+          Mudar domínio
+          <i className="bi bi-arrow-right" aria-hidden />
+        </Link>
       </div>
 
       {/* KPIs */}

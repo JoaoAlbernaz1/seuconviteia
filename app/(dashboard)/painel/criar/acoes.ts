@@ -21,6 +21,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { gerarSlugUnico } from "@/lib/slug";
+import { resolveEventSlug, validateEventSlug, withEventSlug } from "@/lib/event-editor/slug";
 import { calcularExpiracao, dataDeHojeSP } from "@/lib/dates";
 import { acentoDoTema, TEMAS } from "@/lib/temas";
 import { FONTES, FONTE_HEADS, FONTE_CORPOS } from "@/lib/fontes";
@@ -38,13 +39,17 @@ export type CriarConviteResult =
   | { ok: false; error: string };
 
 export type SalvarDocumentoResult =
-  | { ok: true; id: string; version: number; savedAt: string; host: string; url: string }
+  | { ok: true; id: string; version: number; savedAt: string; subdomain: string; draftSlug: string; host: string; url: string }
   | { ok: false; kind: "conflict"; currentVersion: number; error: string }
   | { ok: false; kind: "validation" | "auth" | "not_found" | "limit" | "server"; error: string };
 
 export type PublicarDocumentoResult =
   | { ok: true; id: string; publishedVersion: number; publishedAt: string; host: string; url: string }
   | { ok: false; kind: "conflict"; currentVersion: number; error: string }
+  | { ok: false; kind: "validation" | "auth" | "not_found" | "server"; error: string };
+
+export type VerificarSlugResult =
+  | { ok: true; available: boolean; slug: string }
   | { ok: false; kind: "validation" | "auth" | "not_found" | "server"; error: string };
 
 const giftSchema = z.object({
@@ -428,6 +433,11 @@ const publicarDocumentoSchema = z.object({
   expectedDraftVersion: z.number().int().min(0),
 });
 
+const verificarSlugSchema = z.object({
+  id: z.string().max(40).optional(),
+  slug: z.string().trim().max(80),
+});
+
 function dataDoDocumento(document: EventEditorDocument): Date {
   const candidate = new Date(`${document.schedule.date}T${document.schedule.time || "20:00"}:00-03:00`);
   return document.schedule.date && !Number.isNaN(candidate.getTime())
@@ -488,7 +498,8 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
 
   const eventDate = dataDoDocumento(document);
   const expiresAt = calcularExpiracao(eventDate);
-  const customization = documentToLegacyCustomization(document) as Prisma.InputJsonValue;
+  let documentToSave = document;
+  let customization = documentToLegacyCustomization(document) as Prisma.InputJsonValue;
   const savedAt = new Date();
 
   if (!id) {
@@ -498,9 +509,18 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
       const count = await prisma.event.count({ where: { professionalId } });
       if (count >= limit) return { ok: false, kind: "limit", error: `O plano ${rotuloPlano(professional.plan)} inclui até ${limit} convite(s).` };
     }
-    const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
-      Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
+    const requestedSlug = document.basic.slug.trim();
+    if (requestedSlug) {
+      const validation = validateEventSlug(requestedSlug);
+      if (!validation.ok) return { ok: false, kind: "validation", error: validation.message };
+    }
+    const subdomain = await gerarSlugUnico(requestedSlug || document.basic.name || "convite", async (slug) =>
+      Boolean(await prisma.event.findUnique({ where: { subdomain: slug }, select: { id: true } })),
     );
+    if (subdomain !== requestedSlug) {
+      documentToSave = withEventSlug(document, subdomain);
+      customization = documentToLegacyCustomization(documentToSave) as Prisma.InputJsonValue;
+    }
     const event = await prisma.event.create({
       data: {
         professionalId,
@@ -513,20 +533,28 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
         status: "DRAFT",
         plan: professional.plan,
         customization,
-        draftData: jsonDoDocumento(document),
+        draftData: jsonDoDocumento(documentToSave),
         draftVersion: 1,
         schemaVersion: document.schemaVersion,
       },
     });
-    await sincronizarPresentesDoDocumento(event.id, document);
+    await sincronizarPresentesDoDocumento(event.id, documentToSave);
     const address = enderecoPublico(event.subdomain);
-    return { ok: true, id: event.id, version: 1, savedAt: savedAt.toISOString(), ...address };
+    return { ok: true, id: event.id, version: 1, savedAt: savedAt.toISOString(), subdomain: event.subdomain, draftSlug: documentToSave.basic.slug, ...address };
   }
 
   const owned = await prisma.event.findFirst({ where: { id, professionalId }, select: { id: true, subdomain: true, draftVersion: true } });
   if (!owned) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
   if (owned.draftVersion !== expectedVersion) {
     return { ok: false, kind: "conflict", currentVersion: owned.draftVersion, error: "Este convite foi alterado em outra aba. Recarregue para continuar." };
+  }
+
+  const requestedSlug = document.basic.slug.trim();
+  if (requestedSlug) {
+    const resolved = await resolveEventSlug(requestedSlug, owned.subdomain, async (slug) =>
+      Boolean(await prisma.event.findUnique({ where: { subdomain: slug }, select: { id: true } })),
+    );
+    if (!resolved.ok) return { ok: false, kind: "validation", error: resolved.message };
   }
 
   const updated = await prisma.event.updateMany({
@@ -548,7 +576,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
   await sincronizarPresentesDoDocumento(id, document);
   revalidatePath("/painel");
   const address = enderecoPublico(owned.subdomain);
-  return { ok: true, id, version: expectedVersion + 1, savedAt: savedAt.toISOString(), ...address };
+  return { ok: true, id, version: expectedVersion + 1, savedAt: savedAt.toISOString(), subdomain: owned.subdomain, draftSlug: document.basic.slug, ...address };
 }
 
 /** Publica um snapshot imutável do rascunho que possui a versão esperada. */
@@ -570,9 +598,11 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   const document = EventEditorDocumentSchema.safeParse(event.draftData);
   if (!document.success) return { ok: false, kind: "validation", error: "O rascunho precisa ser revisado antes de publicar." };
 
-  const subdomain = await gerarSlugUnico(document.data.basic.slug || document.data.basic.name || "convite", async (slug) =>
-    slug !== event.subdomain && Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
+  const resolvedSlug = await resolveEventSlug(document.data.basic.slug, event.subdomain, async (slug) =>
+    Boolean(await prisma.event.findUnique({ where: { subdomain: slug }, select: { id: true } })),
   );
+  if (!resolvedSlug.ok) return { ok: false, kind: "validation", error: resolvedSlug.message };
+  const subdomain = resolvedSlug.slug;
   const publishedAt = new Date();
   const updated = await prisma.event.updateMany({
     where: { id, professionalId, draftVersion: expectedDraftVersion },
@@ -592,4 +622,32 @@ export async function publicarDocumentoConvite(input: unknown): Promise<Publicar
   revalidatePath("/painel");
   const address = enderecoPublico(subdomain);
   return { ok: true, id, publishedVersion: expectedDraftVersion, publishedAt: publishedAt.toISOString(), ...address };
+}
+
+/** Consulta a disponibilidade do endereço sem confiar apenas no estado do editor. */
+export async function verificarDisponibilidadeSlug(input: unknown): Promise<VerificarSlugResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, kind: "auth", error: "Sua sessão expirou. Entre de novo." };
+  const parsed = verificarSlugSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, kind: "validation", error: "Endereço inválido." };
+
+  const { id, slug } = parsed.data;
+  let currentSlug: string | undefined;
+  if (id) {
+    const event = await prisma.event.findFirst({
+      where: { id, professionalId: session.user.id },
+      select: { subdomain: true },
+    });
+    if (!event) return { ok: false, kind: "not_found", error: "Convite não encontrado." };
+    currentSlug = event.subdomain;
+  }
+
+  const resolved = await resolveEventSlug(slug, currentSlug, async (candidate) =>
+    Boolean(await prisma.event.findUnique({ where: { subdomain: candidate }, select: { id: true } })),
+  );
+  if (!resolved.ok) {
+    if (resolved.kind === "taken") return { ok: true, available: false, slug: slug.trim() };
+    return { ok: false, kind: "validation", error: resolved.message };
+  }
+  return { ok: true, available: true, slug: resolved.slug };
 }

@@ -46,3 +46,15 @@ export function abasDoPainel(opts: {
 export function hrefDoConvite(fid: string | null, sufixo: string): string {
   return fid ? `/painel/${fid}/${sufixo}` : "/painel/convites";
 }
+
+/** Destino único para editar o convite no editor guiado atualmente usado. */
+export function hrefDoEditorConvite(fid: string, step?: number): string {
+  const params = new URLSearchParams({ id: fid });
+  if (step !== undefined) params.set("step", String(step));
+  return `/painel/criar?${params.toString()}`;
+}
+
+/** Atalho de domínio: abre o mesmo editor já no passo que altera o endereço. */
+export function hrefDoEditorDominio(fid: string): string {
+  return hrefDoEditorConvite(fid, 6);
+}

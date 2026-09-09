@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ic, IC } from "../_shell/Ic";
-import { publicarDocumentoConvite, salvarDocumentoConvite } from "./acoes";
+import { publicarDocumentoConvite, salvarDocumentoConvite, verificarDisponibilidadeSlug } from "./acoes";
 import { podeVitrine, type Plan } from "@/lib/plans";
 import { EditorPreview } from "@/components/event-editor/EditorPreview";
 import { SeletorFontes } from "../_ui/SeletorFontes";
@@ -32,6 +32,10 @@ import { MSG_CONFIRMA_PADRAO, MSG_RECUSA_PADRAO } from "@/lib/rsvpConfig";
 import { programacaoSugerida, type ItemProgramacao } from "@/lib/sugestoes";
 import { createDefaultEventDocument, withFreshGiftIds, type EventEditorDocument } from "@/lib/event-editor/document";
 import { activeDraftPointerKey, localDraftKey } from "@/lib/event-editor/local-draft";
+import { normalizeEventSlugInput, validateEventSlug, withEventSlug } from "@/lib/event-editor/slug";
+import { eventPublicUrl } from "@/lib/tenant";
+
+const PUBLIC_ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "seuconvite.orivya.com.br";
 
 // Passo 3 (botão principal): a "Ação do botão" (índice do Chip) → destino real +
 // o texto padrão do botão (ao trocar a ação, a escrita do botão acompanha).
@@ -226,6 +230,8 @@ type State = {
   animacoes: boolean;
   published: boolean; copied: boolean; pvMode: "celular" | "desktop";
 };
+
+type SlugAvailability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 
 const INICIAL: State = {
   step: 1, sv: "salvo", showErr: false, foco: "capa",
@@ -477,18 +483,23 @@ export function CriarConvite({
   initialDocument,
   initialEventId = null,
   initialDraftVersion = 0,
+  initialStep,
   storageScope,
 }: {
   plano?: Plan;
   initialDocument?: EventEditorDocument;
   initialEventId?: string | null;
   initialDraftVersion?: number;
+  initialStep?: number;
   storageScope: string;
 }) {
   const router = useRouter();
+  const requestedInitialStep = Number.isInteger(initialStep)
+    ? Math.min(STEP_NAMES.length, Math.max(1, initialStep as number))
+    : INICIAL.step;
   const [editor, setEditor] = useState(() => ({
     document: initialDocument ?? withFreshGiftIds(documentoDoEditor(INICIAL)),
-    ui: uiDoEstado(INICIAL),
+    ui: uiDoEstado({ ...INICIAL, step: requestedInitialStep, foco: focoDoPasso(requestedInitialStep, INICIAL.acc) }),
   }));
   const S = estadoDoDocumento(editor.document, editor.ui);
   const setS = (updater: State | ((current: State) => State)) => {
@@ -503,6 +514,7 @@ export function CriarConvite({
   const [eventId, setEventId] = useState<string | null>(initialEventId);
   const [draftVersion, setDraftVersion] = useState(initialDraftVersion);
   const [pubInfo, setPubInfo] = useState<{ host: string; url: string } | null>(null);
+  const [slugAvailability, setSlugAvailability] = useState<SlugAvailability>(initialDocument ? "available" : "idle");
   const [erroPub, setErroPub] = useState<string | null>(null);
   // Motivo REAL da falha do autosave (ex.: "Sua sessao expirou"). Sem isto o
   // cliente so via "Nao foi possivel salvar" e nao sabia o que fazer.
@@ -519,6 +531,7 @@ export function CriarConvite({
   const [subindoFoto, setSubindoFoto] = useState<number | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cepRequestRef = useRef<AbortController | null>(null);
+  const slugCheckRef = useRef(0);
   // AUTOSAVE (rascunho): refs pra salvar sem fechar sobre estado velho.
   const salvarRef = useRef<() => Promise<void>>(async () => {});
   const dadosRef = useRef("");
@@ -534,6 +547,27 @@ export function CriarConvite({
   const upd = (patch: Partial<State>) => setS((s) => ({ ...s, ...patch }));
   const inp = (key: keyof State) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     upd({ [key]: e.target.value } as Partial<State>);
+
+  const consultarDisponibilidadeSlug = async (value = S.slug) => {
+    const requestId = ++slugCheckRef.current;
+    const validation = validateEventSlug(value);
+    if (!validation.ok) {
+      setSlugAvailability("invalid");
+      return;
+    }
+    setSlugAvailability("checking");
+    try {
+      const result = await verificarDisponibilidadeSlug({ id: eventId ?? undefined, slug: validation.slug });
+      if (requestId !== slugCheckRef.current) return;
+      if (!result.ok) {
+        setSlugAvailability(result.kind === "validation" ? "invalid" : "error");
+        return;
+      }
+      setSlugAvailability(result.available ? "available" : "taken");
+    } catch {
+      if (requestId === slugCheckRef.current) setSlugAvailability("error");
+    }
+  };
 
   // Foco da prévia: quando o profissional clica/foca um campo, a prévia rola até
   // a seção correspondente (o campo/grupo leva `data-foco="<secao>"`). Só muda o
@@ -638,8 +672,9 @@ export function CriarConvite({
   };
 
   const req = (v: string) => !!v && v.trim().length > 0;
-  const slugValid = /^[a-z0-9-]{4,30}$/.test(S.slug);
-  const slugTaken = ["maria15", "festa15"].includes(S.slug);
+  const slugValidation = validateEventSlug(S.slug);
+  const slugValid = slugValidation.ok;
+  const slugTaken = slugAvailability === "taken";
   const slugOk = slugValid && !slugTaken;
   // Obrigatórios por passo: nome na Capa (passo 1); data/local no Conteúdo (passo 2);
   // link/endereço no Revisar (passo final, antes de publicar).
@@ -663,8 +698,26 @@ export function CriarConvite({
     });
   const goStep = (n: number) => setS((s) => ({ ...s, step: n, showErr: false, foco: focoDoPasso(n, s.acc) }));
 
-  const linkPublico = pubInfo?.url ?? `https://${S.slug}.seuconvite.orivya.com`;
-  const hostPublico = pubInfo?.host ?? `${S.slug}.seuconvite.orivya.com`;
+  const slugForAddress = S.slug || "convite";
+  const linkPublico = pubInfo?.url ?? eventPublicUrl(slugForAddress, PUBLIC_ROOT_DOMAIN);
+  const hostPublico = pubInfo?.host ?? `${slugForAddress}.${PUBLIC_ROOT_DOMAIN}`;
+
+  const slugFeedback = !slugValidation.ok
+    ? slugValidation.message
+    : slugAvailability === "taken"
+      ? "Este endereço já está sendo usado."
+      : slugAvailability === "checking"
+        ? "Verificando disponibilidade…"
+        : slugAvailability === "error"
+          ? "Não foi possível verificar agora; tente novamente."
+          : slugAvailability === "available"
+            ? "Endereço disponível"
+            : "Clique fora do campo para verificar.";
+  const slugFeedbackColor = !slugValid || slugAvailability === "taken" || slugAvailability === "error"
+    ? "#D9376E"
+    : slugAvailability === "available"
+      ? "#2E8A66"
+      : "#8B8B93";
 
   const copyLink = () => {
     navigator.clipboard?.writeText(linkPublico).catch(() => {});
@@ -681,11 +734,12 @@ export function CriarConvite({
       return;
     }
     setErroPub(null);
+    const documentBeingSaved = editor.document;
     iniciarGravacao(async () => {
       const saved = await salvarDocumentoConvite({
         id: eventId ?? undefined,
         expectedVersion: versionRef.current,
-        document: editor.document,
+        document: documentBeingSaved,
       });
       if (!saved.ok) {
         setErroPub(saved.error);
@@ -695,7 +749,17 @@ export function CriarConvite({
       versionRef.current = saved.version;
       setDraftVersion(saved.version);
       setEventId(saved.id);
+      setSlugAvailability("available");
       lastSavedRef.current = dadosRef.current;
+      if (saved.draftSlug !== documentBeingSaved.basic.slug) {
+        const syncedDocument = withEventSlug(documentBeingSaved, saved.draftSlug);
+        lastSavedRef.current = JSON.stringify(syncedDocument);
+        setEditor((current) =>
+          current.document.basic.slug === documentBeingSaved.basic.slug
+            ? { ...current, document: withEventSlug(current.document, saved.draftSlug) }
+            : current,
+        );
+      }
       if (publicar) {
         const published = await publicarDocumentoConvite({ id: saved.id, expectedDraftVersion: saved.version });
         if (!published.ok) {
@@ -726,14 +790,14 @@ export function CriarConvite({
     salvarRef.current = async () => {
       if (savingRef.current) return;
       savingRef.current = true;
-      const snapshot = dadosStr;
+      const documentBeingSaved = editor.document;
       let salvouOk = false;
       setS((s) => ({ ...s, sv: "salvando" }));
       try {
         const r = await salvarDocumentoConvite({
           id: eventId ?? undefined,
           expectedVersion: versionRef.current,
-          document: editor.document,
+          document: documentBeingSaved,
         });
         if (r.ok) {
           salvouOk = true;
@@ -741,7 +805,18 @@ export function CriarConvite({
           setEventId(r.id);
           versionRef.current = r.version;
           setDraftVersion(r.version);
-          lastSavedRef.current = snapshot;
+          setSlugAvailability("available");
+          const savedDocument = r.draftSlug === documentBeingSaved.basic.slug
+            ? documentBeingSaved
+            : withEventSlug(documentBeingSaved, r.draftSlug);
+          lastSavedRef.current = JSON.stringify(savedDocument);
+          if (r.draftSlug !== documentBeingSaved.basic.slug) {
+            setEditor((current) =>
+              current.document.basic.slug === documentBeingSaved.basic.slug
+                ? { ...current, document: withEventSlug(current.document, r.draftSlug) }
+                : current,
+            );
+          }
           setS((s) => ({ ...s, sv: "salvo" }));
         } else {
           setSalvarErro(r.error || "Não consegui salvar agora.");
@@ -810,12 +885,22 @@ export function CriarConvite({
         };
         const versionCompatible = !initialEventId || saved.eventId === initialEventId && saved.draftVersion === initialDraftVersion;
         if (saved.document && versionCompatible) {
-          setEditor((current) => ({
-            document: saved.document!,
-            ui: { ...current.ui, ...saved.ui, sv: "salvo", showErr: false },
-          }));
+          setEditor((current) => {
+            const restoredUi = { ...current.ui, ...saved.ui, sv: "salvo" as const, showErr: false };
+            return {
+              document: saved.document!,
+              ui: initialStep === undefined
+                ? restoredUi
+                : { ...restoredUi, step: requestedInitialStep, foco: focoDoPasso(requestedInitialStep, restoredUi.acc) },
+            };
+          });
         } else if (saved?.S && versionCompatible) {
-          setS((state) => ({ ...state, ...saved.S, sv: "salvo", showErr: false }));
+          setS((state) => {
+            const restoredState = { ...state, ...saved.S, sv: "salvo" as const, showErr: false };
+            return initialStep === undefined
+              ? restoredState
+              : { ...restoredState, step: requestedInitialStep, foco: focoDoPasso(requestedInitialStep, restoredState.acc) };
+          });
         }
         if (saved?.eventId) setEventId(saved.eventId);
         if (typeof saved?.draftVersion === "number") {
@@ -825,7 +910,7 @@ export function CriarConvite({
       }
     } catch {}
     restauradoRef.current = true;
-  }, [initialDraftVersion, initialEventId, storageScope]);
+  }, [initialDraftVersion, initialEventId, initialStep, requestedInitialStep, storageScope]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Guarda o rascunho no navegador a cada alteração (após restaurar; nunca o demo intocado).
@@ -1995,12 +2080,21 @@ export function CriarConvite({
                   <div className="text-[15.5px] font-bold">Endereço do seu convite</div>
                   <div className="mb-3.5 mt-1 text-[13px] text-[#6e6e76]">É o link que seus convidados vão receber.</div>
                   <div className="flex items-center overflow-hidden rounded-[11px] border bg-[#F4F4F6]" style={{ borderColor: S.showErr && !slugOk ? "#FF2D8D" : "#E4E4EA" }}>
-                    <input value={S.slug} onChange={(e) => upd({ slug: e.target.value.toLowerCase().replace(/\s/g, "") })} className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]" />
-                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.seuconvite.orivya.com</span>
+                    <input
+                      value={S.slug}
+                      onChange={(e) => {
+                        setSlugAvailability("idle");
+                        upd({ slug: normalizeEventSlugInput(e.target.value) });
+                      }}
+                      onBlur={() => void consultarDisponibilidadeSlug()}
+                      aria-label="Endereço do convite"
+                      className="min-w-[60px] flex-1 border-none bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#17171B]"
+                    />
+                    <span className="whitespace-nowrap pr-3 text-[13px] text-[#8b8b93]">.{PUBLIC_ROOT_DOMAIN}</span>
                   </div>
-                  <div style={{ color: slugOk ? "#2E8A66" : "#D9376E" }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
-                    <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugOk ? "#2E8A66" : "#D9376E"} width={2.4} />
-                    {slugTaken ? "Este endereço já está sendo usado." : slugOk ? "Endereço disponível" : "Use de 4 a 30 letras minúsculas, números ou hífen, sem espaços."}
+                  <div style={{ color: slugFeedbackColor }} className="mt-2 flex items-center gap-1.5 text-[12.5px] font-medium">
+                    <Ic d={slugOk ? IC.check : IC.alertCircle} size={13} stroke={slugFeedbackColor} width={2.4} />
+                    {slugFeedback}
                   </div>
                 </div>
                 <div className={cardCls}>
@@ -2037,7 +2131,7 @@ export function CriarConvite({
                 device={S.pvMode === "celular" ? "mobile" : "desktop"}
                 onDeviceChange={(device) => upd({ pvMode: device === "mobile" ? "celular" : "desktop" })}
               />
-              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia é o site de verdade · {S.slug}.seuconvite.orivya.com</div>
+              <div className="mt-3 text-center text-[11.5px] text-[#A6A6AE]">A prévia é o site de verdade · {slugForAddress}.{PUBLIC_ROOT_DOMAIN}</div>
             </div>
           </div>
         </div>
