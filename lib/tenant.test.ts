@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from "vitest";
-import { appUrl, eventPublicUrl, protocoloDe, resolveSubdomain, rootDomain, slugify } from "./tenant";
+import { appUrl, eventPublicUrl, marketingUrl, protocoloDe, resolveSubdomain, rootDomain, slugify } from "./tenant";
 
 const ROOT = "seuconviteia.com";
 
@@ -147,5 +147,25 @@ describe("rootDomain — apara o que a env var traz de sujeira", () => {
     expect(rootDomain()).toBe("localhost:3000");
     delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
     expect(rootDomain()).toBe("localhost:3000");
+  });
+});
+
+describe("marketingUrl — o link da marca no rodapé do convite", () => {
+  // O rodapé do convite gratuito é o único canal de aquisição orgânica que a
+  // plataforma tem: cada festa publicada é vista por dezenas de convidados que
+  // vão fazer a própria festa. O href estava CRAVADO em `https://seuconviteia.com`
+  // (SiteFooter.tsx:63) — domínio que não existe no DNS. Todo convidado que
+  // clicasse caía num erro de navegador. Derivar do root domain é o que impede
+  // o link de envelhecer de novo quando o domínio mudar.
+  it("usa o domínio raiz do ambiente, não um domínio cravado", () => {
+    expect(marketingUrl("seuconvite.orivya.com.br")).toBe("https://seuconvite.orivya.com.br");
+  });
+
+  it("usa http em dev, como o eventPublicUrl", () => {
+    expect(marketingUrl("localhost:3000")).toBe("http://localhost:3000");
+  });
+
+  it("apara a env var suja (o \n que derrubou o checkout)", () => {
+    expect(marketingUrl("exemplo.com\n")).toBe("https://exemplo.com");
   });
 });

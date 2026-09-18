@@ -1,4 +1,5 @@
 import { Flourish } from "@/components/evt/icons";
+import { marketingUrl, rootDomain } from "@/lib/tenant";
 
 /**
  * SiteFooter — rodape compartilhado, CLARO e calmo (direcao editorial). Assinatura
@@ -6,7 +7,10 @@ import { Flourish } from "@/components/evt/icons";
  * local discretos, fecho "Feito com carinho".
  *
  * GATING (credito): enquanto o evento e PREVIEW (`whiteLabel = false`) mostra
- * "Feito com seuconviteia" (marca da plataforma). Quando e COMPRADO (valor unico),
+ * "Feito com seuconviteia" (marca da plataforma). O link desse credito vem de
+ * `marketingUrl(rootDomain())`, NUNCA cravado: ele apontava para
+ * `https://seuconviteia.com`, que nao existe no DNS, e este rodape e o unico
+ * canal de aquisicao organica que a plataforma tem. Quando e COMPRADO (valor unico),
  * o credito da plataforma SOME e, no lugar, aparece a marca do profissional
  * (`brandName`) — ou nada, se ele nao tiver marca.
  *
@@ -60,7 +64,7 @@ export function SiteFooter({
           <p className={`font-evt-util text-[0.7rem] uppercase tracking-[0.26em] ${creditCor}`}>
             Feito com{" "}
             <a
-              href="https://seuconviteia.com"
+              href={marketingUrl(rootDomain())}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-evt-rosa-ink underline-offset-2 hover:underline"

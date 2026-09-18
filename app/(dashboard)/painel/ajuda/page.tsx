@@ -2,6 +2,9 @@
 // Claude Design: perguntas frequentes + contato. Renderiza dentro do DashShell.
 import Link from "next/link";
 import { Ic, IC } from "../_shell/Ic";
+// Contato: fonte UNICA, a mesma da landing e dos documentos legais.
+// `contato@seuconviteia.com` apontava para um dominio que nao existe.
+import { EMPRESA } from "@/app/(marketing)/legal/dados-da-empresa";
 
 const FAQ = [
   {
@@ -46,7 +49,7 @@ export default function AjudaPage() {
           </div>
         </div>
         <a
-          href="mailto:contato@seuconviteia.com"
+          href={`mailto:${EMPRESA.email}`}
           className="flex-none rounded-xl bg-[#7C3AED] px-[18px] py-2.5 text-[13.5px] font-semibold !text-white transition-colors hover:bg-[#6D28D9]"
         >
           Falar com o suporte

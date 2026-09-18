@@ -133,6 +133,29 @@ export function eventPublicUrl(subdomain: string, rootDomain: string): string {
 }
 
 /**
+ * URL do site de marketing (o dominio raiz), para o credito "Feito com ..." que
+ * o rodape do convite gratuito mostra.
+ *
+ * Existe para o link NAO ficar cravado no codigo. Ele estava: o rodape apontava
+ * para `https://seuconviteia.com`, dominio que nao existe no DNS enquanto a
+ * producao roda em `seuconvite.orivya.com.br` — e o rodape do convite gratuito e
+ * o unico canal de aquisicao organica da plataforma. Cada convidado que clicava
+ * caia num erro de navegador.
+ *
+ * O `.trim()` e a mesma protecao de `rootDomain()`: a env var e gravada por
+ * gente, e o `
+` de um `echo | vercel env add` ja derrubou o checkout uma vez.
+ *
+ * @example
+ *   marketingUrl("seuconvite.orivya.com.br")  // "https://seuconvite.orivya.com.br"
+ *   marketingUrl("localhost:3000")            // "http://localhost:3000"
+ */
+export function marketingUrl(rootDomain: string): string {
+  const root = rootDomain.trim();
+  return `${protocoloDe(root)}://${root}`;
+}
+
+/**
  * Protocolo do link: `http` para dev/rede local (localhost, IP cru, ou wildcard
  * de teste nip.io/sslip.io); `https` para um dominio publico de verdade.
  */
