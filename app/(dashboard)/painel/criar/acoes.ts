@@ -17,6 +17,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { gastarCredito, saldoDeCreditos } from "@/lib/credito";
 import { gerarSlugUnico } from "@/lib/slug";
 import { calcularExpiracao } from "@/lib/dates";
 import { limiteEventos, planoEfetivo, podeCriarEvento, rotuloPlano, SELECT_ASSINATURA, type Plan } from "@/lib/plans";
@@ -155,6 +156,9 @@ async function sincronizarFotosDoDocumento(eventId: string, document: EventEdito
   }
 }
 
+/** Perdeu a corrida pelo ultimo credito: desfaz o convite e recusa por limite. */
+class SemCredito extends Error {}
+
 /**
  * Salva exclusivamente o documento canônico. A condição `draftVersion =
  * expectedVersion` torna a atualização atômica: duas abas não podem vencer com a
@@ -189,31 +193,66 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
 
   if (!id) {
     if (expectedVersion !== 0) return { ok: false, kind: "conflict", currentVersion: 0, error: "O rascunho mudou. Recarregue antes de salvar." };
+    // A PRIMEIRA porta da cota. Sem vaga, o credito avulso e a saida — e ele so
+    // vale COMPRADO: `saldoDeCreditos` conta PAID, nunca PENDING. Quem esta com
+    // o Pix aberto na tela ainda nao pagou.
     const limit = limiteEventos(planoDaConta);
+    let gastarCreditoNaCriacao = false;
     if (limit !== null) {
       const count = await prisma.event.count({ where: ocupamVaga(professionalId) });
-      if (count >= limit) return { ok: false, kind: "limit", error: mensagemLimite(planoDaConta) };
+      if (count >= limit) {
+        if ((await saldoDeCreditos(prisma, professionalId)) < 1) {
+          return { ok: false, kind: "limit", error: mensagemLimite(planoDaConta) };
+        }
+        gastarCreditoNaCriacao = true;
+      }
     }
+
     const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
       Boolean(await prisma.event.findUnique({ where: { subdomain: slug } })),
     );
-    const event = await prisma.event.create({
-      data: {
-        professionalId,
-        type: "QUINZE_ANOS",
-        templateId: null,
-        title: document.basic.name || "Convite sem título",
-        subdomain,
-        eventDate,
-        expiresAt,
-        status: "DRAFT",
-        plan: planoDaConta,
-        customization,
-        draftData: jsonDoDocumento(document),
-        draftVersion: 1,
-        schemaVersion: document.schemaVersion,
-      },
-    });
+
+    // O convite e o gasto do credito vao na MESMA transacao. Separados, uma
+    // falha no gasto deixaria no ar um convite que ninguem pagou — e o contrario
+    // (gastar e falhar ao criar) queimaria o credito sem entregar nada.
+    //
+    // `gastarCredito` recebe o `db` da transacao, nao o `prisma` global: com o
+    // global, o gasto ficaria FORA do rollback.
+    let event;
+    try {
+      event = await prisma.$transaction(async (db) => {
+        const criado = await db.event.create({
+          data: {
+            professionalId,
+            type: "QUINZE_ANOS",
+            templateId: null,
+            title: document.basic.name || "Convite sem título",
+            subdomain,
+            eventDate,
+            expiresAt,
+            status: "DRAFT",
+            plan: planoDaConta,
+            customization,
+            draftData: jsonDoDocumento(document),
+            draftVersion: 1,
+            schemaVersion: document.schemaVersion,
+          },
+        });
+        if (gastarCreditoNaCriacao && !(await gastarCredito(db, professionalId, criado.id))) {
+          // Alguem gastou o ultimo credito entre a leitura do saldo e este ponto.
+          // Lancar desfaz o convite junto, e a recusa sai como limite — que e a
+          // verdade: nao havia vaga nem credito.
+          throw new SemCredito();
+        }
+        return criado;
+      });
+    } catch (err) {
+      if (err instanceof SemCredito) {
+        return { ok: false, kind: "limit", error: mensagemLimite(planoDaConta) };
+      }
+      throw err;
+    }
+
     await sincronizarPresentesDoDocumento(event.id, document);
     await sincronizarFotosDoDocumento(event.id, document);
     const address = enderecoPublico(event.subdomain);

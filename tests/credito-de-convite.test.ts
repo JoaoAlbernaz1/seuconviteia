@@ -149,4 +149,52 @@ describe("a vaga do Gratis e o credito", () => {
     // porta de publicar recusaria o unico convite do plano.
     expect(publicado).toMatchObject({ ok: true });
   });
+
+  it.skipIf(!enabled)("com a vaga tomada e UM credito, o segundo convite nasce", async () => {
+    const db = prisma!;
+    const prof = await conta(db);
+    await convite(db, prof.id, false); // ocupa a vaga gratuita
+    await db.creditoConvite.create({
+      data: { professionalId: prof.id, amountCents: 2990, status: "PAID" },
+    });
+    const modelo = await convite(db, prof.id, false);
+
+    const criado = await salvarDocumentoConvite({ expectedVersion: 0, document: documentoDe(modelo) });
+
+    expect(criado).toMatchObject({ ok: true });
+    const gasto = await db.creditoConvite.findFirst({
+      where: { professionalId: prof.id, eventId: (criado as { id: string }).id },
+    });
+    expect(gasto).not.toBeNull();
+  });
+
+  it.skipIf(!enabled)("credito PENDING nao serve: a vaga tomada continua recusando", async () => {
+    const db = prisma!;
+    const prof = await conta(db);
+    await convite(db, prof.id, false);
+    await db.creditoConvite.create({
+      data: { professionalId: prof.id, amountCents: 2990, status: "PENDING" },
+    });
+    const modelo = await convite(db, prof.id, false);
+
+    const criado = await salvarDocumentoConvite({ expectedVersion: 0, document: documentoDe(modelo) });
+
+    expect(criado).toMatchObject({ ok: false, kind: "limit" });
+  });
+
+  it.skipIf(!enabled)("o credito e gasto UMA vez: o terceiro convite volta a ser recusado", async () => {
+    const db = prisma!;
+    const prof = await conta(db);
+    await convite(db, prof.id, false);
+    await db.creditoConvite.create({
+      data: { professionalId: prof.id, amountCents: 2990, status: "PAID" },
+    });
+    const modelo = await convite(db, prof.id, false);
+
+    const primeiro = await salvarDocumentoConvite({ expectedVersion: 0, document: documentoDe(modelo) });
+    expect(primeiro).toMatchObject({ ok: true });
+
+    const segundo = await salvarDocumentoConvite({ expectedVersion: 0, document: documentoDe(modelo) });
+    expect(segundo).toMatchObject({ ok: false, kind: "limit" });
+  });
 });
