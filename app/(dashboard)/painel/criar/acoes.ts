@@ -60,6 +60,25 @@ const publicarDocumentoSchema = z.object({
 });
 
 /**
+ * Convites que DISPUTAM a vaga do plano.
+ *
+ * Convite pago por credito nao entra: o dono ja pagou por ele avulso, e conta-lo
+ * faria o credito comprar uma vaga que ele mesmo ocupa — o segundo convite
+ * nasceria e bloquearia o primeiro. `credito: { is: null }` e a pergunta
+ * "nenhum credito aponta para este convite".
+ *
+ * `expiresAt > agora` continua sendo o resto da regra: festa que passou libera a
+ * vaga (decisao do Joao, 12/08).
+ */
+function ocupamVaga(professionalId: string): Prisma.EventWhereInput {
+  return {
+    professionalId,
+    expiresAt: { gt: new Date() },
+    credito: { is: null },
+  };
+}
+
+/**
  * Ha vaga no plano para ESTE convite ficar ATIVO (no ar, ocupando lugar)?
  *
  * Conta so os OUTROS convites validos: o proprio nao disputa vaga consigo mesmo
@@ -67,7 +86,7 @@ const publicarDocumentoSchema = z.object({
  */
 async function vagaParaAtivar(professionalId: string, plano: Plan, exceto: string): Promise<boolean> {
   const outrosAtivos = await prisma.event.count({
-    where: { professionalId, expiresAt: { gt: new Date() }, id: { not: exceto } },
+    where: { ...ocupamVaga(professionalId), id: { not: exceto } },
   });
   return podeCriarEvento(plano, outrosAtivos);
 }
@@ -172,7 +191,7 @@ export async function salvarDocumentoConvite(input: unknown): Promise<SalvarDocu
     if (expectedVersion !== 0) return { ok: false, kind: "conflict", currentVersion: 0, error: "O rascunho mudou. Recarregue antes de salvar." };
     const limit = limiteEventos(planoDaConta);
     if (limit !== null) {
-      const count = await prisma.event.count({ where: { professionalId, expiresAt: { gt: new Date() } } });
+      const count = await prisma.event.count({ where: ocupamVaga(professionalId) });
       if (count >= limit) return { ok: false, kind: "limit", error: mensagemLimite(planoDaConta) };
     }
     const subdomain = await gerarSlugUnico(document.basic.slug || document.basic.name || "convite", async (slug) =>
