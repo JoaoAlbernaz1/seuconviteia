@@ -107,6 +107,7 @@ model Professional {
   events    Event[]
   cobrancas CobrancaAssinatura[]
   passwordResets PasswordReset[]
+  creditos      CreditoConvite[]
 }
 
 /// Pedido de REDEFINICAO DE SENHA.
@@ -198,6 +199,7 @@ model Event {
   transactions  Transaction[]
   contributions GiftContribution[]
   payouts       Payout[]
+  credito       CreditoConvite?
 
   @@index([professionalId])
   @@index([templateId])
@@ -360,4 +362,29 @@ model Payout {
   paidAt             DateTime?
 
   @@index([eventId])
+}
+
+/// Credito avulso que compra UMA criacao de convite no plano Gratis.
+///
+/// Mesmo contrato do passe de edicao: a action cria a linha PENDING e quem
+/// concede e o webhook. O SALDO nao mora em coluna nenhuma — e a contagem de
+/// linhas PAID com `eventId` nulo, pelo mesmo motivo que `planoEfetivo` deriva
+/// o plano na leitura: contador guardado sai de sincronia.
+model CreditoConvite {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  amountCents    Int
+  status         String       @default("PENDING")
+  /// Id da cobranca no gateway. UNICO: rede do ledger, como em `Transaction`.
+  providerId     String?      @unique
+  paidAt         DateTime?
+  /// O convite que ESTE credito pagou. Nulo = credito na mao, nao gasto.
+  /// UNICO: e o que torna gasto duplo impossivel NO BANCO.
+  /// SetNull: apagar o convite devolve o credito — quem apagou nao ficou com ele.
+  eventId        String?      @unique
+  event          Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([professionalId])
 }
