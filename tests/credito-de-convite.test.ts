@@ -1,12 +1,15 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { legacyEventToDocument } from "@/lib/event-editor/legacy";
+import type { EventEditorDocument } from "@/lib/event-editor/document";
 
 const enabled = process.env.PAGAMENTO_DB_TESTS === "1";
 const prisma = enabled ? new PrismaClient() : null;
 
 const MARCA = "credito-portas-teste";
 const DIA = 24 * 60 * 60 * 1000;
+/** Data futura que o dono digitaria no editor para "consertar" o convite. */
+const FUTURO = "2031-05-20";
 
 const sessionMock = vi.hoisted(() => vi.fn());
 vi.mock("@/auth", () => ({ auth: sessionMock, signIn: vi.fn(), signOut: vi.fn() }));
@@ -56,6 +59,39 @@ function documentoDe(event: Awaited<ReturnType<typeof convite>>) {
   return legacyEventToDocument({ ...event, gifts: [], photos: [] });
 }
 
+/** O mesmo documento com outra data de festa — o que o dono digita no editor. */
+function comData(document: EventEditorDocument, iso: string): EventEditorDocument {
+  return { ...document, schedule: { ...document.schedule, date: iso } };
+}
+
+/**
+ * Convite GRATUITO cuja LINHA já venceu (o que faz a porta de publicar rodar a
+ * checagem de vaga em `acoes.ts:340` — `event.expiresAt <= agora`), mas cujo
+ * RASCUNHO aponta para uma data futura: o mesmo "conserta o ano e publica" de
+ * `tests/limite-de-convites.test.ts:111-129`. Sem essa linha vencida, o teste
+ * do terceiro portao nunca chega no bloco que `ocupamVaga` mudou.
+ */
+async function convitePassadoParaRepublicar(db: PrismaClient, professionalId: string) {
+  const sufixo = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const event = await db.event.create({
+    data: {
+      professionalId,
+      type: "QUINZE_ANOS",
+      subdomain: `${MARCA}-${sufixo}`,
+      title: "Festa de teste",
+      status: "DRAFT",
+      eventDate: new Date(Date.now() - 10 * DIA),
+      expiresAt: new Date(Date.now() - 8 * DIA),
+    },
+  });
+  const document = legacyEventToDocument({ ...event, gifts: [], photos: [] });
+  const comRascunho = await db.event.update({
+    where: { id: event.id },
+    data: { draftData: comData(document, FUTURO) as unknown as Prisma.InputJsonValue, draftVersion: 1 },
+  });
+  return comRascunho;
+}
+
 beforeEach(() => {
   sessionMock.mockReset();
 });
@@ -99,23 +135,17 @@ describe("a vaga do Gratis e o credito", () => {
     const prof = await conta(db);
     await convite(db, prof.id, true); // comprado, nao disputa vaga
 
-    // O convite gratuito, com rascunho pronto para publicar.
-    const gratuito = await convite(db, prof.id, false);
-    const comRascunho = await db.event.update({
-      where: { id: gratuito.id },
-      data: {
-        draftData: documentoDe(gratuito) as unknown as Prisma.InputJsonValue,
-        draftVersion: 1,
-        edicaoAte: new Date(Date.now() + DIA),
-      },
-    });
+    // O gratuito precisa estar VENCIDO na linha para a porta de publicar rodar
+    // `vagaParaAtivar` (so entra quando `event.expiresAt <= agora`); o rascunho
+    // aponta para o futuro, entao a publicacao de fato poe o convite no ar.
+    const gratuito = await convitePassadoParaRepublicar(db, prof.id);
 
     const publicado = await publicarDocumentoConvite({
-      id: comRascunho.id,
+      id: gratuito.id,
       expectedDraftVersion: 1,
     });
 
-    // Sem a mudanca de `vagaParaAtivar`, o convite COMPRADO ocuparia a vaga e a
+    // Sem a mudanca de `ocupamVaga`, o convite COMPRADO contaria como ativo e a
     // porta de publicar recusaria o unico convite do plano.
     expect(publicado).toMatchObject({ ok: true });
   });
