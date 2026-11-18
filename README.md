@@ -1,80 +1,99 @@
 # SeuConvite IA
 
-**O seu site de convite em minutos.** SaaS B2B multi-tenant — um "iCasei multi-nicho":
-o profissional (assessor de eventos, cerimonialista, fotografo, etc.) cria sites de
-convite para os clientes, cada um publicado em seu proprio subdominio
-(`<cliente>.seuconviteia.com`). Inclui RSVP (confirmacao de presenca), lista de
-presentes, galeria e mais — por plano.
+**Plataforma de convites digitais e sites de eventos.** Um SaaS com arquitetura multi-tenant para pessoas que organizam seus próprios eventos e profissionais que administram convites para clientes.
 
-## Stack
+**Estado:** em desenvolvimento. O repositório contém implementação de interfaces, fluxos, banco de dados e integrações, mas isso **não significa que todos os recursos estejam disponíveis em produção**.
 
-- **Next.js 16** (App Router, React 19, React Compiler) + **TypeScript** (strict)
-- **Tailwind CSS v4** (design tokens em `app/globals.css`)
-- **Prisma + PlanetScale** (MySQL, `relationMode = "prisma"`) — _Fase 1_
-- **Auth.js (NextAuth)** — _Fase 4_
-- **Mercado Pago** (Pix + webhooks) — _Fase 6_
-- **Resend** (e-mail transacional) + **Vercel Blob** (uploads)
-- **Vercel** (deploy, dominio + wildcard `*.seuconviteia.com`)
-- **pnpm** (gerenciador de pacotes)
+[Explorar o código](https://github.com/JoaoAlbernaz1/seuconviteia) · [Arquitetura](#arquitetura) · [Executar localmente](#executar-localmente)
 
-## Multi-tenancy
+## O produto
 
-Resolucao por subdominio no `middleware.ts` (helper puro em `lib/tenant.ts`):
+O objetivo é permitir criar, personalizar e compartilhar um convite por um endereço próprio do evento. A experiência reúne conteúdo do evento, confirmações de presença, presentes e recursos de gerenciamento. O produto contempla tanto uso individual quanto profissionais de eventos, com estrutura para vários clientes/convites.
 
-| Host                          | Destino                                   |
-| ----------------------------- | ----------------------------------------- |
-| `seuconviteia.com` / `www.`   | Marketing — grupo `app/(marketing)`       |
-| `app.seuconviteia.com`        | Painel do profissional — `app/(dashboard)`|
-| `<slug>.seuconviteia.com`     | Site do evento — rewrite p/ `/_sites/<slug>` |
+## Engenharia em destaque
 
-Labels reservados (nunca viram evento): `www`, `app`, `api`, `admin`, `send`.
+| Área | Implementação presente no repositório |
+|:--|:--|
+| **Frontend** | Next.js 16, App Router, React 19, TypeScript e Tailwind CSS v4 |
+| **Multi-tenancy** | Resolução de domínio e subdomínio no `middleware.ts` e `lib/tenant.ts`, com labels reservadas |
+| **Dados** | Prisma com PostgreSQL; schema de profissionais, eventos, convidados, presentes e assinaturas |
+| **Acesso** | Estrutura de autenticação com Auth.js, páginas de login e recuperação de senha |
+| **Experiência** | Páginas de marketing, painel, criação e edição de convites, páginas públicas de evento |
+| **Integrações** | Código para Mercado Pago, uploads e webhooks; configuração externa necessária |
+| **Qualidade** | Testes com Vitest e Playwright; workflow de CI com lint, TypeScript, testes e build |
 
-## Rodando localmente
+**Importante:** esta tabela descreve o que está versionado no código, não um conjunto de funcionalidades certificado como pronto para clientes.
+
+## Arquitetura
+
+O domínio e o subdomínio determinam a experiência:
+
+```text
+seuconviteia.com
+ └─ Site institucional e entrada da plataforma
+
+app.seuconviteia.com
+ └─ Entrada e painel do organizador
+
+<evento>.seuconviteia.com
+ └─ Site público do convite
+
+Next.js + Auth.js
+       │
+       └── Prisma + PostgreSQL
+            └── Profissionais, eventos, convidados e cobranças
+```
+
+O `middleware.ts` interpreta o host; `lib/tenant.ts` contém funções de normalização e resolução de subdomínio. O painel também utiliza caminhos como `/painel`. Labels como `www`, `app`, `api`, `admin` e `send` não podem se tornar slugs de eventos.
+
+As decisões de isolamento entre clientes, pagamentos e autenticação exigem validação de integração e segurança antes de disponibilização comercial.
+
+## Executar localmente
+
+Requisitos: Node.js e pnpm compatíveis com o projeto, além das variáveis configuradas para os serviços utilizados.
 
 ```bash
+git clone https://github.com/JoaoAlbernaz1/seuconviteia.git
+cd seuconviteia
 pnpm install
-pnpm dev          # http://localhost:3000
+
+# Configure .env.local com base em .env.example (não versionar segredos)
+pnpm dev
 ```
 
-Copie `.env.example` para `.env.local` e preencha as variaveis.
+Para testar os subdomínios em desenvolvimento, configure `NEXT_PUBLIC_ROOT_DOMAIN=localhost:3000` e abra, por exemplo, `http://cliente.localhost:3000`.
 
-### Testando subdominios localmente
-
-O Chrome resolve `*.localhost` automaticamente. Para emular tenants em dev, use
-`NEXT_PUBLIC_ROOT_DOMAIN=localhost:3000` no `.env.local` e acesse:
-
-```
-http://localhost:3000          # marketing (raiz)
-http://cliente.localhost:3000  # site do evento "cliente"
-http://app.localhost:3000      # painel (label reservado)
-```
-
-> Em producao, `NEXT_PUBLIC_ROOT_DOMAIN=seuconviteia.com`.
-
-## Scripts
+### Verificações
 
 ```bash
-pnpm dev      # servidor de desenvolvimento (porta 3000)
-pnpm build    # build de producao
-pnpm start    # serve o build
-pnpm lint     # ESLint
+pnpm exec tsc --noEmit
+pnpm lint
+pnpm test
+pnpm build
 ```
 
-`pnpm-workspace.yaml` libera o build de pacotes nativos (`sharp`, `unrs-resolver`).
+Os testes E2E com Playwright podem precisar de um ambiente e serviços adicionais configurados:
 
-## Fases do projeto
+```bash
+pnpm test:e2e
+```
 
-- **Fase 0 — Setup (atual):** marca (tokens + fontes), estrutura de pastas, stubs,
-  `.env.example`, middleware de tenant, skills e `CLAUDE.md`.
-- **Fase 1 — Banco:** Prisma + PlanetScale, schema multi-tenant, client singleton.
-- **Fase 2 — Tenancy:** resolucao de subdominio ligada ao banco, isolamento por tenant.
-- **Fase 3 — Marketing:** landing completa.
-- **Fase 4 — Painel:** Auth.js, painel do profissional, CRUD de eventos.
-- **Fase 5 — Site do evento:** renderizacao publica por subdominio (RSVP, presentes, fotos).
-- **Fase 6 — Pagamentos:** Mercado Pago (Pix), planos e gating.
-- **Fase 7 — Comunicacao:** e-mails (Resend), uploads (Vercel Blob), crons.
-- **Fase 8 — Operacao:** dominio, infra, Google Workspace, divulgacao (ver `docs/ops/`).
+As migrações do banco utilizam `pnpm db:migrate` em desenvolvimento e `pnpm db:deploy` no deploy. O projeto não utiliza mais PlanetScale/MySQL: a configuração atual do Prisma é **PostgreSQL**.
 
-## Convencoes
+## Organização do código
 
-Veja `CLAUDE.md` (convencoes do repo + skills do projeto em `.claude/skills/`).
+- `app/(marketing)/`: experiência institucional e páginas públicas de apresentação.
+- `app/(dashboard)/`: acesso, criação e gerenciamento de convites.
+- `app/%5Fsites/`: rotas públicas de eventos servidas pelos subdomínios.
+- `app/api/`: rotas de serviços e integrações.
+- `lib/`: regras de negócio, domínio, planos e utilitários testáveis.
+- `prisma/`: schema e migrações.
+- `e2e/` e testes `*.test.ts`: verificações automatizadas.
+
+## Próximas prioridades
+
+Consolidar os fluxos ponta a ponta, validar integrações reais em ambiente controlado, reforçar isolamento multi-tenant, revisar segurança de autenticação e pagamentos, ampliar testes E2E e preparar a operação do produto. A evolução deve ser acompanhada pelos commits e testes do repositório, e não por alegações de recursos concluídos.
+
+---
+
+<sub>Projeto pessoal de engenharia de software · [Portfólio GitHub](https://github.com/JoaoAlbernaz1) · [Outros experimentos de IA e ML](https://github.com/JoaoAlbernaz1/JoaoAlbernaz1/tree/main/ml-lab)</sub>
